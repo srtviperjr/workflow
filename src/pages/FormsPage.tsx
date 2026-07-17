@@ -1,0 +1,140 @@
+import { Link as RouterLink, useNavigate } from 'react-router-dom';
+import {
+  Box,
+  Button,
+  Card,
+  CardActions,
+  CardContent,
+  Chip,
+  Grid2 as Grid,
+  IconButton,
+  Stack,
+  Typography,
+} from '@mui/material';
+import AddIcon from '@mui/icons-material/Add';
+import EditIcon from '@mui/icons-material/Edit';
+import DeleteIcon from '@mui/icons-material/Delete';
+import SendIcon from '@mui/icons-material/Send';
+import { useApp } from '../context/AppContext';
+import { createId } from '../data/defaults';
+
+export function FormsPage() {
+  const { data, isAdmin, addForm, deleteForm } = useApp();
+  const navigate = useNavigate();
+
+  const createForm = () => {
+    const form = addForm({
+      name: 'New Form',
+      description: '',
+      fields: [
+        {
+          id: createId('field'),
+          label: 'Request',
+          type: 'textarea',
+          required: true,
+          placeholder: 'Enter details…',
+        },
+      ],
+      workflowId: data.workflows[0]?.id ?? null,
+    });
+    navigate(`/forms/${form.id}/edit`);
+  };
+
+  return (
+    <Box>
+      <Stack
+        direction="row"
+        justifyContent="space-between"
+        alignItems="center"
+        mb={3}
+      >
+        <Box>
+          <Typography variant="h4" fontWeight={700}>
+            Forms
+          </Typography>
+          <Typography color="text.secondary">
+            Submit requests or design new forms
+          </Typography>
+        </Box>
+        {isAdmin && (
+          <Button
+            variant="contained"
+            startIcon={<AddIcon />}
+            onClick={createForm}
+          >
+            Create Form
+          </Button>
+        )}
+      </Stack>
+
+      <Grid container spacing={2}>
+        {data.forms.map((f) => {
+          const wf = data.workflows.find((w) => w.id === f.workflowId);
+          const count = data.submissions.filter((s) => s.formId === f.id).length;
+          return (
+            <Grid key={f.id} size={{ xs: 12, md: 6 }}>
+              <Card elevation={1}>
+                <CardContent>
+                  <Stack
+                    direction="row"
+                    justifyContent="space-between"
+                    alignItems="flex-start"
+                    mb={1}
+                  >
+                    <Typography variant="h6" fontWeight={700}>
+                      {f.name}
+                    </Typography>
+                    <Chip size="small" label={`${count} requests`} />
+                  </Stack>
+                  <Typography variant="body2" color="text.secondary" mb={1}>
+                    {f.description || 'No description'}
+                  </Typography>
+                  <Typography variant="caption" color="text.secondary">
+                    {f.fields.length} field{f.fields.length !== 1 ? 's' : ''}
+                    {wf ? ` · Workflow: ${wf.name}` : ' · No workflow attached'}
+                  </Typography>
+                </CardContent>
+                <CardActions>
+                  <Button
+                    size="small"
+                    startIcon={<SendIcon />}
+                    component={RouterLink}
+                    to={`/forms/${f.id}/submit`}
+                  >
+                    Submit
+                  </Button>
+                  {isAdmin && (
+                    <>
+                      <Button
+                        size="small"
+                        startIcon={<EditIcon />}
+                        component={RouterLink}
+                        to={`/forms/${f.id}/edit`}
+                      >
+                        Edit
+                      </Button>
+                      <IconButton
+                        size="small"
+                        color="error"
+                        onClick={() => {
+                          if (
+                            confirm(
+                              `Delete form "${f.name}" and its submissions?`,
+                            )
+                          )
+                            deleteForm(f.id);
+                        }}
+                      >
+                        <DeleteIcon fontSize="small" />
+                      </IconButton>
+                    </>
+                  )}
+                </CardActions>
+              </Card>
+            </Grid>
+          );
+        })}
+      </Grid>
+    </Box>
+  );
+}
