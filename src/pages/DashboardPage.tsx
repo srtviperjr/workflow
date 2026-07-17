@@ -16,6 +16,7 @@ import DescriptionIcon from '@mui/icons-material/Description';
 import AccountTreeIcon from '@mui/icons-material/AccountTree';
 import PeopleIcon from '@mui/icons-material/People';
 import { useApp } from '../context/AppContext';
+import { canUserActOnNode } from '../utils/workflowEngine';
 
 export function DashboardPage() {
   const { data, currentUser, isAdmin } = useApp();
@@ -26,10 +27,7 @@ export function DashboardPage() {
     const wf = data.workflows.find((w) => w.id === s.workflowId);
     const node = wf?.nodes.find((n) => n.id === s.currentNodeId);
     if (!node || !currentUser) return false;
-    if (currentUser.roleIds.includes('role-admin')) return true;
-    return node.data.roleId
-      ? currentUser.roleIds.includes(node.data.roleId)
-      : false;
+    return canUserActOnNode(currentUser, node, data.roles, s.formId);
   });
 
   const stats = [

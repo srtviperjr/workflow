@@ -1,6 +1,9 @@
 import type {
+  ConditionOp,
+  EdgeCondition,
   FormSubmission,
   HistoryEntry,
+  Role,
   User,
   Workflow,
   WorkflowEdge,
@@ -27,32 +30,49 @@ export function toFlowEdges(edges: WorkflowEdge[]): Edge[] {
     label: e.label,
     sourceHandle: e.sourceHandle,
     targetHandle: e.targetHandle,
-    animated: Boolean(e.label),
-  }));
-}
-
-export function fromFlowNodes(nodes: Node[]): WorkflowNode[] {
-  return nodes.map((n) => ({
-    id: n.id,
-    type: (n.type ?? 'step') as WorkflowNodeType,
-    position: n.position,
+    animated: Boolean(e.label) || e.routeMode === 'condition',
     data: {
-      label: String((n.data as { label?: string }).label ?? 'Step'),
-      roleId: (n.data as { roleId?: string }).roleId,
-      description: (n.data as { description?: string }).description,
+      routeMode: e.routeMode ?? 'manual',
+      conditions: e.conditions ?? [],
     },
   }));
 }
 
+export function fromFlowNodes(nodes: Node[]): WorkflowNode[] {
+  return nodes.map((n) => {
+    const data = n.data as unknown as WorkflowNode['data'];
+    return {
+      id: n.id,
+      type: (n.type ?? 'step') as WorkflowNodeType,
+      position: n.position,
+      data: {
+        label: String(data.label ?? 'Step'),
+        roleId: data.roleId,
+        description: data.description,
+        decisionMode: data.decisionMode === 'conditional' ? 'conditional' : 'manual',
+        allowFieldEdits: Boolean(data.allowFieldEdits),
+      },
+    };
+  });
+}
+
 export function fromFlowEdges(edges: Edge[]): WorkflowEdge[] {
-  return edges.map((e) => ({
-    id: e.id,
-    source: e.source,
-    target: e.target,
-    label: typeof e.label === 'string' ? e.label : undefined,
-    sourceHandle: e.sourceHandle ?? undefined,
-    targetHandle: e.targetHandle ?? undefined,
-  }));
+  return edges.map((e) => {
+    const data = (e.data ?? {}) as {
+      routeMode?: WorkflowEdge['routeMode'];
+      conditions?: EdgeCondition[];
+    };
+    return {
+      id: e.id,
+      source: e.source,
+      target: e.target,
+      label: typeof e.label === 'string' ? e.label : undefined,
+      sourceHandle: e.sourceHandle ?? undefined,
+      targetHandle: e.targetHandle ?? undefined,
+      routeMode: data.routeMode === 'condition' ? 'condition' : 'manual',
+      conditions: Array.isArray(data.conditions) ? data.conditions : [],
+    };
+  });
 }
 
 function userDisplay(user: User): string {
@@ -63,15 +83,100 @@ export function getStartNode(workflow: Workflow): WorkflowNode | undefined {
   return workflow.nodes.find((n) => n.type === 'start');
 }
 
+export function isConditionEdge(edge: WorkflowEdge): boolean {
+  return (
+    edge.routeMode === 'condition' ||
+    (Array.isArray(edge.conditions) && edge.conditions.length > 0)
+  );
+}
+
+export function evaluateCondition(
+  condition: EdgeCondition,
+  data: Record<string, string | number>,
+  baselineData: Record<string, string | number>,
+): boolean {
+  const current = data[condition.fieldId];
+  const baseline = baselineData[condition.fieldId];
+  const op: ConditionOp = condition.op;
+
+  const asString = (v: string | number | undefined) =>
+    v === undefined || v === null ? '' : String(v);
+  const asNumber = (v: string | number | undefined) => {
+    const n = typeof v === 'number' ? v : Number(v);
+    return Number.isFinite(n) ? n : NaN;
+  };
+
+  switch (op) {
+    case 'empty':
+      return asString(current).trim() === '';
+    case 'not_empty':
+      return asString(current).trim() !== '';
+    case 'changed':
+      return asString(current) !== asString(baseline);
+    case 'unchanged':
+      return asString(current) === asString(baseline);
+    case 'eq':
+      return asString(current) === asString(condition.value);
+    case 'neq':
+      return asString(current) !== asString(condition.value);
+    case 'contains':
+      return asString(current)
+        .toLowerCase()
+        .includes(asString(condition.value).toLowerCase());
+    case 'gt':
+      return asNumber(current) > asNumber(condition.value);
+    case 'gte':
+      return asNumber(current) >= asNumber(condition.value);
+    case 'lt':
+      return asNumber(current) < asNumber(condition.value);
+    case 'lte':
+      return asNumber(current) <= asNumber(condition.value);
+    default:
+      return false;
+  }
+}
+
+export function edgeConditionsMatch(
+  edge: WorkflowEdge,
+  data: Record<string, string | number>,
+  baselineData: Record<string, string | number>,
+): boolean {
+  const conditions = edge.conditions ?? [];
+  if (conditions.length === 0) return false;
+  return conditions.every((c) => evaluateCondition(c, data, baselineData));
+}
+
 export function getNextNodes(
   workflow: Workflow,
   nodeId: string,
   outcome?: string,
+  submission?: Pick<FormSubmission, 'data' | 'baselineData'>,
 ): WorkflowNode[] {
   let edges = workflow.edges.filter((e) => e.source === nodeId);
+  const sourceNode = workflow.nodes.find((n) => n.id === nodeId);
 
-  if (outcome) {
+  if (
+    sourceNode?.type === 'decision' &&
+    sourceNode.data.decisionMode === 'conditional' &&
+    submission
+  ) {
+    const matching = edges.filter(
+      (e) =>
+        isConditionEdge(e) &&
+        edgeConditionsMatch(e, submission.data, submission.baselineData),
+    );
+    if (matching.length > 0) {
+      edges = matching;
+    } else {
+      // Fall back to first non-condition edge, else first edge
+      const fallback = edges.filter((e) => !isConditionEdge(e));
+      edges = fallback.length > 0 ? fallback.slice(0, 1) : edges.slice(0, 1);
+    }
+  } else if (outcome) {
     const labeled = edges.filter((e) => {
+      if (isConditionEdge(e) && sourceNode?.data.decisionMode === 'conditional') {
+        return false;
+      }
       const label = (e.label ?? '').toLowerCase();
       const handle = (e.sourceHandle ?? '').toLowerCase();
       const target = outcome.toLowerCase();
@@ -85,11 +190,17 @@ export function getNextNodes(
     .filter(Boolean) as WorkflowNode[];
 }
 
+/** Manual outcomes only (for action buttons). */
 export function getDecisionOutcomes(
   workflow: Workflow,
   nodeId: string,
 ): string[] {
-  const edges = workflow.edges.filter((e) => e.source === nodeId);
+  const node = workflow.nodes.find((n) => n.id === nodeId);
+  if (node?.data.decisionMode === 'conditional') return [];
+
+  const edges = workflow.edges.filter(
+    (e) => e.source === nodeId && !isConditionEdge(e),
+  );
   const labels = edges
     .map((e) => e.label || e.sourceHandle || 'Continue')
     .filter(Boolean);
@@ -117,6 +228,23 @@ export function createHistoryEntry(
   };
 }
 
+function resolveMatchedEdgeLabel(
+  workflow: Workflow,
+  fromId: string,
+  toId: string,
+  submission: Pick<FormSubmission, 'data' | 'baselineData'>,
+): string | undefined {
+  const edges = workflow.edges.filter(
+    (e) => e.source === fromId && e.target === toId,
+  );
+  const matched = edges.find(
+    (e) =>
+      isConditionEdge(e) &&
+      edgeConditionsMatch(e, submission.data, submission.baselineData),
+  );
+  return matched?.label ?? edges[0]?.label;
+}
+
 /** Advance submission from current node through automatic hops until a user step/decision/end. */
 export function advanceSubmission(
   submission: FormSubmission,
@@ -131,6 +259,14 @@ export function advanceSubmission(
 ): FormSubmission {
   const current = workflow.nodes.find((n) => n.id === submission.currentNodeId);
   if (!current) return submission;
+
+  const data = options.fieldData
+    ? { ...submission.data, ...options.fieldData }
+    : submission.data;
+  const working: Pick<FormSubmission, 'data' | 'baselineData'> = {
+    data,
+    baselineData: submission.baselineData ?? { ...submission.data },
+  };
 
   const history = [
     ...submission.history,
@@ -147,22 +283,55 @@ export function advanceSubmission(
     workflow,
     current.id,
     options.outcome,
+    working,
   );
 
-  // If at start, move to first real step
   if (current.type === 'start') {
-    nextCandidates = getNextNodes(workflow, current.id);
+    nextCandidates = getNextNodes(workflow, current.id, undefined, working);
   }
 
   let next = nextCandidates[0];
   let status = submission.status;
   let currentNodeId = next?.id ?? submission.currentNodeId;
+  let fromId = current.id;
 
-  // Skip through start nodes if somehow landed there
-  while (next && next.type === 'start') {
-    nextCandidates = getNextNodes(workflow, next.id);
-    next = nextCandidates[0];
-    currentNodeId = next?.id ?? currentNodeId;
+  // Skip start nodes and auto-evaluate conditional decisions
+  let guard = 0;
+  while (next && guard < 20) {
+    guard += 1;
+    if (next.type === 'start') {
+      nextCandidates = getNextNodes(workflow, next.id, undefined, working);
+      next = nextCandidates[0];
+      currentNodeId = next?.id ?? currentNodeId;
+      continue;
+    }
+
+    if (next.type === 'decision' && next.data.decisionMode === 'conditional') {
+      const autoCandidates = getNextNodes(
+        workflow,
+        next.id,
+        undefined,
+        working,
+      );
+      const autoNext = autoCandidates[0];
+      const outcomeLabel =
+        resolveMatchedEdgeLabel(workflow, next.id, autoNext?.id ?? '', working) ??
+        'Auto';
+      history.push(
+        createHistoryEntry(
+          next,
+          user,
+          'Conditional route',
+          outcomeLabel,
+        ),
+      );
+      fromId = next.id;
+      next = autoNext;
+      currentNodeId = next?.id ?? currentNodeId;
+      continue;
+    }
+
+    break;
   }
 
   if (next?.type === 'end') {
@@ -177,11 +346,12 @@ export function advanceSubmission(
     status = 'in_progress';
   }
 
+  void fromId;
+
   return {
     ...submission,
-    data: options.fieldData
-      ? { ...submission.data, ...options.fieldData }
-      : submission.data,
+    data,
+    baselineData: working.baselineData,
     currentNodeId,
     status,
     history,
@@ -206,14 +376,34 @@ export function startSubmission(
   const history: HistoryEntry[] = [];
   let currentNodeId: string | null = null;
   let status: FormSubmission['status'] = 'in_progress';
+  const baselineData = { ...fieldData };
+  const working = { data: fieldData, baselineData };
 
   if (workflow && start && submitStep) {
-    // Record submit on the submit step, then advance to next
-    history.push(
-      createHistoryEntry(submitStep, user, 'Submitted'),
-    );
-    const nexts = getNextNodes(workflow, submitStep.id);
-    const next = nexts[0];
+    history.push(createHistoryEntry(submitStep, user, 'Submitted'));
+    let nexts = getNextNodes(workflow, submitStep.id, undefined, working);
+    let next = nexts[0];
+
+    // Auto-skip conditional decisions right after submit
+    let guard = 0;
+    while (
+      next &&
+      next.type === 'decision' &&
+      next.data.decisionMode === 'conditional' &&
+      guard < 20
+    ) {
+      guard += 1;
+      const autoNexts = getNextNodes(workflow, next.id, undefined, working);
+      const autoNext = autoNexts[0];
+      const outcomeLabel =
+        resolveMatchedEdgeLabel(workflow, next.id, autoNext?.id ?? '', working) ??
+        'Auto';
+      history.push(
+        createHistoryEntry(next, user, 'Conditional route', outcomeLabel),
+      );
+      next = autoNext;
+    }
+
     if (next) {
       currentNodeId = next.id;
       if (next.type === 'end') {
@@ -245,6 +435,7 @@ export function startSubmission(
     formId,
     formName,
     data: fieldData,
+    baselineData,
     submittedBy: user.id,
     submittedAt: new Date().toISOString(),
     currentNodeId,
@@ -254,10 +445,34 @@ export function startSubmission(
   };
 }
 
-export function canUserActOnNode(user: User, node: WorkflowNode): boolean {
+export function roleAppliesToForm(role: Role, formId: string | null | undefined): boolean {
+  if (role.scope !== 'form') return true;
+  if (!formId) return false;
+  return role.formIds.includes(formId);
+}
+
+export function canUserActOnNode(
+  user: User,
+  node: WorkflowNode,
+  roles: Role[] = [],
+  formId?: string | null,
+): boolean {
   if (user.roleIds.includes('role-admin')) return true;
+  if (node.type === 'decision' && node.data.decisionMode === 'conditional') {
+    return false;
+  }
   if (!node.data.roleId) return true;
-  return user.roleIds.includes(node.data.roleId);
+  if (!user.roleIds.includes(node.data.roleId)) return false;
+  const role = roles.find((r) => r.id === node.data.roleId);
+  if (!role) return true;
+  return roleAppliesToForm(role, formId);
+}
+
+/** Roles available for assignment on a workflow tied to a form */
+export function rolesForForm(roles: Role[], formId: string | null | undefined): Role[] {
+  return roles.filter(
+    (r) => r.scope === 'app' || (formId != null && r.formIds.includes(formId)),
+  );
 }
 
 export function getOrderedWorkflowSteps(workflow: Workflow): WorkflowNode[] {
@@ -280,7 +495,6 @@ export function getOrderedWorkflowSteps(workflow: Workflow): WorkflowNode[] {
     queue.push(...outs);
   }
 
-  // include any disconnected nodes
   for (const n of workflow.nodes) {
     if (!visited.has(n.id) && n.type !== 'start') order.push(n);
   }

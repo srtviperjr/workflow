@@ -30,6 +30,7 @@ export function WorkflowsPage() {
     const wf = addWorkflow({
       name: 'New Workflow',
       description: '',
+      formId: null,
       nodes: [
         {
           id: startId,
@@ -82,7 +83,10 @@ export function WorkflowsPage() {
 
       <Grid container spacing={2}>
         {data.workflows.map((wf) => {
-          const attached = data.forms.filter((f) => f.workflowId === wf.id);
+          const attached = data.forms.filter(
+            (f) => f.workflowId === wf.id || f.id === wf.formId,
+          );
+          const primary = data.forms.find((f) => f.id === wf.formId);
           return (
             <Grid key={wf.id} size={{ xs: 12, md: 6 }}>
               <Card elevation={1}>
@@ -93,10 +97,15 @@ export function WorkflowsPage() {
                   <Typography variant="body2" color="text.secondary" mb={1}>
                     {wf.description || 'No description'}
                   </Typography>
-                  <Typography variant="caption" color="text.secondary">
+                  <Typography variant="caption" color="text.secondary" display="block">
                     {wf.nodes.length} nodes · {wf.edges.length} connections
-                    {attached.length > 0 &&
-                      ` · Used by ${attached.map((f) => f.name).join(', ')}`}
+                  </Typography>
+                  <Typography variant="caption" color="text.secondary">
+                    {primary
+                      ? `Form: ${primary.name}`
+                      : attached.length > 0
+                        ? `Used by ${attached.map((f) => f.name).join(', ')}`
+                        : 'No related form'}
                   </Typography>
                 </CardContent>
                 <CardActions>

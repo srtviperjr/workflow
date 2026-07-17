@@ -16,6 +16,8 @@ export function createDefaultRoles(): Role[] {
       name: 'Requestor',
       description: 'Can create and submit form requests',
       adGroupNames: ['Jansen-Workflows-Requestors'],
+      scope: 'app',
+      formIds: [],
       isSystem: true,
     },
     {
@@ -23,6 +25,8 @@ export function createDefaultRoles(): Role[] {
       name: 'Manager',
       description: 'Reviews and approves requests at manager level',
       adGroupNames: ['Jansen-Workflows-Managers', 'Jansen-Line-Managers'],
+      scope: 'app',
+      formIds: [],
       isSystem: true,
     },
     {
@@ -30,6 +34,8 @@ export function createDefaultRoles(): Role[] {
       name: 'Project Director',
       description: 'Final project-level approval authority',
       adGroupNames: ['Jansen-Workflows-Project-Directors'],
+      scope: 'app',
+      formIds: [],
       isSystem: true,
     },
     {
@@ -37,6 +43,8 @@ export function createDefaultRoles(): Role[] {
       name: 'Admin',
       description: 'Full system administration access',
       adGroupNames: ['Jansen-Workflows-Admins'],
+      scope: 'app',
+      formIds: [],
       isSystem: true,
     },
   ];
@@ -68,6 +76,7 @@ export function createDefaultWorkflow(): Workflow {
     name: 'Standard Approval',
     description:
       'Requestor submits → Manager decision → Project Director decision → Complete',
+    formId: null,
     nodes: [
       {
         id: startId,
@@ -168,7 +177,7 @@ export function createDefaultForm(workflowId: string): FormDefinition {
   return {
     id: 'form-simple-request',
     name: 'Simple Request',
-    description: 'Submit a single-field request for approval',
+    description: 'Submit a request for approval with priority',
     fields: [
       {
         id: 'field-request',
@@ -176,6 +185,13 @@ export function createDefaultForm(workflowId: string): FormDefinition {
         type: 'textarea',
         required: true,
         placeholder: 'Describe your request…',
+      },
+      {
+        id: 'field-priority',
+        label: 'Priority',
+        type: 'select',
+        required: true,
+        options: ['Low', 'Medium', 'High'],
       },
     ],
     workflowId,
@@ -189,6 +205,7 @@ export function createInitialData(): AppData {
   const admin = createDefaultAdmin();
   const workflow = createDefaultWorkflow();
   const form = createDefaultForm(workflow.id);
+  workflow.formId = form.id;
 
   return {
     users: [admin],
@@ -197,7 +214,7 @@ export function createInitialData(): AppData {
     forms: [form],
     submissions: [],
     currentUserId: admin.id,
-    version: 1,
+    version: 2,
   };
 }
 

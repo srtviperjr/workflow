@@ -8,8 +8,12 @@ import {
   DialogActions,
   DialogContent,
   DialogTitle,
+  FormControl,
   IconButton,
+  InputLabel,
+  MenuItem,
   Paper,
+  Select,
   Stack,
   Table,
   TableBody,
@@ -24,7 +28,7 @@ import AddIcon from '@mui/icons-material/Add';
 import EditIcon from '@mui/icons-material/Edit';
 import DeleteIcon from '@mui/icons-material/Delete';
 import { useApp } from '../context/AppContext';
-import type { Role } from '../types';
+import type { Role, RoleScope } from '../types';
 
 export function RolesPage() {
   const { data, isAdmin, addRole, updateRole, deleteRole } = useApp();
@@ -33,6 +37,8 @@ export function RolesPage() {
   const [name, setName] = useState('');
   const [description, setDescription] = useState('');
   const [adGroupNames, setAdGroupNames] = useState<string[]>([]);
+  const [scope, setScope] = useState<RoleScope>('app');
+  const [formIds, setFormIds] = useState<string[]>([]);
 
   if (!isAdmin) {
     return <Typography>Admin access required.</Typography>;
@@ -43,6 +49,8 @@ export function RolesPage() {
     setName('');
     setDescription('');
     setAdGroupNames([]);
+    setScope('app');
+    setFormIds([]);
     setOpen(true);
   };
 
@@ -51,26 +59,38 @@ export function RolesPage() {
     setName(r.name);
     setDescription(r.description);
     setAdGroupNames(r.adGroupNames ?? []);
+    setScope(r.scope ?? 'app');
+    setFormIds(r.formIds ?? []);
     setOpen(true);
   };
 
   const save = () => {
     if (!name.trim()) return;
+    if (scope === 'form' && formIds.length === 0) return;
     const groups = adGroupNames.map((g) => g.trim()).filter(Boolean);
+    const payload = {
+      name: name.trim(),
+      description,
+      adGroupNames: groups,
+      scope,
+      formIds: scope === 'form' ? formIds : [],
+    };
     if (editing) {
-      updateRole(editing.id, {
-        name: name.trim(),
-        description,
-        adGroupNames: groups,
-      });
+      updateRole(editing.id, payload);
     } else {
-      addRole({ name: name.trim(), description, adGroupNames: groups });
+      addRole(payload);
     }
     setOpen(false);
   };
 
   const userCount = (roleId: string) =>
     data.users.filter((u) => u.roleIds.includes(roleId)).length;
+
+  const formNames = (ids: string[]) =>
+    ids
+      .map((id) => data.forms.find((f) => f.id === id)?.name)
+      .filter(Boolean)
+      .join(', ');
 
   return (
     <Box>
@@ -85,7 +105,8 @@ export function RolesPage() {
             Roles
           </Typography>
           <Typography color="text.secondary">
-            Map each role to one or more Active Directory group names
+            Core application roles or form-specific roles, with optional AD group
+            mapping
           </Typography>
         </Box>
         <Button variant="contained" startIcon={<AddIcon />} onClick={openCreate}>
@@ -99,6 +120,7 @@ export function RolesPage() {
             <TableRow>
               <TableCell>Name</TableCell>
               <TableCell>Description</TableCell>
+              <TableCell>Scope</TableCell>
               <TableCell>AD Groups</TableCell>
               <TableCell>Users</TableCell>
               <TableCell>Type</TableCell>
@@ -112,6 +134,18 @@ export function RolesPage() {
                   <Typography fontWeight={600}>{r.name}</Typography>
                 </TableCell>
                 <TableCell>{r.description}</TableCell>
+                <TableCell>
+                  {r.scope === 'form' ? (
+                    <Stack spacing={0.5}>
+                      <Chip size="small" label="Form" color="secondary" />
+                      <Typography variant="caption" color="text.secondary">
+                        {formNames(r.formIds) || 'No forms'}
+                      </Typography>
+                    </Stack>
+                  ) : (
+                    <Chip size="small" label="Application" color="primary" variant="outlined" />
+                  )}
+                </TableCell>
                 <TableCell>
                   <Stack direction="row" spacing={0.5} flexWrap="wrap" useFlexGap>
                     {(r.adGroupNames ?? []).length === 0 ? (
@@ -178,6 +212,38 @@ export function RolesPage() {
               value={description}
               onChange={(e) => setDescription(e.target.value)}
             />
+            <FormControl fullWidth disabled={Boolean(editing?.isSystem)}>
+              <InputLabel>Scope</InputLabel>
+              <Select
+                label="Scope"
+                value={scope}
+                onChange={(e) => {
+                  const next = e.target.value as RoleScope;
+                  setScope(next);
+                  if (next === 'app') setFormIds([]);
+                }}
+              >
+                <MenuItem value="app">Core application</MenuItem>
+                <MenuItem value="form">Specific form(s)</MenuItem>
+              </Select>
+            </FormControl>
+            {scope === 'form' && (
+              <Autocomplete
+                multiple
+                options={data.forms}
+                getOptionLabel={(f) => f.name}
+                value={data.forms.filter((f) => formIds.includes(f.id))}
+                onChange={(_e, value) => setFormIds(value.map((f) => f.id))}
+                renderInput={(params) => (
+                  <TextField
+                    {...params}
+                    label="Forms"
+                    required
+                    helperText="This role can only act on workflows for these forms"
+                  />
+                )}
+              />
+            )}
             <Autocomplete
               multiple
               freeSolo
@@ -209,7 +275,7 @@ export function RolesPage() {
                   {...params}
                   label="Active Directory groups"
                   placeholder="Type a group name and press Enter"
-                  helperText="Map this role to one or more Azure AD / Active Directory group names. Users in these groups would receive this role when SSO is connected."
+                  helperText="Map this role to one or more Azure AD / Active Directory group names."
                 />
               )}
             />
@@ -217,7 +283,11 @@ export function RolesPage() {
         </DialogContent>
         <DialogActions>
           <Button onClick={() => setOpen(false)}>Cancel</Button>
-          <Button variant="contained" onClick={save}>
+          <Button
+            variant="contained"
+            onClick={save}
+            disabled={scope === 'form' && formIds.length === 0}
+          >
             Save
           </Button>
         </DialogActions>

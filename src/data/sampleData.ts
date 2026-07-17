@@ -141,11 +141,16 @@ export function generateSampleSubmissions(
 
   // Completed approved
   if (submitNode && mgrNode && pdNode && endApproved) {
+    const data0 = {
+      [form.fields[0]?.id ?? 'field']: requests[0],
+      ...(form.fields[1] ? { [form.fields[1].id]: 'High' } : {}),
+    };
     submissions.push({
       id: createId('sub'),
       formId: form.id,
       formName: form.name,
-      data: { [form.fields[0]?.id ?? 'field']: requests[0] },
+      data: data0,
+      baselineData: { ...data0 },
       submittedBy: req.id,
       submittedAt: makeHistory('', '', 'start', req, '', undefined, 48)
         .timestamp,
@@ -195,11 +200,16 @@ export function generateSampleSubmissions(
 
   // In progress at manager
   if (submitNode && mgrNode) {
+    const data1 = {
+      [form.fields[0]?.id ?? 'field']: requests[1],
+      ...(form.fields[1] ? { [form.fields[1].id]: 'Medium' } : {}),
+    };
     submissions.push({
       id: createId('sub'),
       formId: form.id,
       formName: form.name,
-      data: { [form.fields[0]?.id ?? 'field']: requests[1] },
+      data: data1,
+      baselineData: { ...data1 },
       submittedBy: req.id,
       submittedAt: makeHistory('', '', 'start', req, '', undefined, 12)
         .timestamp,
@@ -223,11 +233,16 @@ export function generateSampleSubmissions(
   // Rejected
   if (submitNode && mgrNode && endRejected) {
     const req2 = requestors[1] ?? req;
+    const data2 = {
+      [form.fields[0]?.id ?? 'field']: requests[2],
+      ...(form.fields[1] ? { [form.fields[1].id]: 'Low' } : {}),
+    };
     submissions.push({
       id: createId('sub'),
       formId: form.id,
       formName: form.name,
-      data: { [form.fields[0]?.id ?? 'field']: requests[2] },
+      data: data2,
+      baselineData: { ...data2 },
       submittedBy: req2.id,
       submittedAt: makeHistory('', '', 'start', req2, '', undefined, 72)
         .timestamp,
@@ -284,6 +299,15 @@ export function mergeSampleData(data: AppData): AppData {
   }
   if (forms.length === 0) {
     forms = [createDefaultForm(workflows[0].id)];
+    workflows = workflows.map((w, i) =>
+      i === 0 ? { ...w, formId: forms[0].id } : w,
+    );
+  } else {
+    workflows = workflows.map((w) => {
+      if (w.formId) return w;
+      const linked = forms.find((f) => f.workflowId === w.id);
+      return linked ? { ...w, formId: linked.id } : w;
+    });
   }
 
   const sampleSubs = generateSampleSubmissions(forms, workflows, users);

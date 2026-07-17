@@ -1,18 +1,23 @@
-import { useCallback, useEffect, useState } from 'react';
+import { useCallback, useEffect, useMemo, useState } from 'react';
 import { Link as RouterLink, useNavigate, useParams } from 'react-router-dom';
 import {
+  Alert,
   Box,
   Button,
+  FormControl,
+  InputLabel,
+  MenuItem,
+  Select,
   Stack,
   TextField,
   Typography,
-  Alert,
 } from '@mui/material';
 import ArrowBackIcon from '@mui/icons-material/ArrowBack';
 import SaveIcon from '@mui/icons-material/Save';
 import { useApp } from '../context/AppContext';
 import { WorkflowCanvas } from '../components/workflow/WorkflowCanvas';
 import type { WorkflowEdge, WorkflowNode } from '../types';
+import { rolesForForm } from '../utils/workflowEngine';
 
 export function WorkflowEditorPage() {
   const { id } = useParams<{ id: string }>();
@@ -22,6 +27,7 @@ export function WorkflowEditorPage() {
 
   const [name, setName] = useState(workflow?.name ?? '');
   const [description, setDescription] = useState(workflow?.description ?? '');
+  const [formId, setFormId] = useState<string>(workflow?.formId ?? '');
   const [nodes, setNodes] = useState<WorkflowNode[]>(workflow?.nodes ?? []);
   const [edges, setEdges] = useState<WorkflowEdge[]>(workflow?.edges ?? []);
   const [saved, setSaved] = useState(false);
@@ -30,6 +36,7 @@ export function WorkflowEditorPage() {
     if (!workflow) return;
     setName(workflow.name);
     setDescription(workflow.description);
+    setFormId(workflow.formId ?? '');
     setNodes(workflow.nodes);
     setEdges(workflow.edges);
     setSaved(false);
@@ -42,6 +49,16 @@ export function WorkflowEditorPage() {
       setSaved(false);
     },
     [],
+  );
+
+  const linkedForm = useMemo(
+    () => data.forms.find((f) => f.id === formId),
+    [data.forms, formId],
+  );
+
+  const availableRoles = useMemo(
+    () => rolesForForm(data.roles, formId || null),
+    [data.roles, formId],
   );
 
   if (!isAdmin) {
@@ -63,6 +80,7 @@ export function WorkflowEditorPage() {
     updateWorkflow(workflow.id, {
       name: name.trim() || 'Untitled Workflow',
       description,
+      formId: formId || null,
       nodes,
       edges,
     });
@@ -119,11 +137,46 @@ export function WorkflowEditorPage() {
           }}
           fullWidth
         />
+        <FormControl fullWidth>
+          <InputLabel>Related form</InputLabel>
+          <Select
+            label="Related form"
+            value={formId}
+            onChange={(e) => {
+              setFormId(e.target.value);
+              setSaved(false);
+            }}
+          >
+            <MenuItem value="">
+              <em>None</em>
+            </MenuItem>
+            {data.forms.map((f) => (
+              <MenuItem key={f.id} value={f.id}>
+                {f.name}
+              </MenuItem>
+            ))}
+          </Select>
+        </FormControl>
       </Stack>
 
+      {!formId && (
+        <Alert severity="info" sx={{ mb: 2 }}>
+          Select a related form to enable field-based decision conditions and
+          form-scoped roles in the canvas.
+        </Alert>
+      )}
+
       <WorkflowCanvas
-        workflow={{ ...workflow, nodes, edges, name, description }}
-        roles={data.roles}
+        workflow={{
+          ...workflow,
+          nodes,
+          edges,
+          name,
+          description,
+          formId: formId || null,
+        }}
+        roles={availableRoles}
+        formFields={linkedForm?.fields ?? []}
         onChange={onCanvasChange}
       />
     </Box>

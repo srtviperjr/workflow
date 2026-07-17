@@ -119,6 +119,8 @@ export function AppProvider({ children }: { children: ReactNode }) {
       const created: Role = {
         ...role,
         adGroupNames: role.adGroupNames ?? [],
+        scope: role.scope ?? 'app',
+        formIds: role.formIds ?? [],
         id: createId('role'),
         isSystem: false,
       };
@@ -155,22 +157,48 @@ export function AppProvider({ children }: { children: ReactNode }) {
       const ts = new Date().toISOString();
       const created: Workflow = {
         ...wf,
+        formId: wf.formId ?? null,
         id: createId('workflow'),
         createdAt: ts,
         updatedAt: ts,
       };
-      update((d) => ({ ...d, workflows: [...d.workflows, created] }));
+      update((d) => {
+        let forms = d.forms;
+        if (created.formId) {
+          forms = d.forms.map((f) =>
+            f.id === created.formId
+              ? { ...f, workflowId: created.id }
+              : f.workflowId === created.id
+                ? { ...f, workflowId: null }
+                : f,
+          );
+        }
+        return { ...d, workflows: [...d.workflows, created], forms };
+      });
       return created;
     },
     updateWorkflow: (id, patch) =>
-      update((d) => ({
-        ...d,
-        workflows: d.workflows.map((w) =>
+      update((d) => {
+        const prev = d.workflows.find((w) => w.id === id);
+        const nextFormId =
+          patch.formId !== undefined ? patch.formId : prev?.formId ?? null;
+        const workflows = d.workflows.map((w) =>
           w.id === id
             ? { ...w, ...patch, updatedAt: new Date().toISOString() }
             : w,
-        ),
-      })),
+        );
+        let forms = d.forms;
+        if (patch.formId !== undefined) {
+          forms = d.forms.map((f) => {
+            if (f.id === nextFormId) return { ...f, workflowId: id };
+            if (f.workflowId === id && f.id !== nextFormId) {
+              return { ...f, workflowId: null };
+            }
+            return f;
+          });
+        }
+        return { ...d, workflows, forms };
+      }),
     deleteWorkflow: (id) =>
       update((d) => ({
         ...d,
@@ -188,23 +216,57 @@ export function AppProvider({ children }: { children: ReactNode }) {
         createdAt: ts,
         updatedAt: ts,
       };
-      update((d) => ({ ...d, forms: [...d.forms, created] }));
+      update((d) => {
+        let workflows = d.workflows;
+        if (created.workflowId) {
+          workflows = d.workflows.map((w) =>
+            w.id === created.workflowId
+              ? { ...w, formId: created.id }
+              : w.formId === created.id
+                ? { ...w, formId: null }
+                : w,
+          );
+        }
+        return { ...d, forms: [...d.forms, created], workflows };
+      });
       return created;
     },
     updateForm: (id, patch) =>
-      update((d) => ({
-        ...d,
-        forms: d.forms.map((f) =>
+      update((d) => {
+        const prev = d.forms.find((f) => f.id === id);
+        const nextWorkflowId =
+          patch.workflowId !== undefined
+            ? patch.workflowId
+            : prev?.workflowId ?? null;
+        const forms = d.forms.map((f) =>
           f.id === id
             ? { ...f, ...patch, updatedAt: new Date().toISOString() }
             : f,
-        ),
-      })),
+        );
+        let workflows = d.workflows;
+        if (patch.workflowId !== undefined) {
+          workflows = d.workflows.map((w) => {
+            if (w.id === nextWorkflowId) return { ...w, formId: id };
+            if (w.formId === id && w.id !== nextWorkflowId) {
+              return { ...w, formId: null };
+            }
+            return w;
+          });
+        }
+        return { ...d, forms, workflows };
+      }),
     deleteForm: (id) =>
       update((d) => ({
         ...d,
         forms: d.forms.filter((f) => f.id !== id),
+        workflows: d.workflows.map((w) =>
+          w.formId === id ? { ...w, formId: null } : w,
+        ),
         submissions: d.submissions.filter((s) => s.formId !== id),
+        roles: d.roles.map((r) => ({
+          ...r,
+          formIds: r.formIds.filter((fid) => fid !== id),
+        })),
       })),
 
     addSubmission: (sub) =>

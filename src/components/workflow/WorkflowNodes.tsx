@@ -10,6 +10,7 @@ interface NodeData {
   roleId?: string;
   description?: string;
   roleName?: string;
+  decisionMode?: 'manual' | 'conditional';
   [key: string]: unknown;
 }
 
@@ -129,6 +130,16 @@ export function DecisionNode({ data, selected }: NodeProps) {
         {d.roleName && (
           <Typography variant="caption" color="text.secondary" display="block">
             {d.roleName}
+          </Typography>
+        )}
+        {d.decisionMode === 'conditional' && (
+          <Typography
+            variant="caption"
+            color="secondary.main"
+            display="block"
+            fontWeight={700}
+          >
+            Field rules
           </Typography>
         )}
       </Box>
