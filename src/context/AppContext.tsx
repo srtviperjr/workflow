@@ -118,6 +118,7 @@ export function AppProvider({ children }: { children: ReactNode }) {
     addRole: (role) => {
       const created: Role = {
         ...role,
+        adGroupNames: role.adGroupNames ?? [],
         id: createId('role'),
         isSystem: false,
       };

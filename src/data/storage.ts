@@ -1,7 +1,21 @@
-import type { AppData } from '../types';
+import type { AppData, Role } from '../types';
 import { createInitialData } from './defaults';
 
 const STORAGE_KEY = 'jansen-workflows-data';
+
+function normalizeRole(role: Role): Role {
+  return {
+    ...role,
+    adGroupNames: Array.isArray(role.adGroupNames) ? role.adGroupNames : [],
+  };
+}
+
+function normalizeData(data: AppData): AppData {
+  return {
+    ...data,
+    roles: data.roles.map(normalizeRole),
+  };
+}
 
 export function loadData(): AppData {
   try {
@@ -11,7 +25,7 @@ export function loadData(): AppData {
       saveData(initial);
       return initial;
     }
-    return JSON.parse(raw) as AppData;
+    return normalizeData(JSON.parse(raw) as AppData);
   } catch {
     const initial = createInitialData();
     saveData(initial);
