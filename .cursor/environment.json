@@ -2,14 +2,14 @@
   "name": "jansen-workflows",
   "install": "npm install",
   "ports": [
-    { "name": "Vite Dev Server", "port": 5173 },
-    { "name": "Vite Preview", "port": 4173 }
+    { "name": "Vite Preview", "port": 4173 },
+    { "name": "Vite Dev Server", "port": 5173 }
   ],
   "terminals": [
     {
-      "name": "Dev Server",
-      "command": "npm run dev -- --host 0.0.0.0 --port 5173",
-      "description": "Vite dev server on port 5173 for Agents Window port forwarding"
+      "name": "Preview",
+      "command": "npm run build && npm run preview -- --host 0.0.0.0 --port 4173",
+      "description": "Production preview on port 4173 for Agents Window port forwarding"
     }
   ]
 }

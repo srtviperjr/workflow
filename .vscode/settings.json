@@ -1,12 +1,12 @@
 {
   "remote.autoForwardPorts": true,
   "remote.portsAttributes": {
-    "5173": {
-      "label": "Jansen Workflows (Dev)",
+    "4173": {
+      "label": "Vite Preview",
       "onAutoForward": "notify"
     },
-    "4173": {
-      "label": "Jansen Workflows (Preview)",
+    "5173": {
+      "label": "Vite Dev Server",
       "onAutoForward": "notify"
     }
   }
