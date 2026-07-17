@@ -22,6 +22,8 @@ export interface Role {
   id: string;
   name: string;
   description: string;
+  /** Azure AD / Active Directory group names that map to this role */
+  adGroupNames: string[];
   isSystem: boolean;
 }
 

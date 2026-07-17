@@ -1,5 +1,6 @@
 import { useState } from 'react';
 import {
+  Autocomplete,
   Box,
   Button,
   Chip,
@@ -31,6 +32,7 @@ export function RolesPage() {
   const [editing, setEditing] = useState<Role | null>(null);
   const [name, setName] = useState('');
   const [description, setDescription] = useState('');
+  const [adGroupNames, setAdGroupNames] = useState<string[]>([]);
 
   if (!isAdmin) {
     return <Typography>Admin access required.</Typography>;
@@ -40,6 +42,7 @@ export function RolesPage() {
     setEditing(null);
     setName('');
     setDescription('');
+    setAdGroupNames([]);
     setOpen(true);
   };
 
@@ -47,15 +50,21 @@ export function RolesPage() {
     setEditing(r);
     setName(r.name);
     setDescription(r.description);
+    setAdGroupNames(r.adGroupNames ?? []);
     setOpen(true);
   };
 
   const save = () => {
     if (!name.trim()) return;
+    const groups = adGroupNames.map((g) => g.trim()).filter(Boolean);
     if (editing) {
-      updateRole(editing.id, { name: name.trim(), description });
+      updateRole(editing.id, {
+        name: name.trim(),
+        description,
+        adGroupNames: groups,
+      });
     } else {
-      addRole({ name: name.trim(), description });
+      addRole({ name: name.trim(), description, adGroupNames: groups });
     }
     setOpen(false);
   };
@@ -76,7 +85,7 @@ export function RolesPage() {
             Roles
           </Typography>
           <Typography color="text.secondary">
-            System roles: Requestor, Manager, Project Director, Admin
+            Map each role to one or more Active Directory group names
           </Typography>
         </Box>
         <Button variant="contained" startIcon={<AddIcon />} onClick={openCreate}>
@@ -90,6 +99,7 @@ export function RolesPage() {
             <TableRow>
               <TableCell>Name</TableCell>
               <TableCell>Description</TableCell>
+              <TableCell>AD Groups</TableCell>
               <TableCell>Users</TableCell>
               <TableCell>Type</TableCell>
               <TableCell align="right">Actions</TableCell>
@@ -102,6 +112,24 @@ export function RolesPage() {
                   <Typography fontWeight={600}>{r.name}</Typography>
                 </TableCell>
                 <TableCell>{r.description}</TableCell>
+                <TableCell>
+                  <Stack direction="row" spacing={0.5} flexWrap="wrap" useFlexGap>
+                    {(r.adGroupNames ?? []).length === 0 ? (
+                      <Typography variant="body2" color="text.secondary">
+                        —
+                      </Typography>
+                    ) : (
+                      r.adGroupNames.map((group) => (
+                        <Chip
+                          key={group}
+                          size="small"
+                          label={group}
+                          variant="outlined"
+                        />
+                      ))
+                    )}
+                  </Stack>
+                </TableCell>
                 <TableCell>{userCount(r.id)}</TableCell>
                 <TableCell>
                   <Chip
@@ -149,6 +177,41 @@ export function RolesPage() {
               rows={2}
               value={description}
               onChange={(e) => setDescription(e.target.value)}
+            />
+            <Autocomplete
+              multiple
+              freeSolo
+              options={[]}
+              value={adGroupNames}
+              onChange={(_event, value) => {
+                setAdGroupNames(
+                  value
+                    .map((v) => (typeof v === 'string' ? v.trim() : v))
+                    .filter(Boolean),
+                );
+              }}
+              renderTags={(value, getTagProps) =>
+                value.map((option, index) => {
+                  const { key, ...tagProps } = getTagProps({ index });
+                  return (
+                    <Chip
+                      key={key}
+                      variant="outlined"
+                      label={option}
+                      size="small"
+                      {...tagProps}
+                    />
+                  );
+                })
+              }
+              renderInput={(params) => (
+                <TextField
+                  {...params}
+                  label="Active Directory groups"
+                  placeholder="Type a group name and press Enter"
+                  helperText="Map this role to one or more Azure AD / Active Directory group names. Users in these groups would receive this role when SSO is connected."
+                />
+              )}
             />
           </Stack>
         </DialogContent>

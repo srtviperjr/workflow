@@ -15,24 +15,28 @@ export function createDefaultRoles(): Role[] {
       id: 'role-requestor',
       name: 'Requestor',
       description: 'Can create and submit form requests',
+      adGroupNames: ['Jansen-Workflows-Requestors'],
       isSystem: true,
     },
     {
       id: 'role-manager',
       name: 'Manager',
       description: 'Reviews and approves requests at manager level',
+      adGroupNames: ['Jansen-Workflows-Managers', 'Jansen-Line-Managers'],
       isSystem: true,
     },
     {
       id: 'role-project-director',
       name: 'Project Director',
       description: 'Final project-level approval authority',
+      adGroupNames: ['Jansen-Workflows-Project-Directors'],
       isSystem: true,
     },
     {
       id: 'role-admin',
       name: 'Admin',
       description: 'Full system administration access',
+      adGroupNames: ['Jansen-Workflows-Admins'],
       isSystem: true,
     },
   ];
