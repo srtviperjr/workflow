@@ -27,7 +27,11 @@ export function DashboardPage() {
     const wf = data.workflows.find((w) => w.id === s.workflowId);
     const node = wf?.nodes.find((n) => n.id === s.currentNodeId);
     if (!node || !currentUser) return false;
-    return canUserActOnNode(currentUser, node, data.roles, s.formId);
+    return canUserActOnNode(currentUser, node, data.roles, s.formId, {
+      workflowId: s.workflowId,
+      delegations: data.delegations ?? [],
+      users: data.users,
+    });
   });
 
   const stats = [

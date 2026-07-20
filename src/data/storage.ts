@@ -1,5 +1,6 @@
 import type {
   AppData,
+  ApprovalDelegation,
   FormSubmission,
   Role,
   Workflow,
@@ -15,6 +16,20 @@ function normalizeRole(role: Role): Role {
     adGroupNames: Array.isArray(role.adGroupNames) ? role.adGroupNames : [],
     scope: role.scope === 'form' ? 'form' : 'app',
     formIds: Array.isArray(role.formIds) ? role.formIds : [],
+  };
+}
+
+function normalizeDelegation(d: ApprovalDelegation): ApprovalDelegation {
+  return {
+    ...d,
+    scope: d.scope === 'workflows' ? 'workflows' : 'all',
+    workflowIds: Array.isArray(d.workflowIds) ? d.workflowIds : [],
+    durationDays:
+      typeof d.durationDays === 'number' && d.durationDays > 0
+        ? d.durationDays
+        : 1,
+    startDate: d.startDate ?? new Date().toISOString().slice(0, 10),
+    endDate: d.endDate ?? d.startDate ?? new Date().toISOString().slice(0, 10),
   };
 }
 
@@ -76,7 +91,8 @@ function normalizeData(data: AppData): AppData {
     workflows,
     forms: syncedForms,
     submissions: (data.submissions ?? []).map(normalizeSubmission),
-    version: Math.max(data.version ?? 1, 2),
+    delegations: (data.delegations ?? []).map(normalizeDelegation),
+    version: Math.max(data.version ?? 1, 3),
   };
 }
 

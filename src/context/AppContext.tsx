@@ -9,6 +9,7 @@ import {
 } from 'react';
 import type {
   AppData,
+  ApprovalDelegation,
   FormDefinition,
   FormSubmission,
   Role,
@@ -51,6 +52,15 @@ interface AppContextValue {
   addSubmission: (sub: FormSubmission) => void;
   updateSubmission: (id: string, patch: Partial<FormSubmission>) => void;
   deleteSubmission: (id: string) => void;
+  // Delegations
+  addDelegation: (
+    delegation: Omit<ApprovalDelegation, 'id' | 'createdAt'>,
+  ) => ApprovalDelegation;
+  addDelegations: (
+    items: Omit<ApprovalDelegation, 'id' | 'createdAt'>[],
+  ) => ApprovalDelegation[];
+  updateDelegation: (id: string, patch: Partial<ApprovalDelegation>) => void;
+  deleteDelegation: (id: string) => void;
   // Admin tools
   seedSampleData: () => void;
   resetEverything: () => void;
@@ -109,6 +119,9 @@ export function AppProvider({ children }: { children: ReactNode }) {
       update((d) => ({
         ...d,
         users: d.users.filter((u) => u.id !== id),
+        delegations: d.delegations.filter(
+          (del) => del.fromUserId !== id && del.toUserId !== id,
+        ),
         currentUserId:
           d.currentUserId === id
             ? (d.users.find((u) => u.id !== id)?.id ?? null)
@@ -206,6 +219,19 @@ export function AppProvider({ children }: { children: ReactNode }) {
         forms: d.forms.map((f) =>
           f.workflowId === id ? { ...f, workflowId: null } : f,
         ),
+        delegations: d.delegations
+          .map((del) =>
+            del.scope === 'workflows'
+              ? {
+                  ...del,
+                  workflowIds: del.workflowIds.filter((wid) => wid !== id),
+                }
+              : del,
+          )
+          .filter(
+            (del) =>
+              del.scope === 'all' || del.workflowIds.length > 0,
+          ),
       })),
 
     addForm: (form) => {
@@ -282,6 +308,43 @@ export function AppProvider({ children }: { children: ReactNode }) {
       update((d) => ({
         ...d,
         submissions: d.submissions.filter((s) => s.id !== id),
+      })),
+
+    addDelegation: (delegation) => {
+      const created: ApprovalDelegation = {
+        ...delegation,
+        id: createId('deleg'),
+        createdAt: new Date().toISOString(),
+      };
+      update((d) => ({
+        ...d,
+        delegations: [...(d.delegations ?? []), created],
+      }));
+      return created;
+    },
+    addDelegations: (items) => {
+      const created = items.map((item) => ({
+        ...item,
+        id: createId('deleg'),
+        createdAt: new Date().toISOString(),
+      }));
+      update((d) => ({
+        ...d,
+        delegations: [...(d.delegations ?? []), ...created],
+      }));
+      return created;
+    },
+    updateDelegation: (id, patch) =>
+      update((d) => ({
+        ...d,
+        delegations: d.delegations.map((del) =>
+          del.id === id ? { ...del, ...patch } : del,
+        ),
+      })),
+    deleteDelegation: (id) =>
+      update((d) => ({
+        ...d,
+        delegations: d.delegations.filter((del) => del.id !== id),
       })),
 
     seedSampleData: () => update((d) => mergeSampleData(d)),

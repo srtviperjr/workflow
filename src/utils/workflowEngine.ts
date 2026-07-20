@@ -1,4 +1,5 @@
 import type {
+  ApprovalDelegation,
   ConditionOp,
   EdgeCondition,
   FormSubmission,
@@ -451,10 +452,57 @@ export function roleAppliesToForm(role: Role, formId: string | null | undefined)
   return role.formIds.includes(formId);
 }
 
-export function canUserActOnNode(
+/** Calendar date YYYY-MM-DD in local time */
+export function toDateOnly(date: Date = new Date()): string {
+  const y = date.getFullYear();
+  const m = String(date.getMonth() + 1).padStart(2, '0');
+  const d = String(date.getDate()).padStart(2, '0');
+  return `${y}-${m}-${d}`;
+}
+
+/** Inclusive end date after durationDays starting on startDate (YYYY-MM-DD). */
+export function endDateFromDuration(startDate: string, durationDays: number): string {
+  const days = Math.max(1, Math.floor(durationDays));
+  const [y, m, d] = startDate.split('-').map(Number);
+  const start = new Date(y, m - 1, d);
+  start.setDate(start.getDate() + days - 1);
+  return toDateOnly(start);
+}
+
+export function isDelegationActive(
+  delegation: ApprovalDelegation,
+  asOf: string = toDateOnly(),
+): boolean {
+  return delegation.startDate <= asOf && asOf <= delegation.endDate;
+}
+
+export function delegationCoversWorkflow(
+  delegation: ApprovalDelegation,
+  workflowId: string | null | undefined,
+): boolean {
+  if (delegation.scope === 'all') return true;
+  if (!workflowId) return false;
+  return delegation.workflowIds.includes(workflowId);
+}
+
+export function getActiveDelegationsForActor(
+  actorUserId: string,
+  workflowId: string | null | undefined,
+  delegations: ApprovalDelegation[],
+  asOf: string = toDateOnly(),
+): ApprovalDelegation[] {
+  return delegations.filter(
+    (d) =>
+      d.toUserId === actorUserId &&
+      isDelegationActive(d, asOf) &&
+      delegationCoversWorkflow(d, workflowId),
+  );
+}
+
+function userHasNodeAccess(
   user: User,
   node: WorkflowNode,
-  roles: Role[] = [],
+  roles: Role[],
   formId?: string | null,
 ): boolean {
   if (user.roleIds.includes('role-admin')) return true;
@@ -466,6 +514,61 @@ export function canUserActOnNode(
   const role = roles.find((r) => r.id === node.data.roleId);
   if (!role) return true;
   return roleAppliesToForm(role, formId);
+}
+
+export interface ActPermissionContext {
+  workflowId?: string | null;
+  delegations?: ApprovalDelegation[];
+  users?: User[];
+}
+
+export function canUserActOnNode(
+  user: User,
+  node: WorkflowNode,
+  roles: Role[] = [],
+  formId?: string | null,
+  ctx: ActPermissionContext = {},
+): boolean {
+  if (userHasNodeAccess(user, node, roles, formId)) return true;
+
+  const delegations = ctx.delegations ?? [];
+  const users = ctx.users ?? [];
+  const active = getActiveDelegationsForActor(
+    user.id,
+    ctx.workflowId,
+    delegations,
+  );
+  for (const d of active) {
+    const fromUser = users.find((u) => u.id === d.fromUserId);
+    if (fromUser && userHasNodeAccess(fromUser, node, roles, formId)) {
+      return true;
+    }
+  }
+  return false;
+}
+
+/** Delegator whose authority the actor is using for this node, if any */
+export function getDelegationSource(
+  actor: User,
+  node: WorkflowNode,
+  roles: Role[],
+  formId: string | null | undefined,
+  ctx: ActPermissionContext,
+): User | null {
+  if (userHasNodeAccess(actor, node, roles, formId)) return null;
+  const users = ctx.users ?? [];
+  const active = getActiveDelegationsForActor(
+    actor.id,
+    ctx.workflowId,
+    ctx.delegations ?? [],
+  );
+  for (const d of active) {
+    const fromUser = users.find((u) => u.id === d.fromUserId);
+    if (fromUser && userHasNodeAccess(fromUser, node, roles, formId)) {
+      return fromUser;
+    }
+  }
+  return null;
 }
 
 /** Roles available for assignment on a workflow tied to a form */

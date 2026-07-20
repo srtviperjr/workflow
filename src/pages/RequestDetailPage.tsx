@@ -19,6 +19,7 @@ import {
   advanceSubmission,
   canUserActOnNode,
   getDecisionOutcomes,
+  getDelegationSource,
 } from '../utils/workflowEngine';
 
 const statusColor = {
@@ -71,6 +72,12 @@ export function RequestDetailPage() {
 
   const submitter = getUserById(submission.submittedBy);
 
+  const permissionCtx = {
+    workflowId: submission?.workflowId,
+    delegations: data.delegations ?? [],
+    users: data.users,
+  };
+
   const canAct =
     currentUser &&
     currentNode &&
@@ -81,7 +88,19 @@ export function RequestDetailPage() {
       currentNode,
       data.roles,
       submission.formId,
+      permissionCtx,
     );
+
+  const actingFor =
+    currentUser && currentNode && canAct
+      ? getDelegationSource(
+          currentUser,
+          currentNode,
+          data.roles,
+          submission.formId,
+          permissionCtx,
+        )
+      : null;
 
   const allowEdits = Boolean(canAct && currentNode?.data.allowFieldEdits);
   const outcomes =
@@ -91,10 +110,16 @@ export function RequestDetailPage() {
 
   const act = (action: string, outcome?: string) => {
     if (!currentUser || !workflow || !currentNode) return;
+    const onBehalf = actingFor
+      ? `On behalf of ${actingFor.firstName} ${actingFor.lastName}`
+      : undefined;
+    const combinedComment = [comment.trim() || undefined, onBehalf]
+      .filter(Boolean)
+      .join(' · ');
     const updated = advanceSubmission(submission, workflow, currentUser, {
-      action,
+      action: actingFor ? `${action} (delegate)` : action,
       outcome,
-      comment: comment.trim() || undefined,
+      comment: combinedComment || undefined,
       fieldData: allowEdits ? fieldValues : undefined,
     });
     updateSubmission(submission.id, updated);
@@ -221,6 +246,14 @@ export function RequestDetailPage() {
             <Typography variant="subtitle1" fontWeight={700} gutterBottom>
               Your action required: {currentNode.data.label}
             </Typography>
+            {actingFor && (
+              <Alert severity="info" sx={{ mb: 2 }}>
+                Acting as delegate for{' '}
+                <strong>
+                  {actingFor.firstName} {actingFor.lastName}
+                </strong>
+              </Alert>
+            )}
             {currentNode.data.description && (
               <Typography variant="body2" color="text.secondary" mb={2}>
                 {currentNode.data.description}

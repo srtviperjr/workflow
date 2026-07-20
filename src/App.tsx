@@ -14,6 +14,7 @@ import { FormSubmitPage } from './pages/FormSubmitPage';
 import { RequestRegisterPage } from './pages/RequestRegisterPage';
 import { RequestDetailPage } from './pages/RequestDetailPage';
 import { AdminToolsPage } from './pages/AdminToolsPage';
+import { DelegationsPage } from './pages/DelegationsPage';
 
 export default function App() {
   return (
@@ -26,6 +27,7 @@ export default function App() {
               <Route index element={<DashboardPage />} />
               <Route path="users" element={<UsersPage />} />
               <Route path="roles" element={<RolesPage />} />
+              <Route path="delegations" element={<DelegationsPage />} />
               <Route path="workflows" element={<WorkflowsPage />} />
               <Route path="workflows/:id" element={<WorkflowEditorPage />} />
               <Route path="forms" element={<FormsPage />} />
