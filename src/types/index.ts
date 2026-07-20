@@ -171,12 +171,34 @@ export interface FormSubmission {
   workflowId: string | null;
 }
 
+/** All workflows → one delegate, or specific workflows (possibly different delegates) */
+export type DelegationScope = 'all' | 'workflows';
+
+export interface ApprovalDelegation {
+  id: string;
+  /** User whose approval authority is being delegated */
+  fromUserId: string;
+  /** User who may act on the delegator's behalf */
+  toUserId: string;
+  scope: DelegationScope;
+  /** When scope is 'workflows', these workflows are covered */
+  workflowIds: string[];
+  /** Inclusive start date (YYYY-MM-DD) */
+  startDate: string;
+  /** Inclusive end date (YYYY-MM-DD) */
+  endDate: string;
+  /** Duration in whole days used when creating/editing */
+  durationDays: number;
+  createdAt: string;
+}
+
 export interface AppData {
   users: User[];
   roles: Role[];
   workflows: Workflow[];
   forms: FormDefinition[];
   submissions: FormSubmission[];
+  delegations: ApprovalDelegation[];
   currentUserId: string | null;
   version: number;
 }

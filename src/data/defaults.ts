@@ -213,8 +213,9 @@ export function createInitialData(): AppData {
     workflows: [workflow],
     forms: [form],
     submissions: [],
+    delegations: [],
     currentUserId: admin.id,
-    version: 2,
+    version: 3,
   };
 }
 

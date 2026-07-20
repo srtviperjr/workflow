@@ -313,7 +313,7 @@ export function mergeSampleData(data: AppData): AppData {
   const sampleSubs = generateSampleSubmissions(forms, workflows, users);
   const submissions = [...data.submissions, ...sampleSubs];
 
-  return { ...data, users, workflows, forms, submissions };
+  return { ...data, users, workflows, forms, submissions, delegations: data.delegations ?? [] };
 }
 
 export function resetAllData(): AppData {
