@@ -30,6 +30,9 @@ import { useApp } from '../context/AppContext';
 
 const DRAWER_WIDTH = 260;
 
+/** App display version — shown in the AppBar and sidebar. */
+export const APP_VERSION = '0.1';
+
 const navItems = [
   { to: '/', label: 'Dashboard', icon: <DashboardIcon />, adminOnly: false },
   { to: '/register', label: 'Request Register', icon: <GridOnIcon />, adminOnly: false },
@@ -80,6 +83,12 @@ export function Layout() {
             sx={{ color: 'text.secondary', fontWeight: 600, letterSpacing: '0.04em' }}
           >
             WORKFLOWS
+          </Typography>
+          <Typography
+            variant="caption"
+            sx={{ color: 'text.secondary', display: 'block', mt: 0.5 }}
+          >
+            v{APP_VERSION}
           </Typography>
         </Box>
       </Toolbar>
@@ -151,6 +160,22 @@ export function Layout() {
               sx={{ fontFamily: '"Outfit", sans-serif', fontWeight: 600 }}
             >
               Jansen Workflows
+            </Typography>
+            <Typography
+              component="span"
+              variant="caption"
+              sx={{
+                ml: 1,
+                px: 1,
+                py: 0.25,
+                borderRadius: 1,
+                bgcolor: 'rgba(255,255,255,0.18)',
+                fontWeight: 700,
+                letterSpacing: '0.04em',
+                display: { xs: 'none', sm: 'inline-block' },
+              }}
+            >
+              v{APP_VERSION}
             </Typography>
           </Box>
           <IdentitySwitcher />
