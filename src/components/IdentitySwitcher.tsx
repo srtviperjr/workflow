@@ -75,7 +75,7 @@ export function IdentitySwitcher() {
                     {u.firstName} {u.lastName}
                   </Typography>
                   <Typography variant="caption" color="text.secondary">
-                    {u.company} · {roles || 'No roles'}
+                    {u.company} · {u.project} · {roles || 'No roles'}
                   </Typography>
                 </Stack>
               </MenuItem>

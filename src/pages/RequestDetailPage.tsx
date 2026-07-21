@@ -25,6 +25,7 @@ import {
   getDelegationSource,
 } from '../utils/workflowEngine';
 import { downloadFormPdf } from '../utils/formPdf';
+import { canViewSubmission } from '../utils/submissionVisibility';
 
 const statusColor = {
   draft: 'default',
@@ -68,6 +69,33 @@ export function RequestDetailPage() {
     return (
       <Box>
         <Alert severity="error">Request not found.</Alert>
+        <Button component={RouterLink} to="/register" sx={{ mt: 2 }}>
+          Back to register
+        </Button>
+      </Box>
+    );
+  }
+
+  const allowed = canViewSubmission(
+    currentUser,
+    submission,
+    form,
+    data.users,
+    {
+      roles: data.roles,
+      workflows: data.workflows,
+      includeActionable: true,
+      delegations: data.delegations ?? [],
+    },
+  );
+
+  if (!allowed) {
+    return (
+      <Box>
+        <Alert severity="warning">
+          You do not have permission to view this submission based on the
+          form&apos;s visibility settings.
+        </Alert>
         <Button component={RouterLink} to="/register" sx={{ mt: 2 }}>
           Back to register
         </Button>

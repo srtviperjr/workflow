@@ -20,6 +20,7 @@ import {
 } from '@mui/material';
 import { useApp } from '../context/AppContext';
 import type { SubmissionStatus } from '../types';
+import { canViewSubmission } from '../utils/submissionVisibility';
 
 const statusColor: Record<
   SubmissionStatus,
@@ -36,13 +37,27 @@ function formatTime(iso: string) {
 }
 
 export function RequestRegisterPage() {
-  const { data, getUserById, getFormById } = useApp();
+  const { data, currentUser, getUserById, getFormById } = useApp();
   const [formFilter, setFormFilter] = useState('all');
   const [statusFilter, setStatusFilter] = useState('all');
   const [search, setSearch] = useState('');
 
   const rows = useMemo(() => {
     return data.submissions
+      .filter((s) =>
+        canViewSubmission(
+          currentUser,
+          s,
+          getFormById(s.formId),
+          data.users,
+          {
+            roles: data.roles,
+            workflows: data.workflows,
+            includeActionable: true,
+            delegations: data.delegations ?? [],
+          },
+        ),
+      )
       .filter((s) => (formFilter === 'all' ? true : s.formId === formFilter))
       .filter((s) =>
         statusFilter === 'all' ? true : s.status === statusFilter,
@@ -55,6 +70,8 @@ export function RequestRegisterPage() {
           s.formName,
           s.id,
           submitter ? `${submitter.firstName} ${submitter.lastName}` : '',
+          submitter?.company ?? '',
+          submitter?.project ?? '',
           ...Object.values(s.data).map(String),
         ]
           .join(' ')
@@ -65,7 +82,19 @@ export function RequestRegisterPage() {
         (a, b) =>
           new Date(b.submittedAt).getTime() - new Date(a.submittedAt).getTime(),
       );
-  }, [data.submissions, formFilter, statusFilter, search, getUserById]);
+  }, [
+    data.submissions,
+    data.users,
+    data.roles,
+    data.workflows,
+    data.delegations,
+    formFilter,
+    statusFilter,
+    search,
+    getUserById,
+    getFormById,
+    currentUser,
+  ]);
 
   // Collect dynamic columns from form fields when single form selected
   const matrixColumns = useMemo(() => {
@@ -81,7 +110,9 @@ export function RequestRegisterPage() {
           Request Register
         </Typography>
         <Typography color="text.secondary">
-          Matrix-style view of all submitted requests
+          Submissions you are allowed to see based on each form&apos;s
+          visibility (own / company / project). Approvers also see items
+          awaiting their action.
         </Typography>
       </Box>
 
@@ -147,6 +178,7 @@ export function RequestRegisterPage() {
               <TableCell>Form</TableCell>
               <TableCell>Submitted By</TableCell>
               <TableCell>Company</TableCell>
+              <TableCell>Project</TableCell>
               <TableCell>Submitted</TableCell>
               {matrixColumns ? (
                 matrixColumns.map((f) => (
@@ -162,7 +194,7 @@ export function RequestRegisterPage() {
           <TableBody>
             {rows.length === 0 && (
               <TableRow>
-                <TableCell colSpan={8} align="center">
+                <TableCell colSpan={9} align="center">
                   <Typography color="text.secondary" py={4}>
                     No requests found.
                   </Typography>
@@ -200,6 +232,13 @@ export function RequestRegisterPage() {
                   </TableCell>
                   <TableCell>
                     {user ? <Chip size="small" label={user.company} /> : '—'}
+                  </TableCell>
+                  <TableCell>
+                    {user?.project ? (
+                      <Chip size="small" label={user.project} variant="outlined" />
+                    ) : (
+                      '—'
+                    )}
                   </TableCell>
                   <TableCell sx={{ whiteSpace: 'nowrap' }}>
                     {formatTime(s.submittedAt)}

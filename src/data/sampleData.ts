@@ -8,10 +8,9 @@ import type {
   Workflow,
 } from '../types';
 import {
-  createDefaultForm,
-  createDefaultWorkflow,
   createId,
   createInitialData,
+  createSampleCatalog,
 } from './defaults';
 import { enforceFormWorkflowOneToOne } from './formWorkflowLink';
 
@@ -25,47 +24,62 @@ export function generateSampleUsers(): User[] {
   const ts = now();
   return [
     {
-      id: createId('user'),
+      id: 'user-alex',
       firstName: 'Alex',
       lastName: 'Chen',
       email: 'alex.chen@bhp.com',
       company: 'BHP',
+      project: 'Jansen',
       roleIds: ['role-requestor'],
       createdAt: ts,
     },
     {
-      id: createId('user'),
-      firstName: 'Jordan',
-      lastName: 'Patel',
-      email: 'jordan.patel@hatch.com',
-      company: 'Hatch',
-      roleIds: ['role-manager'],
-      createdAt: ts,
-    },
-    {
-      id: createId('user'),
-      firstName: 'Sam',
-      lastName: 'Rivera',
-      email: 'sam.rivera@bantrel.com',
-      company: 'Bantrel',
-      roleIds: ['role-project-director'],
-      createdAt: ts,
-    },
-    {
-      id: createId('user'),
-      firstName: 'Taylor',
-      lastName: 'Brooks',
-      email: 'taylor.brooks@fluor.com',
-      company: 'Fluor',
-      roleIds: ['role-requestor', 'role-manager'],
-      createdAt: ts,
-    },
-    {
-      id: createId('user'),
+      id: 'user-morgan',
       firstName: 'Morgan',
       lastName: 'Lee',
       email: 'morgan.lee@bhp.com',
       company: 'BHP',
+      project: 'Olympic Dam',
+      roleIds: ['role-requestor'],
+      createdAt: ts,
+    },
+    {
+      id: 'user-jordan',
+      firstName: 'Jordan',
+      lastName: 'Patel',
+      email: 'jordan.patel@hatch.com',
+      company: 'Hatch',
+      project: 'Jansen',
+      roleIds: ['role-manager'],
+      createdAt: ts,
+    },
+    {
+      id: 'user-taylor',
+      firstName: 'Taylor',
+      lastName: 'Brooks',
+      email: 'taylor.brooks@fluor.com',
+      company: 'Fluor',
+      project: 'Spence',
+      roleIds: ['role-requestor', 'role-manager'],
+      createdAt: ts,
+    },
+    {
+      id: 'user-sam',
+      firstName: 'Sam',
+      lastName: 'Rivera',
+      email: 'sam.rivera@bantrel.com',
+      company: 'Bantrel',
+      project: 'Corporate',
+      roleIds: ['role-project-director', 'role-requestor'],
+      createdAt: ts,
+    },
+    {
+      id: 'user-casey',
+      firstName: 'Casey',
+      lastName: 'Nguyen',
+      email: 'casey.nguyen@bhp.com',
+      company: 'BHP',
+      project: 'Jansen',
       roleIds: ['role-requestor'],
       createdAt: ts,
     },
@@ -80,6 +94,7 @@ function makeHistory(
   action: string,
   outcome?: string,
   hoursAgo = 0,
+  comment?: string,
 ): HistoryEntry {
   const d = new Date();
   d.setHours(d.getHours() - hoursAgo);
@@ -92,8 +107,15 @@ function makeHistory(
     userName: userName(user),
     action,
     outcome,
+    comment,
     timestamp: d.toISOString(),
   };
+}
+
+function hoursAgoIso(hours: number): string {
+  const d = new Date();
+  d.setHours(d.getHours() - hours);
+  return d.toISOString();
 }
 
 export function generateSampleSubmissions(
@@ -101,215 +123,258 @@ export function generateSampleSubmissions(
   workflows: Workflow[],
   users: User[],
 ): FormSubmission[] {
-  const form = forms[0];
-  const workflow = workflows.find((w) => w.id === form?.workflowId) ?? workflows[0];
-  if (!form || !workflow) return [];
+  const byId = Object.fromEntries(forms.map((f) => [f.id, f]));
+  const overtime = byId['form-overtime'];
+  const vehicle = byId['form-vehicle'];
+  const change = byId['form-change'];
+  const leave = byId['form-leave'];
 
-  const requestors = users.filter((u) =>
-    u.roleIds.includes('role-requestor'),
-  );
-  const managers = users.filter((u) => u.roleIds.includes('role-manager'));
-  const directors = users.filter((u) =>
-    u.roleIds.includes('role-project-director'),
-  );
-
-  const req = requestors[0] ?? users[0];
-  const mgr = managers[0] ?? users[0];
-  const pd = directors[0] ?? users[0];
-
-  const submitNode = workflow.nodes.find((n) => n.type === 'step');
-  const mgrNode = workflow.nodes.find(
-    (n) => n.type === 'decision' && n.data.roleId === 'role-manager',
-  );
-  const pdNode = workflow.nodes.find(
-    (n) =>
-      n.type === 'decision' && n.data.roleId === 'role-project-director',
-  );
-  const endApproved = workflow.nodes.find(
-    (n) => n.type === 'end' && n.data.label.toLowerCase().includes('approv'),
-  );
-  const endRejected = workflow.nodes.find(
-    (n) => n.type === 'end' && n.data.label.toLowerCase().includes('reject'),
-  );
-
-  const requests = [
-    'Request additional scaffolding for Zone B inspection access',
-    'Approve overtime for weekend concrete pour',
-    'Need temporary power distribution board for Module 3',
-  ];
+  const alex = users.find((u) => u.id === 'user-alex') ?? users[0];
+  const morgan = users.find((u) => u.id === 'user-morgan') ?? users[0];
+  const casey = users.find((u) => u.id === 'user-casey') ?? users[0];
+  const jordan = users.find((u) => u.id === 'user-jordan') ?? users[0];
+  const taylor = users.find((u) => u.id === 'user-taylor') ?? users[0];
 
   const submissions: FormSubmission[] = [];
 
-  // Completed approved
-  if (submitNode && mgrNode && pdNode && endApproved) {
-    const data0 = {
-      [form.fields[0]?.id ?? 'field']: requests[0],
-      ...(form.fields[1] ? { [form.fields[1].id]: 'High' } : {}),
-    };
-    submissions.push({
-      id: createId('sub'),
-      formId: form.id,
-      formName: form.name,
-      data: data0,
-      baselineData: { ...data0 },
-      submittedBy: req.id,
-      submittedAt: makeHistory('', '', 'start', req, '', undefined, 48)
-        .timestamp,
-      currentNodeId: endApproved.id,
-      status: 'completed',
-      workflowId: workflow.id,
-      history: [
-        makeHistory(
-          submitNode.id,
-          submitNode.data.label,
-          'step',
-          req,
-          'Submitted',
-          undefined,
-          48,
-        ),
+  const pushMgrFlow = (
+    form: FormDefinition | undefined,
+    submitter: User,
+    manager: User,
+    data: Record<string, string | number>,
+    kind: 'pending' | 'approved' | 'rejected',
+    hours: number,
+  ) => {
+    if (!form) return;
+    const workflow =
+      workflows.find((w) => w.id === form.workflowId) ??
+      workflows.find((w) => w.formId === form.id);
+    if (!workflow) return;
+
+    const submitNode = workflow.nodes.find((n) => n.type === 'step');
+    const mgrNode = workflow.nodes.find(
+      (n) => n.type === 'decision' && n.data.roleId === 'role-manager',
+    );
+    const endOk = workflow.nodes.find(
+      (n) => n.type === 'end' && n.data.label.toLowerCase().includes('approv'),
+    );
+    const endNo = workflow.nodes.find(
+      (n) => n.type === 'end' && n.data.label.toLowerCase().includes('reject'),
+    );
+    if (!submitNode || !mgrNode) return;
+
+    const history: HistoryEntry[] = [
+      makeHistory(
+        submitNode.id,
+        submitNode.data.label,
+        'step',
+        submitter,
+        'Submitted',
+        undefined,
+        hours,
+      ),
+    ];
+
+    let status: FormSubmission['status'] = 'in_progress';
+    let currentNodeId: string | null = mgrNode.id;
+
+    if (kind === 'approved' && endOk) {
+      history.push(
         makeHistory(
           mgrNode.id,
           mgrNode.data.label,
           'decision',
-          mgr,
-          'Decision',
+          manager,
+          'Approved',
           'Approve',
-          36,
+          hours - 2,
         ),
         makeHistory(
-          pdNode.id,
-          pdNode.data.label,
-          'decision',
-          pd,
-          'Decision',
-          'Approve',
-          24,
-        ),
-        makeHistory(
-          endApproved.id,
-          endApproved.data.label,
+          endOk.id,
+          endOk.data.label,
           'end',
-          pd,
-          'Completed',
-          undefined,
-          24,
+          manager,
+          'Reached end',
+          'Approve',
+          hours - 2,
         ),
-      ],
-    });
-  }
-
-  // In progress at manager
-  if (submitNode && mgrNode) {
-    const data1 = {
-      [form.fields[0]?.id ?? 'field']: requests[1],
-      ...(form.fields[1] ? { [form.fields[1].id]: 'Medium' } : {}),
-    };
-    submissions.push({
-      id: createId('sub'),
-      formId: form.id,
-      formName: form.name,
-      data: data1,
-      baselineData: { ...data1 },
-      submittedBy: req.id,
-      submittedAt: makeHistory('', '', 'start', req, '', undefined, 12)
-        .timestamp,
-      currentNodeId: mgrNode.id,
-      status: 'in_progress',
-      workflowId: workflow.id,
-      history: [
-        makeHistory(
-          submitNode.id,
-          submitNode.data.label,
-          'step',
-          req,
-          'Submitted',
-          undefined,
-          12,
-        ),
-      ],
-    });
-  }
-
-  // Rejected
-  if (submitNode && mgrNode && endRejected) {
-    const req2 = requestors[1] ?? req;
-    const data2 = {
-      [form.fields[0]?.id ?? 'field']: requests[2],
-      ...(form.fields[1] ? { [form.fields[1].id]: 'Low' } : {}),
-    };
-    submissions.push({
-      id: createId('sub'),
-      formId: form.id,
-      formName: form.name,
-      data: data2,
-      baselineData: { ...data2 },
-      submittedBy: req2.id,
-      submittedAt: makeHistory('', '', 'start', req2, '', undefined, 72)
-        .timestamp,
-      currentNodeId: endRejected.id,
-      status: 'rejected',
-      workflowId: workflow.id,
-      history: [
-        makeHistory(
-          submitNode.id,
-          submitNode.data.label,
-          'step',
-          req2,
-          'Submitted',
-          undefined,
-          72,
-        ),
+      );
+      status = 'completed';
+      currentNodeId = endOk.id;
+    } else if (kind === 'rejected' && endNo) {
+      history.push(
         makeHistory(
           mgrNode.id,
           mgrNode.data.label,
           'decision',
-          mgr,
-          'Decision',
-          'Reject',
-          60,
-        ),
-        makeHistory(
-          endRejected.id,
-          endRejected.data.label,
-          'end',
-          mgr,
+          manager,
           'Rejected',
-          undefined,
-          60,
+          'Reject',
+          hours - 1,
+          'Insufficient justification',
         ),
-      ],
+        makeHistory(
+          endNo.id,
+          endNo.data.label,
+          'end',
+          manager,
+          'Reached end',
+          'Reject',
+          hours - 1,
+        ),
+      );
+      status = 'rejected';
+      currentNodeId = endNo.id;
+    }
+
+    submissions.push({
+      id: createId('sub'),
+      formId: form.id,
+      formName: form.name,
+      data,
+      baselineData: { ...data },
+      submittedBy: submitter.id,
+      submittedAt: hoursAgoIso(hours),
+      currentNodeId,
+      status,
+      history,
+      workflowId: workflow.id,
     });
-  }
+  };
+
+  // Overtime — company visibility (BHP peers can see each other's)
+  pushMgrFlow(
+    overtime,
+    alex,
+    jordan,
+    {
+      'ot-date': '2026-07-25',
+      'ot-hours': 4,
+      'ot-shift': 'Night',
+      'ot-reason': 'Concrete pour continuation through night shift',
+    },
+    'pending',
+    8,
+  );
+  pushMgrFlow(
+    overtime,
+    casey,
+    jordan,
+    {
+      'ot-date': '2026-07-22',
+      'ot-hours': 3,
+      'ot-shift': 'Day',
+      'ot-reason': 'Commissioning support',
+    },
+    'approved',
+    48,
+  );
+
+  // Vehicle — project visibility (Jansen peers)
+  pushMgrFlow(
+    vehicle,
+    alex,
+    jordan,
+    {
+      'vh-make': 'Toyota',
+      'vh-model': 'Hilux',
+      'vh-plate': 'SASK-4421',
+      'vh-expiry': '2027-03-01',
+      'vh-purpose': 'Site logistics between laydown and shaft area',
+    },
+    'pending',
+    12,
+  );
+  pushMgrFlow(
+    vehicle,
+    morgan,
+    taylor,
+    {
+      'vh-make': 'Ford',
+      'vh-model': 'F-150',
+      'vh-plate': 'OD-9910',
+      'vh-expiry': '2026-11-15',
+      'vh-purpose': 'Olympic Dam survey crew transport',
+    },
+    'approved',
+    72,
+  );
+
+  // Change request — own visibility only
+  pushMgrFlow(
+    change,
+    alex,
+    jordan,
+    {
+      'cr-title': 'Update permit checklist',
+      'cr-description': 'Add electrical isolation step to daily permit form',
+      'cr-priority': 'High',
+      'cr-impact': 'Medium',
+    },
+    'pending',
+    5,
+  );
+  pushMgrFlow(
+    change,
+    morgan,
+    taylor,
+    {
+      'cr-title': 'Revise visitor induction',
+      'cr-description': 'Shorten safety video segment for contractors',
+      'cr-priority': 'Low',
+      'cr-impact': 'Low',
+    },
+    'rejected',
+    96,
+  );
+
+  // Leave — company visibility
+  pushMgrFlow(
+    leave,
+    casey,
+    jordan,
+    {
+      'lv-type': 'Annual',
+      'lv-start': '2026-08-10',
+      'lv-end': '2026-08-14',
+      'lv-notes': 'Family travel',
+    },
+    'pending',
+    3,
+  );
+  pushMgrFlow(
+    leave,
+    alex,
+    jordan,
+    {
+      'lv-type': 'Sick',
+      'lv-start': '2026-07-18',
+      'lv-end': '2026-07-18',
+      'lv-notes': '',
+    },
+    'approved',
+    60,
+  );
 
   return submissions;
 }
 
 export function mergeSampleData(data: AppData): AppData {
+  const catalog = createSampleCatalog();
+  const sampleUsers = generateSampleUsers();
   const existingEmails = new Set(data.users.map((u) => u.email.toLowerCase()));
-  const newUsers = generateSampleUsers().filter(
+  const newUsers = sampleUsers.filter(
     (u) => !existingEmails.has(u.email.toLowerCase()),
   );
-  const users = [...data.users, ...newUsers];
+  // Re-link fixed sample user ids when regenerating over empty extras
+  const users = [...data.users, ...newUsers].map((u) => ({
+    ...u,
+    project: u.project ?? ('Jansen' as const),
+  }));
 
-  let workflows = data.workflows;
-  let forms = data.forms;
-
-  if (workflows.length === 0) {
-    workflows = [createDefaultWorkflow()];
-  }
-  if (forms.length === 0) {
-    forms = [createDefaultForm(workflows[0].id)];
-    workflows = workflows.map((w, i) =>
-      i === 0 ? { ...w, formId: forms[0].id } : w,
-    );
-  } else {
-    workflows = workflows.map((w) => {
-      if (w.formId) return w;
-      const linked = forms.find((f) => f.workflowId === w.id);
-      return linked ? { ...w, formId: linked.id } : w;
-    });
-  }
+  // Replace forms/workflows with the sample catalog (removes legacy Simple Request)
+  let forms = catalog.forms;
+  let workflows = catalog.workflows;
 
   const paired = enforceFormWorkflowOneToOne({
     ...data,
@@ -317,11 +382,15 @@ export function mergeSampleData(data: AppData): AppData {
     workflows,
     forms,
   });
-  workflows = paired.workflows;
   forms = paired.forms;
+  workflows = paired.workflows;
 
   const sampleSubs = generateSampleSubmissions(forms, workflows, users);
-  const submissions = [...data.submissions, ...sampleSubs];
+  // Drop submissions for forms that no longer exist, then add samples
+  const kept = data.submissions.filter((s) =>
+    forms.some((f) => f.id === s.formId),
+  );
+  const submissions = [...kept, ...sampleSubs];
 
   return {
     ...paired,
@@ -342,5 +411,6 @@ export function resetByForm(data: AppData, formId: string): AppData {
   return {
     ...data,
     submissions: data.submissions.filter((s) => s.formId !== formId),
+    notifications: (data.notifications ?? []).filter((n) => n.formId !== formId),
   };
 }

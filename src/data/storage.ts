@@ -2,15 +2,21 @@ import type {
   AppData,
   AppNotification,
   ApprovalDelegation,
+  FormDefinition,
   FormSubmission,
+  FormVisibility,
+  Project,
   Role,
   Workflow,
   WorkflowEdge,
 } from '../types';
+import { PROJECTS } from '../types';
 import { createInitialData } from './defaults';
 import { enforceFormWorkflowOneToOne } from './formWorkflowLink';
 
 const STORAGE_KEY = 'jansen-workflows-data';
+
+const VISIBILITIES: FormVisibility[] = ['own', 'company', 'project'];
 
 function normalizeRole(role: Role): Role {
   return {
@@ -57,6 +63,27 @@ function normalizeNotification(raw: AppNotification & { toEmails?: string[] }): 
   };
 }
 
+function normalizeProject(value: unknown): Project {
+  if (typeof value === 'string' && (PROJECTS as readonly string[]).includes(value)) {
+    return value as Project;
+  }
+  return 'Jansen';
+}
+
+function normalizeVisibility(value: unknown): FormVisibility {
+  if (typeof value === 'string' && VISIBILITIES.includes(value as FormVisibility)) {
+    return value as FormVisibility;
+  }
+  return 'project';
+}
+
+function normalizeForm(form: FormDefinition): FormDefinition {
+  return {
+    ...form,
+    visibility: normalizeVisibility(form.visibility),
+  };
+}
+
 function normalizeEdge(edge: WorkflowEdge): WorkflowEdge {
   return {
     ...edge,
@@ -97,20 +124,26 @@ function normalizeSubmission(sub: FormSubmission): FormSubmission {
 }
 
 function normalizeData(data: AppData): AppData {
-  const forms = data.forms ?? [];
+  const rawForms = (data.forms ?? []).map(normalizeForm);
   const workflows = (data.workflows ?? []).map((w) =>
-    normalizeWorkflow(w, forms),
+    normalizeWorkflow(w, rawForms),
   );
 
   // Keep form.workflowId in sync with workflow.formId when missing
-  const syncedForms = forms.map((f) => {
+  const syncedForms = rawForms.map((f) => {
     if (f.workflowId) return f;
     const owner = workflows.find((w) => w.formId === f.id);
     return owner ? { ...f, workflowId: owner.id } : f;
   });
 
+  const users = (data.users ?? []).map((u) => ({
+    ...u,
+    project: normalizeProject(u.project),
+  }));
+
   const normalized: AppData = {
     ...data,
+    users,
     roles: (data.roles ?? []).map(normalizeRole),
     workflows,
     forms: syncedForms,
@@ -119,7 +152,7 @@ function normalizeData(data: AppData): AppData {
     notifications: (Array.isArray(data.notifications) ? data.notifications : []).map(
       (n) => normalizeNotification(n as AppNotification & { toEmails?: string[] }),
     ),
-    version: Math.max(data.version ?? 1, 5),
+    version: Math.max(data.version ?? 1, 6),
   };
 
   // Each form must own exactly one workflow (repairs shared / missing links)

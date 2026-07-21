@@ -17,13 +17,13 @@ import DeleteIcon from '@mui/icons-material/Delete';
 import SendIcon from '@mui/icons-material/Send';
 import { useApp } from '../context/AppContext';
 import { createId } from '../data/defaults';
+import { FORM_VISIBILITY_LABELS } from '../types';
 
 export function FormsPage() {
   const { data, isAdmin, addForm, deleteForm } = useApp();
   const navigate = useNavigate();
 
   const createForm = () => {
-    // addForm always creates a dedicated 1:1 workflow when none is provided
     const form = addForm({
       name: 'New Form',
       description: '',
@@ -37,6 +37,7 @@ export function FormsPage() {
         },
       ],
       workflowId: null,
+      visibility: 'project',
     });
     navigate(`/forms/${form.id}/edit`);
   };
@@ -95,6 +96,7 @@ export function FormsPage() {
                     {wf
                       ? ` · Workflow: ${wf.name}`
                       : ' · Workflow missing (will be repaired)'}
+                    {` · Visibility: ${FORM_VISIBILITY_LABELS[f.visibility ?? 'project']}`}
                   </Typography>
                 </CardContent>
                 <CardActions>

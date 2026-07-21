@@ -26,7 +26,8 @@ import { useApp } from '../context/AppContext';
 import { FormRenderer } from '../components/forms/FormRenderer';
 import { createId } from '../data/defaults';
 import { workflowsAvailableForForm } from '../data/formWorkflowLink';
-import type { FieldType, FormField } from '../types';
+import type { FieldType, FormField, FormVisibility } from '../types';
+import { FORM_VISIBILITY_LABELS } from '../types';
 
 const FIELD_TYPES: FieldType[] = ['text', 'textarea', 'number', 'select', 'date'];
 
@@ -40,6 +41,9 @@ export function FormBuilderPage() {
   const [description, setDescription] = useState(form?.description ?? '');
   const [fields, setFields] = useState<FormField[]>(form?.fields ?? []);
   const [workflowId, setWorkflowId] = useState<string>(form?.workflowId ?? '');
+  const [visibility, setVisibility] = useState<FormVisibility>(
+    form?.visibility ?? 'project',
+  );
   const [selectedFieldId, setSelectedFieldId] = useState<string | null>(
     form?.fields[0]?.id ?? null,
   );
@@ -55,6 +59,7 @@ export function FormBuilderPage() {
     setDescription(form.description);
     setFields(form.fields);
     setWorkflowId(form.workflowId ?? '');
+    setVisibility(form.visibility ?? 'project');
     setSelectedFieldId(form.fields[0]?.id ?? null);
     setSaved(false);
     setError(null);
@@ -144,6 +149,7 @@ export function FormBuilderPage() {
       description,
       fields,
       workflowId,
+      visibility,
     });
     setError(null);
     setSaved(true);
@@ -223,10 +229,30 @@ export function FormBuilderPage() {
             ))}
           </Select>
         </FormControl>
+        <FormControl fullWidth>
+          <InputLabel>Submission visibility</InputLabel>
+          <Select
+            label="Submission visibility"
+            value={visibility}
+            onChange={(e) => {
+              setVisibility(e.target.value as FormVisibility);
+              setSaved(false);
+            }}
+          >
+            {(Object.keys(FORM_VISIBILITY_LABELS) as FormVisibility[]).map(
+              (key) => (
+                <MenuItem key={key} value={key}>
+                  {FORM_VISIBILITY_LABELS[key]}
+                </MenuItem>
+              ),
+            )}
+          </Select>
+        </FormControl>
       </Stack>
       <Alert severity="info" sx={{ mb: 2 }}>
-        Each form must have its own workflow. Workflows already linked to other
-        forms are hidden from this list.
+        Each form must have its own workflow. Visibility controls who can see
+        submissions in the register: own only, same company, or same project.
+        Approvers who can act on a request always see it. Admins see all.
       </Alert>
 
       <Stack direction={{ xs: 'column', lg: 'row' }} spacing={2} alignItems="stretch">

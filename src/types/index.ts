@@ -1,6 +1,15 @@
 export const COMPANIES = ['BHP', 'Hatch', 'Bantrel', 'Fluor'] as const;
 export type Company = (typeof COMPANIES)[number];
 
+/** Projects used for form submission visibility ("within project") */
+export const PROJECTS = [
+  'Jansen',
+  'Olympic Dam',
+  'Spence',
+  'Corporate',
+] as const;
+export type Project = (typeof PROJECTS)[number];
+
 export const SYSTEM_ROLE_NAMES = [
   'Requestor',
   'Manager',
@@ -14,6 +23,8 @@ export interface User {
   lastName: string;
   email: string;
   company: Company;
+  /** Project assignment — used when a form's visibility is "within project" */
+  project: Project;
   roleIds: string[];
   createdAt: string;
 }
@@ -153,6 +164,19 @@ export interface FormField {
   placeholder?: string;
 }
 
+/**
+ * Who can see submissions for this form in the register / listings.
+ * Approvers who can act on a request always see it regardless.
+ * Admins always see everything.
+ */
+export type FormVisibility = 'own' | 'company' | 'project';
+
+export const FORM_VISIBILITY_LABELS: Record<FormVisibility, string> = {
+  own: 'Only own submissions',
+  company: 'Within company',
+  project: 'Within project',
+};
+
 export interface FormDefinition {
   id: string;
   name: string;
@@ -160,6 +184,8 @@ export interface FormDefinition {
   fields: FormField[];
   /** Required exclusive workflow for this form (1:1 with Workflow.formId) */
   workflowId: string | null;
+  /** Submission visibility boundary for this form */
+  visibility: FormVisibility;
   createdAt: string;
   updatedAt: string;
 }
