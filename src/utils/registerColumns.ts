@@ -8,6 +8,7 @@ import type {
   User,
   Workflow,
 } from '../types';
+import { formatFieldDisplayValue } from './formValues';
 
 export const FIELD_COLUMN_PREFIX = 'field:';
 
@@ -170,7 +171,7 @@ export function cellValue(
       const fieldId = parseFieldColumnId(columnId);
       if (!fieldId) return '';
       const raw = submission.data[fieldId];
-      return raw === undefined || raw === null ? '' : String(raw);
+      return formatFieldDisplayValue(raw);
     }
   }
 }
@@ -200,7 +201,7 @@ export function filterValue(
       const fieldId = parseFieldColumnId(columnId);
       if (!fieldId) return '';
       const raw = submission.data[fieldId];
-      return raw === undefined || raw === null ? '' : String(raw);
+      return formatFieldDisplayValue(raw);
     }
   }
 }

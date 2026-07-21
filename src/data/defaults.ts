@@ -341,6 +341,13 @@ export function createSampleCatalog(): {
         required: true,
         options: ['Low', 'Medium', 'High'],
       },
+      {
+        id: 'cr-attachment',
+        label: 'Attachment',
+        type: 'file',
+        required: false,
+        placeholder: 'Optional supporting document',
+      },
     ],
   );
 

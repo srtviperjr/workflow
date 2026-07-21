@@ -26,6 +26,14 @@ import {
 } from '../utils/workflowEngine';
 import { downloadFormPdf } from '../utils/formPdf';
 import { canViewSubmission } from '../utils/submissionVisibility';
+import type { FormFieldData } from '../types';
+import {
+  formatFieldDisplayValue,
+  formatFileSize,
+  fieldValueCompareKey,
+  isFileAttachment,
+} from '../utils/formValues';
+import Link from '@mui/material/Link';
 
 const statusColor = {
   draft: 'default',
@@ -48,9 +56,7 @@ export function RequestDetailPage() {
   const navigate = useNavigate();
   const submission = data.submissions.find((s) => s.id === id);
   const [comment, setComment] = useState('');
-  const [editValues, setEditValues] = useState<
-    Record<string, string | number> | null
-  >(null);
+  const [editValues, setEditValues] = useState<FormFieldData | null>(null);
 
   const form = submission ? getFormById(submission.formId) : undefined;
   const workflow = submission?.workflowId
@@ -255,7 +261,9 @@ export function RequestDetailPage() {
               const original = baseline[field.id];
               const changed =
                 original !== undefined &&
-                String(current ?? '') !== String(original ?? '');
+                fieldValueCompareKey(current) !==
+                  fieldValueCompareKey(original);
+              const file = isFileAttachment(current) ? current : null;
               return (
                 <Box key={field.id}>
                   <Stack direction="row" spacing={1} alignItems="center">
@@ -270,12 +278,24 @@ export function RequestDetailPage() {
                       <Chip size="small" label="Changed" color="warning" />
                     )}
                   </Stack>
-                  <Typography variant="body1" sx={{ whiteSpace: 'pre-wrap' }}>
-                    {current?.toString() ?? '—'}
-                  </Typography>
+                  {file ? (
+                    <Stack direction="row" spacing={1} alignItems="baseline">
+                      <Link href={file.dataUrl} download={file.name}>
+                        {file.name}
+                      </Link>
+                      <Typography variant="caption" color="text.secondary">
+                        ({formatFileSize(file.size)})
+                      </Typography>
+                    </Stack>
+                  ) : (
+                    <Typography variant="body1" sx={{ whiteSpace: 'pre-wrap' }}>
+                      {formatFieldDisplayValue(current) || '—'}
+                    </Typography>
+                  )}
                   {changed && (
                     <Typography variant="caption" color="text.secondary">
-                      Originally: {original?.toString() ?? '—'}
+                      Originally:{' '}
+                      {formatFieldDisplayValue(original) || '—'}
                     </Typography>
                   )}
                 </Box>
@@ -287,7 +307,9 @@ export function RequestDetailPage() {
                   <Typography variant="caption" color="text.secondary">
                     {k}
                   </Typography>
-                  <Typography>{String(v)}</Typography>
+                  <Typography>
+                    {formatFieldDisplayValue(v) || String(v)}
+                  </Typography>
                 </Box>
               ))}
           </Stack>

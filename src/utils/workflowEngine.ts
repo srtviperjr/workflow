@@ -15,6 +15,12 @@ import type {
 } from '../types';
 import { createId } from '../data/defaults';
 import type { Edge, Node } from '@xyflow/react';
+import {
+  fieldValueCompareKey,
+  formatFieldDisplayValue,
+  isEmptyFieldValue,
+} from './formValues';
+import type { FormFieldData } from '../types';
 import { buildNotificationFromNode } from './notifications';
 
 export function toFlowNodes(nodes: WorkflowNode[]): Node[] {
@@ -113,37 +119,40 @@ export function isConditionEdge(edge: WorkflowEdge): boolean {
 
 export function evaluateCondition(
   condition: EdgeCondition,
-  data: Record<string, string | number>,
-  baselineData: Record<string, string | number>,
+  data: FormFieldData,
+  baselineData: FormFieldData,
 ): boolean {
   const current = data[condition.fieldId];
   const baseline = baselineData[condition.fieldId];
   const op: ConditionOp = condition.op;
 
-  const asString = (v: string | number | undefined) =>
-    v === undefined || v === null ? '' : String(v);
-  const asNumber = (v: string | number | undefined) => {
+  const asString = (v: FormFieldData[string] | undefined) =>
+    fieldValueCompareKey(v);
+  const asDisplay = (v: FormFieldData[string] | undefined) =>
+    formatFieldDisplayValue(v);
+  const asNumber = (v: FormFieldData[string] | string | number | undefined) => {
+    if (typeof v === 'object' && v !== null) return NaN;
     const n = typeof v === 'number' ? v : Number(v);
     return Number.isFinite(n) ? n : NaN;
   };
 
   switch (op) {
     case 'empty':
-      return asString(current).trim() === '';
+      return isEmptyFieldValue(current);
     case 'not_empty':
-      return asString(current).trim() !== '';
+      return !isEmptyFieldValue(current);
     case 'changed':
       return asString(current) !== asString(baseline);
     case 'unchanged':
       return asString(current) === asString(baseline);
     case 'eq':
-      return asString(current) === asString(condition.value);
+      return asDisplay(current) === String(condition.value ?? '');
     case 'neq':
-      return asString(current) !== asString(condition.value);
+      return asDisplay(current) !== String(condition.value ?? '');
     case 'contains':
-      return asString(current)
+      return asDisplay(current)
         .toLowerCase()
-        .includes(asString(condition.value).toLowerCase());
+        .includes(String(condition.value ?? '').toLowerCase());
     case 'gt':
       return asNumber(current) > asNumber(condition.value);
     case 'gte':
@@ -159,8 +168,8 @@ export function evaluateCondition(
 
 export function edgeConditionsMatch(
   edge: WorkflowEdge,
-  data: Record<string, string | number>,
-  baselineData: Record<string, string | number>,
+  data: FormFieldData,
+  baselineData: FormFieldData,
 ): boolean {
   const conditions = edge.conditions ?? [];
   if (conditions.length === 0) return false;
@@ -286,7 +295,7 @@ export function advanceSubmission(
     action: string;
     outcome?: string;
     comment?: string;
-    fieldData?: Record<string, string | number>;
+    fieldData?: FormFieldData;
   },
   ctx: AdvanceContext = {},
 ): AdvanceResult {
@@ -439,7 +448,7 @@ export function startSubmission(
   formName: string,
   workflow: Workflow | null,
   user: User,
-  fieldData: Record<string, string | number>,
+  fieldData: FormFieldData,
   ctx: AdvanceContext = {},
 ): AdvanceResult {
   const start = workflow ? getStartNode(workflow) : null;

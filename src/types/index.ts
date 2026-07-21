@@ -153,7 +153,13 @@ export interface Workflow {
   updatedAt: string;
 }
 
-export type FieldType = 'text' | 'textarea' | 'number' | 'select' | 'date';
+export type FieldType =
+  | 'text'
+  | 'textarea'
+  | 'number'
+  | 'select'
+  | 'date'
+  | 'file';
 
 export interface FormField {
   id: string;
@@ -163,6 +169,17 @@ export interface FormField {
   options?: string[];
   placeholder?: string;
 }
+
+/** File stored as a data URL in localStorage (see formValues helpers). */
+export interface FileAttachment {
+  name: string;
+  mimeType: string;
+  size: number;
+  dataUrl: string;
+}
+
+export type FormFieldValue = string | number | FileAttachment;
+export type FormFieldData = Record<string, FormFieldValue>;
 
 /**
  * Who can see submissions for this form in the register / listings.
@@ -213,9 +230,9 @@ export interface FormSubmission {
   id: string;
   formId: string;
   formName: string;
-  data: Record<string, string | number>;
+  data: FormFieldData;
   /** Original values at submit time — used for "changed" / "unchanged" conditions */
-  baselineData: Record<string, string | number>;
+  baselineData: FormFieldData;
   submittedBy: string;
   submittedAt: string;
   currentNodeId: string | null;

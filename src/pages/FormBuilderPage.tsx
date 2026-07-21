@@ -26,10 +26,17 @@ import { useApp } from '../context/AppContext';
 import { FormRenderer } from '../components/forms/FormRenderer';
 import { createId } from '../data/defaults';
 import { workflowsAvailableForForm } from '../data/formWorkflowLink';
-import type { FieldType, FormField, FormVisibility } from '../types';
+import type { FieldType, FormField, FormFieldData, FormVisibility } from '../types';
 import { FORM_VISIBILITY_LABELS } from '../types';
 
-const FIELD_TYPES: FieldType[] = ['text', 'textarea', 'number', 'select', 'date'];
+const FIELD_TYPES: FieldType[] = [
+  'text',
+  'textarea',
+  'number',
+  'select',
+  'date',
+  'file',
+];
 
 export function FormBuilderPage() {
   const { id } = useParams<{ id: string }>();
@@ -49,9 +56,7 @@ export function FormBuilderPage() {
   );
   const [saved, setSaved] = useState(false);
   const [error, setError] = useState<string | null>(null);
-  const [previewValues, setPreviewValues] = useState<
-    Record<string, string | number>
-  >({});
+  const [previewValues, setPreviewValues] = useState<FormFieldData>({});
 
   useEffect(() => {
     if (!form) return;
@@ -94,10 +99,17 @@ export function FormBuilderPage() {
   const addField = (type: FieldType = 'text') => {
     const field: FormField = {
       id: createId('field'),
-      label: type === 'textarea' ? 'New text area' : 'New field',
+      label:
+        type === 'textarea'
+          ? 'New text area'
+          : type === 'file'
+            ? 'Attachment'
+            : 'New field',
       type,
       required: false,
       options: type === 'select' ? ['Option 1', 'Option 2'] : undefined,
+      placeholder:
+        type === 'file' ? 'Optional supporting document' : undefined,
     };
     setFields((fs) => [...fs, field]);
     setSelectedFieldId(field.id);
@@ -389,7 +401,9 @@ export function FormBuilderPage() {
                 </Select>
               </FormControl>
               <TextField
-                label="Placeholder"
+                label={
+                  selectedField.type === 'file' ? 'Help text' : 'Placeholder'
+                }
                 fullWidth
                 size="small"
                 value={selectedField.placeholder ?? ''}
