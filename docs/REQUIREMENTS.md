@@ -80,8 +80,10 @@ Users belong to one of: BHP, Hatch, Bantrel, Fluor.
 | RQ-2 | Request detail shows form data, current step, and history. |
 | RQ-3 | Eligible actors can approve / reject / complete steps with comments. |
 | RQ-4 | History records actor, action, outcome, timestamp; delegate actions are labeled. |
-| RQ-5 | Request register lists submissions with filters (form, status, search). |
-| RQ-6 | Dashboard shows pending items for the current identity. |
+| RQ-5 | Overall request register lists submissions with basic columns: request #, form name, submitter, submission date, last change date, status, current step. |
+| RQ-6 | Each form has its own register showing form fields; users can customize column visibility and order (saved per identity). |
+| RQ-7 | Registers support filtering from column headers. |
+| RQ-8 | Dashboard shows pending items for the current identity. |
 
 ### 4.5 Delegations
 

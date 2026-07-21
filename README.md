@@ -18,7 +18,7 @@ See **[docs/REQUIREMENTS.md](./docs/REQUIREMENTS.md)** for the full product requ
 - **Dynamic workflow history** — Every request tracks who acted and when; history columns follow the live workflow definition.
 - **Forms** — Start with Simple Request; admins can build forms visually with a paired workflow.
 - **Delegations** — Temporarily grant your approval permissions to another user (additive; non-admins only for themselves).
-- **Request register** — Matrix-style table of submissions with filters.
+- **Request register** — Overall register with basic columns; per-form registers with customizable field visibility/order and header filters.
 - **Admin tools** — Seed sample data, clear requests by form, or reset everything.
 
 ## Quick start

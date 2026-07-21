@@ -522,6 +522,7 @@ export function mergeSampleData(
     submissions,
     delegations: data.delegations ?? [],
     notifications,
+    formRegisterViews: data.formRegisterViews ?? [],
   };
 }
 

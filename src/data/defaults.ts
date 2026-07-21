@@ -431,8 +431,9 @@ export function createInitialData(): AppData {
     submissions: [],
     delegations: [],
     notifications: [],
+    formRegisterViews: [],
     currentUserId: admin.id,
-    version: 6,
+    version: 7,
   };
 }
 

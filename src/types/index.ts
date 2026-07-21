@@ -270,6 +270,32 @@ export interface AppNotification {
   readByUserIds?: string[];
 }
 
+/** Built-in columns shared by overall and per-form registers */
+export type RegisterMetaColumnId =
+  | 'requestId'
+  | 'formName'
+  | 'submitter'
+  | 'submittedAt'
+  | 'lastChangedAt'
+  | 'status'
+  | 'currentStep';
+
+/** One column in a form register layout (order = array order). */
+export interface RegisterColumnConfig {
+  /**
+   * Meta column id, or `field:<formFieldId>` for a form field.
+   */
+  id: string;
+  visible: boolean;
+}
+
+/** Per-user column layout for a form's register. */
+export interface FormRegisterViewConfig {
+  formId: string;
+  userId: string;
+  columns: RegisterColumnConfig[];
+}
+
 export interface AppData {
   users: User[];
   roles: Role[];
@@ -278,6 +304,8 @@ export interface AppData {
   submissions: FormSubmission[];
   delegations: ApprovalDelegation[];
   notifications: AppNotification[];
+  /** Saved per-form register column layouts */
+  formRegisterViews: FormRegisterViewConfig[];
   currentUserId: string | null;
   version: number;
 }

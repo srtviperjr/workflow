@@ -12,6 +12,7 @@ import { FormsPage } from './pages/FormsPage';
 import { FormBuilderPage } from './pages/FormBuilderPage';
 import { FormSubmitPage } from './pages/FormSubmitPage';
 import { RequestRegisterPage } from './pages/RequestRegisterPage';
+import { FormRegisterPage } from './pages/FormRegisterPage';
 import { RequestDetailPage } from './pages/RequestDetailPage';
 import { AdminToolsPage } from './pages/AdminToolsPage';
 import { DelegationsPage } from './pages/DelegationsPage';
@@ -36,6 +37,7 @@ export default function App() {
               <Route path="forms/:id/edit" element={<FormBuilderPage />} />
               <Route path="forms/:id/submit" element={<FormSubmitPage />} />
               <Route path="register" element={<RequestRegisterPage />} />
+              <Route path="register/form/:formId" element={<FormRegisterPage />} />
               <Route path="register/:id" element={<RequestDetailPage />} />
               <Route path="admin" element={<AdminToolsPage />} />
               <Route path="*" element={<Navigate to="/" replace />} />
