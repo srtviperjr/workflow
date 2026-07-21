@@ -67,6 +67,7 @@ export function downloadFormPdf(opts: {
     line('Workflow history', 13, 'bold');
     y += 4;
     for (const h of submission.history) {
+      if (h.stepType === 'notification') continue;
       const when = new Date(h.timestamp).toLocaleString();
       line(
         `${when} · ${h.stepLabel} · ${h.userName} · ${h.action}${h.outcome ? ` (${h.outcome})` : ''}`,

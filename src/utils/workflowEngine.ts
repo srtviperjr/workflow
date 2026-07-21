@@ -776,7 +776,58 @@ export function getOrderedWorkflowSteps(workflow: Workflow): WorkflowNode[] {
   return order;
 }
 
-/** Build dynamic history rows: all workflow steps + filled history entries */
+function isRejectEdge(edge: WorkflowEdge): boolean {
+  if (edge.sourceHandle === 'reject') return true;
+  const label = (edge.label ?? '').toLowerCase();
+  return label.includes('reject') || label.includes('deny');
+}
+
+/** Nodes that sit on a reject branch (and reject-labelled end nodes). */
+export function getRejectBranchNodeIds(workflow: Workflow): Set<string> {
+  const ids = new Set<string>();
+  const queue = workflow.edges
+    .filter(isRejectEdge)
+    .map((e) => e.target);
+
+  for (const n of workflow.nodes) {
+    if (
+      n.type === 'end' &&
+      n.data.label.toLowerCase().includes('reject')
+    ) {
+      queue.push(n.id);
+    }
+  }
+
+  while (queue.length) {
+    const id = queue.shift()!;
+    if (ids.has(id)) continue;
+    ids.add(id);
+    for (const e of workflow.edges.filter((edge) => edge.source === id)) {
+      queue.push(e.target);
+    }
+  }
+  return ids;
+}
+
+export function submissionWasRejected(submission: FormSubmission): boolean {
+  if (submission.status === 'rejected') return true;
+  return submission.history.some((h) => {
+    const outcome = (h.outcome ?? '').toLowerCase();
+    const action = (h.action ?? '').toLowerCase();
+    const label = (h.stepLabel ?? '').toLowerCase();
+    return (
+      outcome.includes('reject') ||
+      action.includes('reject') ||
+      (h.stepType === 'end' && label.includes('reject'))
+    );
+  });
+}
+
+/**
+ * Build history rows for the request detail view.
+ * - Notification steps are omitted (in-app bell covers those).
+ * - Reject-branch steps appear only when the request was actually rejected.
+ */
 export function buildDynamicHistoryView(
   workflow: Workflow | null,
   submission: FormSubmission,
@@ -789,19 +840,29 @@ export function buildDynamicHistoryView(
   current: boolean;
 }> {
   if (!workflow) {
-    return submission.history.map((h) => ({
-      stepId: h.stepId,
-      stepLabel: h.stepLabel,
-      stepType: h.stepType,
-      entry: h,
-      pending: false,
-      current: false,
-    }));
+    return submission.history
+      .filter((h) => h.stepType !== 'notification')
+      .map((h) => ({
+        stepId: h.stepId,
+        stepLabel: h.stepLabel,
+        stepType: h.stepType,
+        entry: h,
+        pending: false,
+        current: false,
+      }));
   }
 
-  const steps = getOrderedWorkflowSteps(workflow);
+  const rejected = submissionWasRejected(submission);
+  const rejectBranchIds = getRejectBranchNodeIds(workflow);
+  const steps = getOrderedWorkflowSteps(workflow).filter((step) => {
+    if (step.type === 'notification') return false;
+    if (!rejected && rejectBranchIds.has(step.id)) return false;
+    return true;
+  });
+
   const byStep = new Map<string, HistoryEntry[]>();
   for (const h of submission.history) {
+    if (h.stepType === 'notification') continue;
     const list = byStep.get(h.stepId) ?? [];
     list.push(h);
     byStep.set(h.stepId, list);

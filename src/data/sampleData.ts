@@ -262,6 +262,43 @@ export function generateNSampleUsers(
   return out;
 }
 
+function randInt(min: number, max: number): number {
+  const lo = Math.ceil(min);
+  const hi = Math.floor(max);
+  if (hi < lo) return lo;
+  return lo + Math.floor(Math.random() * (hi - lo + 1));
+}
+
+function pickRandom<T>(items: T[]): T {
+  return items[randInt(0, items.length - 1)]!;
+}
+
+/** Weighted pick — weights need not sum to 1. */
+function pickWeighted<T extends string>(
+  options: Array<{ value: T; weight: number }>,
+): T {
+  const total = options.reduce((s, o) => s + Math.max(0, o.weight), 0);
+  let r = Math.random() * (total || 1);
+  for (const o of options) {
+    r -= Math.max(0, o.weight);
+    if (r <= 0) return o.value;
+  }
+  return options[options.length - 1]!.value;
+}
+
+function hoursAgoIso(hours: number): string {
+  const d = new Date();
+  d.setHours(d.getHours() - hours);
+  return d.toISOString();
+}
+
+function dateDaysFromNow(dayOffset: number): string {
+  const d = new Date();
+  d.setHours(12, 0, 0, 0);
+  d.setDate(d.getDate() + dayOffset);
+  return d.toISOString().slice(0, 10);
+}
+
 function makeHistory(
   stepId: string,
   stepLabel: string,
@@ -272,8 +309,6 @@ function makeHistory(
   hoursAgo = 0,
   comment?: string,
 ): HistoryEntry {
-  const d = new Date();
-  d.setHours(d.getHours() - hoursAgo);
   return {
     id: uuidv4(),
     stepId,
@@ -284,14 +319,33 @@ function makeHistory(
     action,
     outcome,
     comment,
-    timestamp: d.toISOString(),
+    timestamp: hoursAgoIso(hoursAgo),
   };
 }
 
-function hoursAgoIso(hours: number): string {
-  const d = new Date();
-  d.setHours(d.getHours() - hours);
-  return d.toISOString();
+/**
+ * Age the sample request by status:
+ * - open (pending): within the last week
+ * - approved: older (1 week – ~3 months)
+ * - rejected: mixed (a few days – ~2 months)
+ */
+function sampleTiming(kind: 'pending' | 'approved' | 'rejected'): {
+  submitHoursAgo: number;
+  decideHoursAgo: number;
+} {
+  let submitHoursAgo: number;
+  if (kind === 'pending') {
+    submitHoursAgo = randInt(2, 6 * 24); // 2h – 6 days
+  } else if (kind === 'approved') {
+    submitHoursAgo = randInt(8 * 24, 90 * 24); // 8–90 days
+  } else {
+    submitHoursAgo = randInt(3 * 24, 60 * 24); // 3–60 days
+  }
+  const lag = randInt(1, Math.min(48, Math.max(1, submitHoursAgo - 1)));
+  return {
+    submitHoursAgo,
+    decideHoursAgo: Math.max(0, submitHoursAgo - lag),
+  };
 }
 
 function findNotifyNode(
@@ -388,50 +442,55 @@ function synthesizeNotification(opts: {
 function sampleFieldData(
   form: FormDefinition,
   index: number,
+  /** Hours before “now” when the request was submitted — dates stay coherent. */
+  submitHoursAgo = 24,
 ): FormFieldData {
+  const submitDayOffset = -Math.floor(submitHoursAgo / 24);
+  const r = () => Math.floor(Math.random() * 4);
+
   switch (form.id) {
     case 'form-overtime':
       return {
-        'ot-date': `2026-07-${String(18 + (index % 10)).padStart(2, '0')}`,
-        'ot-hours': 2 + (index % 6),
-        'ot-shift': ['Day', 'Night', 'Weekend'][index % 3],
-        'ot-reason': [
+        'ot-date': dateDaysFromNow(submitDayOffset - randInt(0, 3)),
+        'ot-hours': 2 + randInt(0, 5),
+        'ot-shift': pickRandom(['Day', 'Night', 'Weekend']),
+        'ot-reason': pickRandom([
           'Concrete pour continuation',
           'Commissioning support',
           'Shutdown coverage',
           'Crane window extension',
-        ][index % 4],
+        ]),
       };
     case 'form-vehicle':
       return {
-        'vh-make': ['Toyota', 'Ford', 'Chevrolet', 'Ram'][index % 4],
-        'vh-model': ['Hilux', 'F-150', 'Silverado', '1500'][index % 4],
-        'vh-plate': `SASK-${1000 + index}`,
-        'vh-expiry': `2027-${String((index % 12) + 1).padStart(2, '0')}-15`,
-        'vh-purpose': [
+        'vh-make': pickRandom(['Toyota', 'Ford', 'Chevrolet', 'Ram']),
+        'vh-model': pickRandom(['Hilux', 'F-150', 'Silverado', '1500']),
+        'vh-plate': `SASK-${1000 + randInt(0, 8999)}`,
+        'vh-expiry': dateDaysFromNow(randInt(60, 400)),
+        'vh-purpose': pickRandom([
           'Site logistics',
           'Survey crew transport',
           'Emergency response standby',
           'Material haul between pads',
-        ][index % 4],
+        ]),
       };
     case 'form-change':
       return {
-        'cr-title': [
+        'cr-title': pickRandom([
           'Update permit checklist',
           'Revise visitor induction',
           'Adjust lockout tags',
           'New toolbox talk template',
-        ][index % 4],
-        'cr-description': [
+        ]),
+        'cr-description': pickRandom([
           'Add electrical isolation step to daily permit form',
           'Shorten safety video segment for contractors',
           'Clarify group lockout sequence',
           'Standardize weekly safety briefing notes',
-        ][index % 4],
-        'cr-priority': ['Low', 'Medium', 'High', 'Critical'][index % 4],
-        'cr-impact': ['Low', 'Medium', 'High'][index % 3],
-        ...(index % 2 === 0
+        ]),
+        'cr-priority': pickRandom(['Low', 'Medium', 'High', 'Critical']),
+        'cr-impact': pickRandom(['Low', 'Medium', 'High']),
+        ...(Math.random() < 0.5
           ? {
               'cr-attachment': sampleTextAttachment(
                 `change-brief-${index + 1}.txt`,
@@ -440,29 +499,31 @@ function sampleFieldData(
             }
           : {}),
       };
-    case 'form-leave':
+    case 'form-leave': {
+      const startOffset = submitDayOffset + randInt(1, 14);
       return {
-        'lv-type': ['Annual', 'Sick', 'Personal', 'Other'][index % 4],
-        'lv-start': `2026-08-${String(1 + (index % 20)).padStart(2, '0')}`,
-        'lv-end': `2026-08-${String(2 + (index % 20)).padStart(2, '0')}`,
-        'lv-notes': index % 2 === 0 ? 'Family travel' : '',
+        'lv-type': pickRandom(['Annual', 'Sick', 'Personal', 'Other']),
+        'lv-start': dateDaysFromNow(startOffset),
+        'lv-end': dateDaysFromNow(startOffset + randInt(1, 5)),
+        'lv-notes': Math.random() < 0.5 ? 'Family travel' : '',
       };
+    }
     default: {
       const data: FormFieldData = {};
       for (const field of form.fields) {
-        if (field.type === 'number') data[field.id] = index + 1;
+        if (field.type === 'number') data[field.id] = randInt(1, 20);
         else if (field.type === 'select' && field.options?.length)
-          data[field.id] = field.options[index % field.options.length];
+          data[field.id] = pickRandom(field.options);
         else if (field.type === 'date')
-          data[field.id] = `2026-07-${String(10 + (index % 15)).padStart(2, '0')}`;
+          data[field.id] = dateDaysFromNow(submitDayOffset - randInt(0, 5));
         else if (field.type === 'file') {
-          if (index % 2 === 0) {
+          if (Math.random() < 0.5) {
             data[field.id] = sampleTextAttachment(
               `sample-${field.id}-${index + 1}.txt`,
               `Sample attachment for ${field.label}`,
             );
           }
-        } else data[field.id] = `Sample ${field.label} ${index + 1}`;
+        } else data[field.id] = `Sample ${field.label} ${index + 1 + r()}`;
       }
       return data;
     }
@@ -575,11 +636,6 @@ export function generateSampleSubmissions(
 
   const submissions: FormSubmission[] = [];
   const notifications: AppNotification[] = [];
-  const kinds: Array<'pending' | 'approved' | 'rejected'> = [
-    'pending',
-    'approved',
-    'rejected',
-  ];
 
   // Normalize counts: empty/missing → defaults; coerce strings; ignore unknown keys
   const normalizedCounts: RequestsPerForm = {};
@@ -645,11 +701,24 @@ export function generateSampleSubmissions(
     if (!parkNode) continue;
 
     for (let i = 0; i < count; i++) {
-      const submitter = submitters[i % submitters.length] ?? fallbackUser;
-      const manager = actingManagers[i % actingManagers.length] ?? fallbackUser;
-      const kind = kinds[i % kinds.length];
-      const hours = 4 + i * 6;
-      const data = sampleFieldData(form, i);
+      const submitter = pickRandom(submitters);
+      // Prefer a different manager than the submitter when possible
+      const otherManagers = actingManagers.filter((m) => m.id !== submitter.id);
+      const manager = pickRandom(
+        otherManagers.length > 0 ? otherManagers : actingManagers,
+      );
+
+      // Prefer open + approved; keep some rejections in the mix
+      let kind = pickWeighted<'pending' | 'approved' | 'rejected'>([
+        { value: 'pending', weight: 0.4 },
+        { value: 'approved', weight: 0.45 },
+        { value: 'rejected', weight: 0.15 },
+      ]);
+      if (kind === 'approved' && !endOk) kind = 'pending';
+      if (kind === 'rejected' && !endNo) kind = endOk ? 'approved' : 'pending';
+
+      const { submitHoursAgo, decideHoursAgo } = sampleTiming(kind);
+      const data = sampleFieldData(form, i, submitHoursAgo);
 
       const history: HistoryEntry[] = [];
       if (submitNode) {
@@ -661,7 +730,7 @@ export function generateSampleSubmissions(
             submitter,
             'Submitted',
             undefined,
-            hours,
+            submitHoursAgo,
           ),
         );
       }
@@ -676,7 +745,7 @@ export function generateSampleSubmissions(
         data,
         baselineData: { ...data },
         submittedBy: submitter.id,
-        submittedAt: hoursAgoIso(hours),
+        submittedAt: hoursAgoIso(submitHoursAgo),
         currentNodeId,
         status,
         history,
@@ -691,7 +760,7 @@ export function generateSampleSubmissions(
           users,
           roles,
           submitter,
-          hours,
+          submitHoursAgo,
           'submit',
           notifications,
           history,
@@ -708,7 +777,7 @@ export function generateSampleSubmissions(
               manager,
               'Approved',
               'Approve',
-              Math.max(0, hours - 2),
+              decideHoursAgo,
             ),
           );
         }
@@ -720,7 +789,7 @@ export function generateSampleSubmissions(
             users,
             roles,
             manager,
-            Math.max(0, hours - 2),
+            decideHoursAgo,
             'ok',
             notifications,
             history,
@@ -734,7 +803,7 @@ export function generateSampleSubmissions(
             manager,
             'Reached end',
             'Approve',
-            Math.max(0, hours - 2),
+            decideHoursAgo,
           ),
         );
         status = 'completed';
@@ -749,7 +818,7 @@ export function generateSampleSubmissions(
               manager,
               'Rejected',
               'Reject',
-              Math.max(0, hours - 1),
+              decideHoursAgo,
               'Insufficient justification',
             ),
           );
@@ -762,7 +831,7 @@ export function generateSampleSubmissions(
             users,
             roles,
             manager,
-            Math.max(0, hours - 1),
+            decideHoursAgo,
             'no',
             notifications,
             history,
@@ -776,7 +845,7 @@ export function generateSampleSubmissions(
             manager,
             'Reached end',
             'Reject',
-            Math.max(0, hours - 1),
+            decideHoursAgo,
           ),
         );
         status = 'rejected';
