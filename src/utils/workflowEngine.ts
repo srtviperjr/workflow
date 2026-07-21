@@ -2,6 +2,8 @@ import type {
   ApprovalDelegation,
   ConditionOp,
   EdgeCondition,
+  EmailNotification,
+  FormDefinition,
   FormSubmission,
   HistoryEntry,
   Role,
@@ -13,6 +15,7 @@ import type {
 } from '../types';
 import { createId } from '../data/defaults';
 import type { Edge, Node } from '@xyflow/react';
+import { buildNotificationFromNode } from './notifications';
 
 export function toFlowNodes(nodes: WorkflowNode[]): Node[] {
   return nodes.map((n) => ({
@@ -50,8 +53,16 @@ export function fromFlowNodes(nodes: Node[]): WorkflowNode[] {
         label: String(data.label ?? 'Step'),
         roleId: data.roleId,
         description: data.description,
-        decisionMode: data.decisionMode === 'conditional' ? 'conditional' : 'manual',
+        decisionMode:
+          data.decisionMode === 'conditional' ? 'conditional' : 'manual',
         allowFieldEdits: Boolean(data.allowFieldEdits),
+        notifyRoleIds: Array.isArray(data.notifyRoleIds)
+          ? data.notifyRoleIds.filter((id): id is string => typeof id === 'string')
+          : undefined,
+        emailSubject:
+          typeof data.emailSubject === 'string' ? data.emailSubject : undefined,
+        emailBody:
+          typeof data.emailBody === 'string' ? data.emailBody : undefined,
       },
     };
   });
@@ -246,6 +257,17 @@ function resolveMatchedEdgeLabel(
   return matched?.label ?? edges[0]?.label;
 }
 
+export interface AdvanceResult {
+  submission: FormSubmission;
+  notifications: EmailNotification[];
+}
+
+export interface AdvanceContext {
+  form?: FormDefinition | null;
+  users?: User[];
+  roles?: Role[];
+}
+
 /** Advance submission from current node through automatic hops until a user step/decision/end. */
 export function advanceSubmission(
   submission: FormSubmission,
@@ -257,9 +279,10 @@ export function advanceSubmission(
     comment?: string;
     fieldData?: Record<string, string | number>;
   },
-): FormSubmission {
+  ctx: AdvanceContext = {},
+): AdvanceResult {
   const current = workflow.nodes.find((n) => n.id === submission.currentNodeId);
-  if (!current) return submission;
+  if (!current) return { submission, notifications: [] };
 
   const data = options.fieldData
     ? { ...submission.data, ...options.fieldData }
@@ -280,6 +303,7 @@ export function advanceSubmission(
     ),
   ];
 
+  const notifications: EmailNotification[] = [];
   let nextCandidates = getNextNodes(
     workflow,
     current.id,
@@ -294,13 +318,60 @@ export function advanceSubmission(
   let next = nextCandidates[0];
   let status = submission.status;
   let currentNodeId = next?.id ?? submission.currentNodeId;
-  let fromId = current.id;
 
-  // Skip start nodes and auto-evaluate conditional decisions
+  const workingSubmission: FormSubmission = {
+    ...submission,
+    data,
+    baselineData: working.baselineData,
+  };
+
+  // Skip start nodes, fire notifications, auto-evaluate conditional decisions
   let guard = 0;
-  while (next && guard < 20) {
+  while (next && guard < 30) {
     guard += 1;
     if (next.type === 'start') {
+      nextCandidates = getNextNodes(workflow, next.id, undefined, working);
+      next = nextCandidates[0];
+      currentNodeId = next?.id ?? currentNodeId;
+      continue;
+    }
+
+    if (next.type === 'notification') {
+      if (ctx.form) {
+        const email = buildNotificationFromNode(next, {
+          form: ctx.form,
+          submission: { ...workingSubmission, history },
+          users: ctx.users ?? [],
+          roles: ctx.roles ?? [],
+          triggeredBy: user,
+        });
+        if (email) {
+          notifications.push(email);
+          const who =
+            email.toEmails.length > 0
+              ? email.toEmails.join(', ')
+              : 'no matching recipients';
+          history.push(
+            createHistoryEntry(
+              next,
+              user,
+              'Email notification',
+              undefined,
+              `To: ${who} · ${email.subject}`,
+            ),
+          );
+        }
+      } else {
+        history.push(
+          createHistoryEntry(
+            next,
+            user,
+            'Email notification skipped',
+            undefined,
+            'Form definition missing',
+          ),
+        );
+      }
       nextCandidates = getNextNodes(workflow, next.id, undefined, working);
       next = nextCandidates[0];
       currentNodeId = next?.id ?? currentNodeId;
@@ -319,14 +390,8 @@ export function advanceSubmission(
         resolveMatchedEdgeLabel(workflow, next.id, autoNext?.id ?? '', working) ??
         'Auto';
       history.push(
-        createHistoryEntry(
-          next,
-          user,
-          'Conditional route',
-          outcomeLabel,
-        ),
+        createHistoryEntry(next, user, 'Conditional route', outcomeLabel),
       );
-      fromId = next.id;
       next = autoNext;
       currentNodeId = next?.id ?? currentNodeId;
       continue;
@@ -347,15 +412,16 @@ export function advanceSubmission(
     status = 'in_progress';
   }
 
-  void fromId;
-
   return {
-    ...submission,
-    data,
-    baselineData: working.baselineData,
-    currentNodeId,
-    status,
-    history,
+    submission: {
+      ...submission,
+      data,
+      baselineData: working.baselineData,
+      currentNodeId,
+      status,
+      history,
+    },
+    notifications,
   };
 }
 
@@ -365,7 +431,8 @@ export function startSubmission(
   workflow: Workflow | null,
   user: User,
   fieldData: Record<string, string | number>,
-): FormSubmission {
+  ctx: AdvanceContext = {},
+): AdvanceResult {
   const start = workflow ? getStartNode(workflow) : null;
   const submitStep =
     workflow?.nodes.find(
@@ -375,34 +442,87 @@ export function startSubmission(
     null;
 
   const history: HistoryEntry[] = [];
+  const notifications: EmailNotification[] = [];
   let currentNodeId: string | null = null;
   let status: FormSubmission['status'] = 'in_progress';
   const baselineData = { ...fieldData };
   const working = { data: fieldData, baselineData };
+
+  const draftSubmission: FormSubmission = {
+    id: createId('sub'),
+    formId,
+    formName,
+    data: fieldData,
+    baselineData,
+    submittedBy: user.id,
+    submittedAt: new Date().toISOString(),
+    currentNodeId: null,
+    status: 'in_progress',
+    history: [],
+    workflowId: workflow?.id ?? null,
+  };
 
   if (workflow && start && submitStep) {
     history.push(createHistoryEntry(submitStep, user, 'Submitted'));
     let nexts = getNextNodes(workflow, submitStep.id, undefined, working);
     let next = nexts[0];
 
-    // Auto-skip conditional decisions right after submit
     let guard = 0;
-    while (
-      next &&
-      next.type === 'decision' &&
-      next.data.decisionMode === 'conditional' &&
-      guard < 20
-    ) {
+    while (next && guard < 30) {
       guard += 1;
-      const autoNexts = getNextNodes(workflow, next.id, undefined, working);
-      const autoNext = autoNexts[0];
-      const outcomeLabel =
-        resolveMatchedEdgeLabel(workflow, next.id, autoNext?.id ?? '', working) ??
-        'Auto';
-      history.push(
-        createHistoryEntry(next, user, 'Conditional route', outcomeLabel),
-      );
-      next = autoNext;
+
+      if (next.type === 'notification') {
+        if (ctx.form) {
+          const email = buildNotificationFromNode(next, {
+            form: ctx.form,
+            submission: { ...draftSubmission, history },
+            users: ctx.users ?? [],
+            roles: ctx.roles ?? [],
+            triggeredBy: user,
+          });
+          if (email) {
+            notifications.push(email);
+            const who =
+              email.toEmails.length > 0
+                ? email.toEmails.join(', ')
+                : 'no matching recipients';
+            history.push(
+              createHistoryEntry(
+                next,
+                user,
+                'Email notification',
+                undefined,
+                `To: ${who} · ${email.subject}`,
+              ),
+            );
+          }
+        }
+        nexts = getNextNodes(workflow, next.id, undefined, working);
+        next = nexts[0];
+        continue;
+      }
+
+      if (
+        next.type === 'decision' &&
+        next.data.decisionMode === 'conditional'
+      ) {
+        const autoNexts = getNextNodes(workflow, next.id, undefined, working);
+        const autoNext = autoNexts[0];
+        const outcomeLabel =
+          resolveMatchedEdgeLabel(
+            workflow,
+            next.id,
+            autoNext?.id ?? '',
+            working,
+          ) ?? 'Auto';
+        history.push(
+          createHistoryEntry(next, user, 'Conditional route', outcomeLabel),
+        );
+        next = autoNext;
+        continue;
+      }
+
+      break;
     }
 
     if (next) {
@@ -432,17 +552,13 @@ export function startSubmission(
   }
 
   return {
-    id: createId('sub'),
-    formId,
-    formName,
-    data: fieldData,
-    baselineData,
-    submittedBy: user.id,
-    submittedAt: new Date().toISOString(),
-    currentNodeId,
-    status,
-    history,
-    workflowId: workflow?.id ?? null,
+    submission: {
+      ...draftSubmission,
+      currentNodeId,
+      status,
+      history,
+    },
+    notifications,
   };
 }
 

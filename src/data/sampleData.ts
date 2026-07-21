@@ -330,6 +330,7 @@ export function mergeSampleData(data: AppData): AppData {
     forms,
     submissions,
     delegations: data.delegations ?? [],
+    notifications: data.notifications ?? [],
   };
 }
 

@@ -10,6 +10,7 @@ import {
 import type {
   AppData,
   ApprovalDelegation,
+  EmailNotification,
   FormDefinition,
   FormSubmission,
   Role,
@@ -53,6 +54,8 @@ interface AppContextValue {
   addSubmission: (sub: FormSubmission) => void;
   updateSubmission: (id: string, patch: Partial<FormSubmission>) => void;
   deleteSubmission: (id: string) => void;
+  // Notifications
+  addNotifications: (items: EmailNotification[]) => void;
   // Delegations
   addDelegation: (
     delegation: Omit<ApprovalDelegation, 'id' | 'createdAt'>,
@@ -443,7 +446,18 @@ export function AppProvider({ children }: { children: ReactNode }) {
       update((d) => ({
         ...d,
         submissions: d.submissions.filter((s) => s.id !== id),
+        notifications: (d.notifications ?? []).filter(
+          (n) => n.submissionId !== id,
+        ),
       })),
+
+    addNotifications: (items) => {
+      if (!items.length) return;
+      update((d) => ({
+        ...d,
+        notifications: [...(d.notifications ?? []), ...items],
+      }));
+    },
 
     addDelegation: (delegation) => {
       const actor = data.users.find((u) => u.id === data.currentUserId);

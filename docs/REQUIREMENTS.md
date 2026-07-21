@@ -102,6 +102,22 @@ Users belong to one of: BHP, Hatch, Bantrel, Fluor.
 | AD-2 | Reset requests for a single form. |
 | AD-3 | Reset all application data to defaults. |
 
+### 4.7 Email notifications
+
+| ID | Requirement |
+|----|-------------|
+| EN-1 | Workflows support a **notification** step type. |
+| EN-2 | Notification subject/body are templates with static text and `{{Field Label}}` / builtin tokens. |
+| EN-3 | Recipients are selected by role(s); form-scoped roles only apply on linked forms. |
+| EN-4 | Notifications run automatically when the workflow reaches the step (no manual actor). |
+| EN-5 | Outbound messages are stored locally and listed under Notifications (demo — no SMTP). |
+
+### 4.8 PDF export
+
+| ID | Requirement |
+|----|-------------|
+| PD-1 | Request detail provides a Print icon that downloads a PDF of the current form values and history. |
+
 ## 5. Non-functional requirements
 
 | ID | Requirement |

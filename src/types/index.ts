@@ -33,7 +33,12 @@ export interface Role {
   isSystem: boolean;
 }
 
-export type WorkflowNodeType = 'start' | 'step' | 'decision' | 'end';
+export type WorkflowNodeType =
+  | 'start'
+  | 'step'
+  | 'decision'
+  | 'notification'
+  | 'end';
 
 /** How a decision node chooses its outgoing route */
 export type DecisionMode = 'manual' | 'conditional';
@@ -46,6 +51,15 @@ export interface WorkflowNodeData {
   decisionMode?: DecisionMode;
   /** When true, the actor can edit form field values at this step */
   allowFieldEdits?: boolean;
+  /**
+   * Notification node: roles whose members receive the email.
+   * Form-scoped roles only apply when the role is linked to this form.
+   */
+  notifyRoleIds?: string[];
+  /** Notification subject template; supports {{Field Label}} and {{formName}} */
+  emailSubject?: string;
+  /** Notification body template; static text plus {{field}} tokens */
+  emailBody?: string;
 }
 
 export interface WorkflowNode {
@@ -202,6 +216,24 @@ export interface ApprovalDelegation {
   createdAt: string;
 }
 
+/** Simulated outbound email produced by a workflow notification step */
+export interface EmailNotification {
+  id: string;
+  submissionId: string;
+  formId: string;
+  workflowId: string | null;
+  nodeId: string;
+  nodeLabel: string;
+  /** Recipient user ids */
+  toUserIds: string[];
+  /** Recipient email addresses */
+  toEmails: string[];
+  subject: string;
+  body: string;
+  sentAt: string;
+  triggeredByUserId: string;
+}
+
 export interface AppData {
   users: User[];
   roles: Role[];
@@ -209,6 +241,7 @@ export interface AppData {
   forms: FormDefinition[];
   submissions: FormSubmission[];
   delegations: ApprovalDelegation[];
+  notifications: EmailNotification[];
   currentUserId: string | null;
   version: number;
 }

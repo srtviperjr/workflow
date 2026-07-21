@@ -93,7 +93,8 @@ function normalizeData(data: AppData): AppData {
     forms: syncedForms,
     submissions: (data.submissions ?? []).map(normalizeSubmission),
     delegations: (data.delegations ?? []).map(normalizeDelegation),
-    version: Math.max(data.version ?? 1, 4),
+    notifications: Array.isArray(data.notifications) ? data.notifications : [],
+    version: Math.max(data.version ?? 1, 5),
   };
 
   // Each form must own exactly one workflow (repairs shared / missing links)

@@ -16,7 +16,14 @@ import { startSubmission } from '../utils/workflowEngine';
 
 export function FormSubmitPage() {
   const { id } = useParams<{ id: string }>();
-  const { getFormById, getWorkflowById, currentUser, addSubmission } = useApp();
+  const {
+    data,
+    getFormById,
+    getWorkflowById,
+    currentUser,
+    addSubmission,
+    addNotifications,
+  } = useApp();
   const navigate = useNavigate();
   const form = id ? getFormById(id) : undefined;
   const workflow = form?.workflowId
@@ -58,14 +65,20 @@ export function FormSubmitPage() {
 
   const submit = () => {
     if (!validate() || !currentUser) return;
-    const submission = startSubmission(
+    const { submission, notifications } = startSubmission(
       form.id,
       form.name,
       workflow,
       currentUser,
       values,
+      {
+        form,
+        users: data.users,
+        roles: data.roles,
+      },
     );
     addSubmission(submission);
+    addNotifications(notifications);
     navigate(`/register/${submission.id}`);
   };
 
