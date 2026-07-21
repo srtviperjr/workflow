@@ -1,6 +1,6 @@
 /**
- * Capture sample UI screenshots for docs/REQUIREMENTS.md
- * Usage: node scripts/capture-screenshots.mjs
+ * Capture UI screenshots for docs (REQUIREMENTS + USER_GUIDE).
+ * Usage: npm run screenshots   (dev server must be running)
  */
 import { createRequire } from 'node:module';
 import fs from 'node:fs';
@@ -30,11 +30,21 @@ async function seedSampleData(page) {
   await page.evaluate(() => {
     const buttons = [...document.querySelectorAll('button')];
     const seed = buttons.find((b) =>
-      /data tools|sample data|generate/i.test(b.textContent || ''),
+      /data tools|sample data|generate|run/i.test(b.textContent || ''),
     );
     if (seed) seed.click();
   });
-  await new Promise((r) => setTimeout(r, 800));
+  await new Promise((r) => setTimeout(r, 1000));
+}
+
+async function firstHref(page, pattern) {
+  return page.evaluate((reSource) => {
+    const re = new RegExp(reSource);
+    const link = [...document.querySelectorAll('a')].find((a) =>
+      re.test(a.getAttribute('href') || ''),
+    );
+    return link?.getAttribute('href') || null;
+  }, pattern);
 }
 
 const browser = await puppeteer.launch({
@@ -53,63 +63,115 @@ try {
   await shot(page, '01-dashboard');
 
   await seedSampleData(page);
+  await shot(page, '12-data-tools');
 
   await page.goto(BASE, { waitUntil: 'networkidle0' });
   await new Promise((r) => setTimeout(r, 500));
   await shot(page, '01-dashboard');
 
+  await page.goto(`${BASE}/requests`, { waitUntil: 'networkidle0' });
+  await new Promise((r) => setTimeout(r, 500));
+  await shot(page, '02-requests');
+
   await page.goto(`${BASE}/forms`, { waitUntil: 'networkidle0' });
   await new Promise((r) => setTimeout(r, 500));
-  await shot(page, '02-forms');
+  await shot(page, '03-forms');
 
-  // Open first form edit if available
-  const editHref = await page.evaluate(() => {
-    const link = [...document.querySelectorAll('a')].find((a) =>
-      /\/forms\/.+\/edit/.test(a.getAttribute('href') || ''),
-    );
-    return link?.getAttribute('href') || null;
+  // Prefer Change Request builder (shows Attachment file field)
+  let editHref = await page.evaluate(() => {
+    const all = [...document.querySelectorAll('a')].map((a) => a.getAttribute('href') || '');
+    const change = all.find((h) => h.includes('form-change') && h.includes('/edit'));
+    const anyEdit = all.find((h) => /\/forms\/.+\/edit/.test(h));
+    return change || anyEdit || null;
   });
+  if (!editHref) {
+    editHref = await firstHref(page, '\\/forms\\/.+\\/edit');
+  }
   if (editHref) {
     await page.goto(`${BASE}${editHref}`, { waitUntil: 'networkidle0' });
-    await new Promise((r) => setTimeout(r, 600));
-    await shot(page, '03-form-builder');
+    await new Promise((r) => setTimeout(r, 700));
+    await shot(page, '04-form-builder');
   }
 
   await page.goto(`${BASE}/workflows`, { waitUntil: 'networkidle0' });
   await new Promise((r) => setTimeout(r, 500));
-  await shot(page, '04-workflows');
+  await shot(page, '05-workflows');
 
-  const wfHref = await page.evaluate(() => {
-    const link = [...document.querySelectorAll('a')].find((a) =>
-      /\/workflows\/[^/]+$/.test(a.getAttribute('href') || ''),
-    );
-    return link?.getAttribute('href') || null;
-  });
+  const wfHref = await firstHref(page, '\\/workflows\\/[^/]+$');
   if (wfHref) {
     await page.goto(`${BASE}${wfHref}`, { waitUntil: 'networkidle0' });
     await new Promise((r) => setTimeout(r, 1000));
-    await shot(page, '05-workflow-editor');
+    await shot(page, '06-workflow-editor');
   }
 
   await page.goto(`${BASE}/register`, { waitUntil: 'networkidle0' });
   await new Promise((r) => setTimeout(r, 500));
-  await shot(page, '06-request-register');
+  await shot(page, '07-request-register');
+
+  const formRegHref = await firstHref(page, '\\/register\\/form\\/');
+  if (formRegHref) {
+    await page.goto(`${BASE}${formRegHref}`, { waitUntil: 'networkidle0' });
+    await new Promise((r) => setTimeout(r, 600));
+    await shot(page, '08-form-register');
+  } else {
+    // Fallback: open Change Request form register directly
+    await page.goto(`${BASE}/register/form/form-change`, { waitUntil: 'networkidle0' });
+    await new Promise((r) => setTimeout(r, 600));
+    await shot(page, '08-form-register');
+  }
 
   const detailHref = await page.evaluate(() => {
-    const link = [...document.querySelectorAll('a')].find((a) =>
-      /\/register\/.+/.test(a.getAttribute('href') || ''),
-    );
+    const link = [...document.querySelectorAll('a')].find((a) => {
+      const href = a.getAttribute('href') || '';
+      return /\/register\/.+/.test(href) && !href.includes('/register/form/');
+    });
     return link?.getAttribute('href') || null;
   });
-  if (detailHref) {
-    await page.goto(`${BASE}${detailHref}`, { waitUntil: 'networkidle0' });
-    await new Promise((r) => setTimeout(r, 600));
-    await shot(page, '07-request-detail');
+  // Prefer a change-request detail if listed on overall register
+  await page.goto(`${BASE}/register`, { waitUntil: 'networkidle0' });
+  await new Promise((r) => setTimeout(r, 400));
+  const changeDetail = await page.evaluate(() => {
+    const rows = [...document.querySelectorAll('tr, a')];
+    for (const el of rows) {
+      const text = (el.textContent || '').toLowerCase();
+      const href = el.getAttribute?.('href') || '';
+      if (text.includes('change') && /\/register\/.+/.test(href) && !href.includes('/form/')) {
+        return href;
+      }
+    }
+    const any = [...document.querySelectorAll('a')].find((a) => {
+      const href = a.getAttribute('href') || '';
+      return /\/register\/.+/.test(href) && !href.includes('/register/form/');
+    });
+    return any?.getAttribute('href') || null;
+  });
+  const openDetail = changeDetail || detailHref;
+  if (openDetail) {
+    await page.goto(`${BASE}${openDetail}`, { waitUntil: 'networkidle0' });
+    await new Promise((r) => setTimeout(r, 700));
+    await shot(page, '09-request-detail');
   }
+
+  // Submit page for Change Request (file attachment field)
+  await page.goto(`${BASE}/forms/form-change/submit`, { waitUntil: 'networkidle0' });
+  await new Promise((r) => setTimeout(r, 600));
+  await shot(page, '10-submit-change-request');
 
   await page.goto(`${BASE}/delegations`, { waitUntil: 'networkidle0' });
   await new Promise((r) => setTimeout(r, 500));
-  await shot(page, '08-delegations');
+  await shot(page, '11-delegations');
+
+  await page.goto(`${BASE}/notifications`, { waitUntil: 'networkidle0' });
+  await new Promise((r) => setTimeout(r, 500));
+  await shot(page, '13-notifications');
+
+  await page.goto(`${BASE}/users`, { waitUntil: 'networkidle0' });
+  await new Promise((r) => setTimeout(r, 500));
+  await shot(page, '14-users');
+
+  await page.goto(`${BASE}/roles`, { waitUntil: 'networkidle0' });
+  await new Promise((r) => setTimeout(r, 500));
+  await shot(page, '15-roles');
 
   console.log('done');
 } finally {

@@ -2,24 +2,30 @@
 
 A local-storage React application for designing approval workflows, building forms, and tracking requests end-to-end.
 
-See **[docs/REQUIREMENTS.md](./docs/REQUIREMENTS.md)** for the full product requirements and sample screenshots.
+**Version:** 0.4
+
+| Doc | Description |
+|-----|-------------|
+| [docs/REQUIREMENTS.md](./docs/REQUIREMENTS.md) | Product requirements + sample screenshots |
+| [docs/USER_GUIDE.md](./docs/USER_GUIDE.md) | How to use the app (with screenshots) |
+| [docs/RECREATE_PROMPT.md](./docs/RECREATE_PROMPT.md) | Prompt to recreate this app from scratch |
 
 ## Features
 
-- **Users & roles** — Create users (first/last name, email, company) and assign roles. Default roles: Requestor, Manager, Project Director, Admin. Companies: BHP, Hatch, Bantrel, Fluor.
+- **Users & roles** — Create users (first/last name, email, company, project) and assign roles. Default roles: Requestor, Manager, Project Director, Admin. Companies: BHP, Hatch, Bantrel, Fluor.
 - **Identity switcher** — Top-right control to act as any user in the system.
-- **Visual workflow editor** — Flowchart canvas with steps, decision diamonds, and outcome-based routing (Approve / Reject).
+- **Visual workflow editor** — Flowchart canvas with steps, decisions, notifications, and outcome/condition routing.
 - **1:1 forms & workflows** — Each form owns exactly one dedicated workflow; forms never share a workflow.
-- **Sample forms** — Overtime Request, Vehicle Registration, Change Request, and Leave Request, each with a manager-approval workflow.
+- **Sample forms** — Overtime, Vehicle Registration, Change Request (with optional file attachment), and Leave Request.
+- **File attachments** — Optional form field type; files stored locally (max 512 KB); shown by filename in registers/PDF.
 - **Submission visibility** — Per-form boundary: only own submissions, within company, or within project.
-- **In-app notifications** — Workflow “Notify” steps create templated messages for selected roles (and optionally the submitter); open from the bell icon next to the identity picker.
-- **Form-scoped roles** — Roles can be limited to specific forms for steps and notification recipients.
-- **PDF export** — Print icon on request detail downloads a PDF of the current form.
-- **Dynamic workflow history** — Every request tracks who acted and when; history columns follow the live workflow definition.
-- **Requests** — Users open **Requests** to pick a form and submit; admins design forms under Administration → Forms.
-- **Delegations** — Temporarily grant your approval permissions to another user (additive; non-admins only for themselves).
-- **Request register** — Overall register with basic columns; per-form registers with customizable field visibility/order and header filters.
-- **Admin tools** — Seed sample data, clear requests by form, or reset everything.
+- **In-app notifications** — Workflow Notify steps; open from the AppBar bell.
+- **Form-scoped roles** — Roles can be limited to specific forms.
+- **PDF export** — Print icon on request detail.
+- **Requests** — Everyone submits from **Requests**; admins design forms under Administration → Forms.
+- **Delegations** — Temporarily grant approval permissions (additive).
+- **Registers** — Overall register plus per-form registers with customizable columns and header filters.
+- **Data Tools** — Seed sample users/requests (create additional or clear & recreate), reset by form, or reset all.
 
 ## Quick start
 
@@ -37,6 +43,13 @@ Open the URL shown in the terminal (typically `http://localhost:5173`).
 - React Flow (`@xyflow/react`) for the workflow canvas
 - Browser `localStorage` for persistence
 
-## Default login
+## Default identity
 
-The app boots as **System Admin** (`admin@jansen.local`) with Admin + Requestor roles. Use **Administration → Data Tools** to seed users and requests (create additional or clear & recreate, with counts), then switch identity via the top-right selector.
+The app boots as **System Admin** (`admin@jansen.local`) with Admin + Requestor roles. Use **Administration → Data Tools** to seed users and requests, then switch identity via the top-right selector.
+
+## Screenshots
+
+```bash
+npm run dev          # terminal 1
+npm run screenshots  # terminal 2
+```
