@@ -3,6 +3,7 @@ import type {
   AppNotification,
   ApprovalDelegation,
   FormDefinition,
+  FormRegisterViewConfig,
   FormSubmission,
   FormVisibility,
   Project,
@@ -133,6 +134,19 @@ function normalizeSubmission(sub: FormSubmission): FormSubmission {
   };
 }
 
+function normalizeFormRegisterView(
+  raw: FormRegisterViewConfig,
+): FormRegisterViewConfig | null {
+  if (!raw?.formId || !raw?.userId || !Array.isArray(raw.columns)) return null;
+  return {
+    formId: raw.formId,
+    userId: raw.userId,
+    columns: raw.columns
+      .filter((c) => c && typeof c.id === 'string')
+      .map((c) => ({ id: c.id, visible: Boolean(c.visible) })),
+  };
+}
+
 function normalizeData(data: AppData): AppData {
   const rawForms = (data.forms ?? []).map(normalizeForm);
   const workflows = (data.workflows ?? []).map((w) =>
@@ -151,6 +165,12 @@ function normalizeData(data: AppData): AppData {
     project: normalizeProject(u.project),
   }));
 
+  const formRegisterViews = (
+    Array.isArray(data.formRegisterViews) ? data.formRegisterViews : []
+  )
+    .map(normalizeFormRegisterView)
+    .filter((v): v is FormRegisterViewConfig => Boolean(v));
+
   const normalized: AppData = {
     ...data,
     users,
@@ -162,7 +182,8 @@ function normalizeData(data: AppData): AppData {
     notifications: (Array.isArray(data.notifications) ? data.notifications : []).map(
       (n) => normalizeNotification(n as AppNotification & { toEmails?: string[] }),
     ),
-    version: Math.max(data.version ?? 1, 6),
+    formRegisterViews,
+    version: Math.max(data.version ?? 1, 7),
   };
 
   // Each form must own exactly one workflow (repairs shared / missing links)
