@@ -6,12 +6,15 @@ import {
   Button,
   Chip,
   Divider,
+  IconButton,
   Paper,
   Stack,
   TextField,
+  Tooltip,
   Typography,
 } from '@mui/material';
 import ArrowBackIcon from '@mui/icons-material/ArrowBack';
+import PrintIcon from '@mui/icons-material/Print';
 import { useApp } from '../context/AppContext';
 import { WorkflowHistory } from '../components/forms/WorkflowHistory';
 import { FormRenderer } from '../components/forms/FormRenderer';
@@ -21,6 +24,8 @@ import {
   getDecisionOutcomes,
   getDelegationSource,
 } from '../utils/workflowEngine';
+import { downloadFormPdf } from '../utils/formPdf';
+import { canViewSubmission } from '../utils/submissionVisibility';
 
 const statusColor = {
   draft: 'default',
@@ -38,6 +43,7 @@ export function RequestDetailPage() {
     getFormById,
     getWorkflowById,
     updateSubmission,
+    addNotifications,
   } = useApp();
   const navigate = useNavigate();
   const submission = data.submissions.find((s) => s.id === id);
@@ -63,6 +69,33 @@ export function RequestDetailPage() {
     return (
       <Box>
         <Alert severity="error">Request not found.</Alert>
+        <Button component={RouterLink} to="/register" sx={{ mt: 2 }}>
+          Back to register
+        </Button>
+      </Box>
+    );
+  }
+
+  const allowed = canViewSubmission(
+    currentUser,
+    submission,
+    form,
+    data.users,
+    {
+      roles: data.roles,
+      workflows: data.workflows,
+      includeActionable: true,
+      delegations: data.delegations ?? [],
+    },
+  );
+
+  if (!allowed) {
+    return (
+      <Box>
+        <Alert severity="warning">
+          You do not have permission to view this submission based on the
+          form&apos;s visibility settings.
+        </Alert>
         <Button component={RouterLink} to="/register" sx={{ mt: 2 }}>
           Back to register
         </Button>
@@ -116,15 +149,35 @@ export function RequestDetailPage() {
     const combinedComment = [comment.trim() || undefined, onBehalf]
       .filter(Boolean)
       .join(' · ');
-    const updated = advanceSubmission(submission, workflow, currentUser, {
-      action: actingFor ? `${action} (delegate)` : action,
-      outcome,
-      comment: combinedComment || undefined,
-      fieldData: allowEdits ? fieldValues : undefined,
-    });
+    const { submission: updated, notifications } = advanceSubmission(
+      submission,
+      workflow,
+      currentUser,
+      {
+        action: actingFor ? `${action} (delegate)` : action,
+        outcome,
+        comment: combinedComment || undefined,
+        fieldData: allowEdits ? fieldValues : undefined,
+      },
+      {
+        form: form ?? null,
+        users: data.users,
+        roles: data.roles,
+      },
+    );
     updateSubmission(submission.id, updated);
+    addNotifications(notifications);
     setComment('');
     setEditValues(null);
+  };
+
+  const printPdf = () => {
+    if (!form) return;
+    downloadFormPdf({
+      form,
+      submission,
+      submitter,
+    });
   };
 
   const baseline = submission.baselineData ?? submission.data;
@@ -158,11 +211,18 @@ export function RequestDetailPage() {
                 ` by ${submitter.firstName} ${submitter.lastName} (${submitter.company})`}
             </Typography>
           </Box>
-          <Chip
-            label={submission.status.replace('_', ' ')}
-            color={statusColor[submission.status]}
-            sx={{ textTransform: 'capitalize', fontWeight: 700 }}
-          />
+          <Stack direction="row" spacing={1} alignItems="center">
+            <Tooltip title="Download PDF">
+              <IconButton color="primary" onClick={printPdf} aria-label="Print PDF">
+                <PrintIcon />
+              </IconButton>
+            </Tooltip>
+            <Chip
+              label={submission.status.replace('_', ' ')}
+              color={statusColor[submission.status]}
+              sx={{ textTransform: 'capitalize', fontWeight: 700 }}
+            />
+          </Stack>
         </Stack>
 
         <Divider sx={{ mb: 2 }} />

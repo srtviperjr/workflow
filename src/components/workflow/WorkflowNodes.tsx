@@ -4,6 +4,7 @@ import PlayArrowIcon from '@mui/icons-material/PlayArrow';
 import StopIcon from '@mui/icons-material/Stop';
 import HelpOutlineIcon from '@mui/icons-material/HelpOutline';
 import AssignmentIcon from '@mui/icons-material/Assignment';
+import NotificationsNoneIcon from '@mui/icons-material/NotificationsNone';
 
 interface NodeData {
   label: string;
@@ -178,6 +179,35 @@ export function DecisionNode({ data, selected }: NodeProps) {
           transform: 'translate(-50%, 50%) rotate(-45deg)',
         }}
       />
+    </Box>
+  );
+}
+
+export function NotificationNode({ data, selected }: NodeProps) {
+  const d = data as NodeData & { notifyRoleIds?: string[] };
+  const roleCount = Array.isArray(d.notifyRoleIds) ? d.notifyRoleIds.length : 0;
+  return (
+    <Box
+      sx={{
+        ...base,
+        borderRadius: 2,
+        bgcolor: '#f3e8ff',
+        borderColor: selected ? '#7b1fa2' : '#9c27b0',
+        borderWidth: selected ? 3 : 2,
+        minWidth: 150,
+      }}
+    >
+      <Handle type="target" position={Position.Top} style={{ background: '#9c27b0' }} />
+      <NotificationsNoneIcon sx={{ fontSize: 18, color: '#7b1fa2', mb: 0.25 }} />
+      <Typography variant="body2" fontWeight={700} display="block">
+        {d.label}
+      </Typography>
+      <Typography variant="caption" color="text.secondary" display="block">
+        {roleCount > 0
+          ? `${roleCount} role${roleCount === 1 ? '' : 's'}`
+          : 'No recipients'}
+      </Typography>
+      <Handle type="source" position={Position.Bottom} style={{ background: '#9c27b0' }} />
     </Box>
   );
 }

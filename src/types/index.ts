@@ -1,6 +1,10 @@
 export const COMPANIES = ['BHP', 'Hatch', 'Bantrel', 'Fluor'] as const;
 export type Company = (typeof COMPANIES)[number];
 
+/** Projects used for form submission visibility ("within project") */
+export const PROJECTS = ['JS1', 'JS2', 'Operations'] as const;
+export type Project = (typeof PROJECTS)[number];
+
 export const SYSTEM_ROLE_NAMES = [
   'Requestor',
   'Manager',
@@ -14,6 +18,8 @@ export interface User {
   lastName: string;
   email: string;
   company: Company;
+  /** Project assignment — used when a form's visibility is "within project" */
+  project: Project;
   roleIds: string[];
   createdAt: string;
 }
@@ -33,7 +39,12 @@ export interface Role {
   isSystem: boolean;
 }
 
-export type WorkflowNodeType = 'start' | 'step' | 'decision' | 'end';
+export type WorkflowNodeType =
+  | 'start'
+  | 'step'
+  | 'decision'
+  | 'notification'
+  | 'end';
 
 /** How a decision node chooses its outgoing route */
 export type DecisionMode = 'manual' | 'conditional';
@@ -46,6 +57,23 @@ export interface WorkflowNodeData {
   decisionMode?: DecisionMode;
   /** When true, the actor can edit form field values at this step */
   allowFieldEdits?: boolean;
+  /**
+   * Notification node: roles whose members receive the in-app notification.
+   * Form-scoped roles only apply when the role is linked to this form.
+   */
+  notifyRoleIds?: string[];
+  /** Subject template; supports {{Field Label}} and {{formName}} */
+  notifySubject?: string;
+  /** Message body template; static text plus {{field}} tokens */
+  notifyBody?: string;
+  /**
+   * @deprecated Prefer notifySubject — kept for older saved workflows
+   */
+  emailSubject?: string;
+  /**
+   * @deprecated Prefer notifyBody — kept for older saved workflows
+   */
+  emailBody?: string;
 }
 
 export interface WorkflowNode {
@@ -131,6 +159,19 @@ export interface FormField {
   placeholder?: string;
 }
 
+/**
+ * Who can see submissions for this form in the register / listings.
+ * Approvers who can act on a request always see it regardless.
+ * Admins always see everything.
+ */
+export type FormVisibility = 'own' | 'company' | 'project';
+
+export const FORM_VISIBILITY_LABELS: Record<FormVisibility, string> = {
+  own: 'Only own submissions',
+  company: 'Within company',
+  project: 'Within project',
+};
+
 export interface FormDefinition {
   id: string;
   name: string;
@@ -138,6 +179,8 @@ export interface FormDefinition {
   fields: FormField[];
   /** Required exclusive workflow for this form (1:1 with Workflow.formId) */
   workflowId: string | null;
+  /** Submission visibility boundary for this form */
+  visibility: FormVisibility;
   createdAt: string;
   updatedAt: string;
 }
@@ -202,6 +245,26 @@ export interface ApprovalDelegation {
   createdAt: string;
 }
 
+/** In-app notification produced by a workflow notification step (not email). */
+export interface AppNotification {
+  id: string;
+  submissionId: string;
+  formId: string;
+  workflowId: string | null;
+  nodeId: string;
+  nodeLabel: string;
+  /** Recipient user ids */
+  toUserIds: string[];
+  /** Display names for recipients at send time */
+  toUserNames: string[];
+  subject: string;
+  body: string;
+  sentAt: string;
+  triggeredByUserId: string;
+  /** True until the recipient opens/views it (admins see all) */
+  readByUserIds?: string[];
+}
+
 export interface AppData {
   users: User[];
   roles: Role[];
@@ -209,6 +272,7 @@ export interface AppData {
   forms: FormDefinition[];
   submissions: FormSubmission[];
   delegations: ApprovalDelegation[];
+  notifications: AppNotification[];
   currentUserId: string | null;
   version: number;
 }

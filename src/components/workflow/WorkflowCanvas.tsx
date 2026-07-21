@@ -37,12 +37,14 @@ import AddIcon from '@mui/icons-material/Add';
 import DecisionIcon from '@mui/icons-material/HelpOutline';
 import StopIcon from '@mui/icons-material/Stop';
 import AssignmentIcon from '@mui/icons-material/Assignment';
+import NotificationsNoneIcon from '@mui/icons-material/NotificationsNone';
 import DeleteOutlineIcon from '@mui/icons-material/DeleteOutline';
 import {
   StartNode,
   EndNode,
   StepNode,
   DecisionNode,
+  NotificationNode,
 } from './WorkflowNodes';
 import type {
   ConditionOp,
@@ -60,12 +62,17 @@ import {
   toFlowEdges,
   toFlowNodes,
 } from '../../utils/workflowEngine';
+import {
+  BUILTIN_TEMPLATE_TOKENS,
+  fieldToken,
+} from '../../utils/notifications';
 
 const nodeTypes = {
   start: StartNode,
   end: EndNode,
   step: StepNode,
   decision: DecisionNode,
+  notification: NotificationNode,
 };
 
 const VALUE_OPS: ConditionOp[] = [
@@ -166,6 +173,7 @@ export function WorkflowCanvas({
       end: 'End',
       step: 'New Step',
       decision: 'Decision',
+      notification: 'Notification',
     };
     const defaultRole = roles[0]?.id;
     const newNode: Node = {
@@ -179,6 +187,13 @@ export function WorkflowCanvas({
         roleName: roles.find((r) => r.id === defaultRole)?.name,
         decisionMode: type === 'decision' ? 'manual' : undefined,
         allowFieldEdits: false,
+        notifyRoleIds: type === 'notification' && defaultRole ? [defaultRole] : [],
+        notifySubject:
+          type === 'notification' ? 'Update on {{formName}}' : undefined,
+        notifyBody:
+          type === 'notification'
+            ? 'Hello,\n\nA request was updated.\n\nForm: {{formName}}\nRequest: {{requestId}}\n\nRegards'
+            : undefined,
       },
     };
     setNodes((nds) => {
@@ -198,6 +213,11 @@ export function WorkflowCanvas({
     roleName?: string;
     decisionMode?: 'manual' | 'conditional';
     allowFieldEdits?: boolean;
+    notifyRoleIds?: string[];
+    notifySubject?: string;
+    notifyBody?: string;
+    emailSubject?: string;
+    emailBody?: string;
   };
   const selectedEdgeData = (selectedEdge?.data ?? {}) as {
     routeMode?: 'manual' | 'condition';
@@ -353,6 +373,7 @@ export function WorkflowCanvas({
               if (n.type === 'decision') return '#c45c26';
               if (n.type === 'end') return '#2e7d4f';
               if (n.type === 'start') return '#0d7377';
+              if (n.type === 'notification') return '#9c27b0';
               return '#14919b';
             }}
           />
@@ -368,6 +389,13 @@ export function WorkflowCanvas({
                   onClick={() => addNode('decision')}
                 >
                   Decision
+                </Button>
+                <Button
+                  startIcon={<NotificationsNoneIcon />}
+                  sx={{ bgcolor: '#9c27b0', '&:hover': { bgcolor: '#7b1fa2' } }}
+                  onClick={() => addNode('notification')}
+                >
+                  Notify
                 </Button>
                 <Button startIcon={<StopIcon />} color="success" onClick={() => addNode('end')}>
                   End
@@ -470,6 +498,125 @@ export function WorkflowCanvas({
                 }
                 label="Allow editing form fields at this step"
               />
+            )}
+            {selectedNode.type === 'notification' && (
+              <Stack spacing={1.5}>
+                <Typography variant="caption" color="text.secondary">
+                  Creates an in-app notification when the workflow reaches this
+                  step. Recipients are users with the selected roles
+                  (form-scoped roles only apply on their linked forms). View
+                  them under Notifications.
+                </Typography>
+                <FormControl size="small" fullWidth disabled={readOnly}>
+                  <InputLabel>Notify roles</InputLabel>
+                  <Select
+                    multiple
+                    label="Notify roles"
+                    value={selectedData.notifyRoleIds ?? []}
+                    onChange={(e) => {
+                      const value = e.target.value;
+                      updateSelectedNode({
+                        notifyRoleIds:
+                          typeof value === 'string' ? value.split(',') : value,
+                      });
+                    }}
+                    renderValue={(selected) =>
+                      (selected as string[])
+                        .map((id) => roles.find((r) => r.id === id)?.name ?? id)
+                        .join(', ')
+                    }
+                  >
+                    {roles.map((r) => (
+                      <MenuItem key={r.id} value={r.id}>
+                        {r.name}
+                        {r.scope === 'form' ? ' (form)' : ' (app)'}
+                      </MenuItem>
+                    ))}
+                  </Select>
+                </FormControl>
+                <TextField
+                  label="Subject"
+                  size="small"
+                  fullWidth
+                  disabled={readOnly}
+                  value={
+                    selectedData.notifySubject ??
+                    selectedData.emailSubject ??
+                    ''
+                  }
+                  onChange={(e) =>
+                    updateSelectedNode({
+                      notifySubject: e.target.value,
+                      emailSubject: undefined,
+                    })
+                  }
+                  helperText="Use {{tokens}} for dynamic values"
+                />
+                <TextField
+                  label="Message"
+                  size="small"
+                  fullWidth
+                  multiline
+                  minRows={5}
+                  disabled={readOnly}
+                  value={
+                    selectedData.notifyBody ?? selectedData.emailBody ?? ''
+                  }
+                  onChange={(e) =>
+                    updateSelectedNode({
+                      notifyBody: e.target.value,
+                      emailBody: undefined,
+                    })
+                  }
+                />
+                <Box>
+                  <Typography variant="caption" fontWeight={700} display="block" mb={0.5}>
+                    Insert token
+                  </Typography>
+                  <Stack direction="row" spacing={0.5} flexWrap="wrap" useFlexGap>
+                    {BUILTIN_TEMPLATE_TOKENS.map((t) => (
+                      <Chip
+                        key={t.token}
+                        size="small"
+                        label={t.label}
+                        onClick={() => {
+                          if (readOnly) return;
+                          const current =
+                            selectedData.notifyBody ??
+                            selectedData.emailBody ??
+                            '';
+                          updateSelectedNode({
+                            notifyBody: `${current}${t.token}`,
+                            emailBody: undefined,
+                          });
+                        }}
+                        sx={{ cursor: readOnly ? 'default' : 'pointer' }}
+                      />
+                    ))}
+                    {formFields.map((f) => (
+                      <Chip
+                        key={f.id}
+                        size="small"
+                        color="primary"
+                        variant="outlined"
+                        label={f.label}
+                        onClick={() => {
+                          if (readOnly) return;
+                          const current =
+                            selectedData.notifyBody ??
+                            selectedData.emailBody ??
+                            '';
+                          updateSelectedNode({
+                            notifyBody: `${current}${fieldToken(f)}`,
+                            emailBody: undefined,
+                          });
+                        }}
+                        sx={{ cursor: readOnly ? 'default' : 'pointer' }}
+                      />
+                    ))}
+                  </Stack>
+                </Box>
+              </Stack>
             )}
             <TextField
               label="Description"

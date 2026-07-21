@@ -24,6 +24,7 @@ import DescriptionIcon from '@mui/icons-material/Description';
 import GridOnIcon from '@mui/icons-material/GridOn';
 import AdminPanelSettingsIcon from '@mui/icons-material/AdminPanelSettings';
 import SwapHorizIcon from '@mui/icons-material/SwapHoriz';
+import NotificationsNoneIcon from '@mui/icons-material/NotificationsNone';
 import { IdentitySwitcher } from './IdentitySwitcher';
 import { useApp } from '../context/AppContext';
 
@@ -34,6 +35,12 @@ const navItems = [
   { to: '/register', label: 'Request Register', icon: <GridOnIcon />, adminOnly: false },
   { to: '/forms', label: 'Forms', icon: <DescriptionIcon />, adminOnly: false },
   { to: '/delegations', label: 'Delegations', icon: <SwapHorizIcon />, adminOnly: false },
+  {
+    to: '/notifications',
+    label: 'Notifications',
+    icon: <NotificationsNoneIcon />,
+    adminOnly: false,
+  },
   { to: '/workflows', label: 'Workflows', icon: <AccountTreeIcon />, adminOnly: true },
   { to: '/users', label: 'Users', icon: <PeopleIcon />, adminOnly: true },
   { to: '/roles', label: 'Roles', icon: <BadgeIcon />, adminOnly: true },

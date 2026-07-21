@@ -17,6 +17,7 @@ import AccountTreeIcon from '@mui/icons-material/AccountTree';
 import PeopleIcon from '@mui/icons-material/People';
 import { useApp } from '../context/AppContext';
 import { canUserActOnNode } from '../utils/workflowEngine';
+import { filterVisibleSubmissions } from '../utils/submissionVisibility';
 
 export function DashboardPage() {
   const { data, currentUser, isAdmin } = useApp();
@@ -33,6 +34,19 @@ export function DashboardPage() {
       users: data.users,
     });
   });
+
+  const visibleCount = filterVisibleSubmissions(
+    currentUser,
+    data.submissions,
+    data.forms,
+    data.users,
+    {
+      roles: data.roles,
+      workflows: data.workflows,
+      includeActionable: true,
+      delegations: data.delegations ?? [],
+    },
+  ).length;
 
   const stats = [
     {
@@ -54,8 +68,8 @@ export function DashboardPage() {
       color: '#1565a0',
     },
     {
-      label: 'Requests',
-      value: data.submissions.length,
+      label: 'Visible requests',
+      value: visibleCount,
       icon: <GridOnIcon />,
       color: '#2e7d4f',
     },
@@ -93,7 +107,7 @@ export function DashboardPage() {
         {currentUser && (
           <Typography variant="body2" sx={{ mt: 2, opacity: 0.85 }}>
             Signed in as {currentUser.firstName} {currentUser.lastName} ·{' '}
-            {currentUser.company}
+            {currentUser.company} · {currentUser.project}
             {isAdmin ? ' · Admin' : ''}
           </Typography>
         )}

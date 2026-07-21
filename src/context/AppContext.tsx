@@ -10,6 +10,7 @@ import {
 import type {
   AppData,
   ApprovalDelegation,
+  AppNotification,
   FormDefinition,
   FormSubmission,
   Role,
@@ -53,6 +54,9 @@ interface AppContextValue {
   addSubmission: (sub: FormSubmission) => void;
   updateSubmission: (id: string, patch: Partial<FormSubmission>) => void;
   deleteSubmission: (id: string) => void;
+  // Notifications
+  addNotifications: (items: AppNotification[]) => void;
+  markNotificationRead: (id: string, userId: string) => void;
   // Delegations
   addDelegation: (
     delegation: Omit<ApprovalDelegation, 'id' | 'createdAt'>,
@@ -105,6 +109,7 @@ export function AppProvider({ children }: { children: ReactNode }) {
     addUser: (user) => {
       const created: User = {
         ...user,
+        project: user.project ?? 'JS1',
         id: createId('user'),
         createdAt: new Date().toISOString(),
       };
@@ -297,6 +302,7 @@ export function AppProvider({ children }: { children: ReactNode }) {
         ...form,
         id: formId,
         workflowId,
+        visibility: form.visibility ?? 'project',
         createdAt: ts,
         updatedAt: ts,
       };
@@ -443,6 +449,27 @@ export function AppProvider({ children }: { children: ReactNode }) {
       update((d) => ({
         ...d,
         submissions: d.submissions.filter((s) => s.id !== id),
+        notifications: (d.notifications ?? []).filter(
+          (n) => n.submissionId !== id,
+        ),
+      })),
+
+    addNotifications: (items) => {
+      if (!items.length) return;
+      update((d) => ({
+        ...d,
+        notifications: [...(d.notifications ?? []), ...items],
+      }));
+    },
+    markNotificationRead: (id, userId) =>
+      update((d) => ({
+        ...d,
+        notifications: (d.notifications ?? []).map((n) => {
+          if (n.id !== id) return n;
+          const readBy = new Set(n.readByUserIds ?? []);
+          readBy.add(userId);
+          return { ...n, readByUserIds: [...readBy] };
+        }),
       })),
 
     addDelegation: (delegation) => {

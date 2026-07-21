@@ -66,8 +66,9 @@ export function AdminToolsPage() {
                   Create sample data
                 </Typography>
                 <Typography variant="body2" color="text.secondary" mb={2}>
-                  Adds sample users across companies and sample requests for
-                  existing forms, without removing current data.
+                  Replaces forms with Overtime, Vehicle Registration, Change
+                  Request, and Leave Request (manager-approval workflows), adds
+                  sample users across companies/projects, and sample submissions.
                 </Typography>
                 <Button
                   variant="contained"
@@ -75,7 +76,7 @@ export function AdminToolsPage() {
                   onClick={() => {
                     seedSampleData();
                     setMessage(
-                      'Sample users and requests added alongside existing data.',
+                      'Sample catalog, users, and requests loaded.',
                     );
                   }}
                 >

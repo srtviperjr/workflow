@@ -30,13 +30,14 @@ import AddIcon from '@mui/icons-material/Add';
 import EditIcon from '@mui/icons-material/Edit';
 import DeleteIcon from '@mui/icons-material/Delete';
 import { useApp } from '../context/AppContext';
-import { COMPANIES, type Company, type User } from '../types';
+import { COMPANIES, PROJECTS, type Company, type Project, type User } from '../types';
 
 const emptyForm = {
   firstName: '',
   lastName: '',
   email: '',
   company: 'BHP' as Company,
+  project: 'JS1' as Project,
   roleIds: [] as string[],
 };
 
@@ -63,6 +64,7 @@ export function UsersPage() {
       lastName: u.lastName,
       email: u.email,
       company: u.company,
+      project: u.project ?? 'JS1',
       roleIds: [...u.roleIds],
     });
     setOpen(true);
@@ -107,6 +109,7 @@ export function UsersPage() {
               <TableCell>Name</TableCell>
               <TableCell>Email</TableCell>
               <TableCell>Company</TableCell>
+              <TableCell>Project</TableCell>
               <TableCell>Roles</TableCell>
               <TableCell align="right">Actions</TableCell>
             </TableRow>
@@ -122,6 +125,9 @@ export function UsersPage() {
                 <TableCell>{u.email}</TableCell>
                 <TableCell>
                   <Chip size="small" label={u.company} />
+                </TableCell>
+                <TableCell>
+                  <Chip size="small" label={u.project ?? '—'} variant="outlined" />
                 </TableCell>
                 <TableCell>
                   <Stack direction="row" spacing={0.5} flexWrap="wrap" useFlexGap>
@@ -202,6 +208,25 @@ export function UsersPage() {
                 {COMPANIES.map((c) => (
                   <MenuItem key={c} value={c}>
                     {c}
+                  </MenuItem>
+                ))}
+              </Select>
+            </FormControl>
+            <FormControl fullWidth>
+              <InputLabel>Project</InputLabel>
+              <Select
+                label="Project"
+                value={form.project}
+                onChange={(e) =>
+                  setForm((f) => ({
+                    ...f,
+                    project: e.target.value as Project,
+                  }))
+                }
+              >
+                {PROJECTS.map((p) => (
+                  <MenuItem key={p} value={p}>
+                    {p}
                   </MenuItem>
                 ))}
               </Select>

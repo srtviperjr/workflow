@@ -1,5 +1,6 @@
 import { useState } from 'react';
 import {
+  Alert,
   Autocomplete,
   Box,
   Button,
@@ -105,8 +106,9 @@ export function RolesPage() {
             Roles
           </Typography>
           <Typography color="text.secondary">
-            Core application roles or form-specific roles, with optional AD group
-            mapping
+            Define who can act on workflow steps and who receives in-app
+            notifications. Form-scoped roles are limited to the forms you select
+            below — they will not appear for other forms.
           </Typography>
         </Box>
         <Button variant="contained" startIcon={<AddIcon />} onClick={openCreate}>
@@ -121,6 +123,7 @@ export function RolesPage() {
               <TableCell>Name</TableCell>
               <TableCell>Description</TableCell>
               <TableCell>Scope</TableCell>
+              <TableCell>Allowed forms</TableCell>
               <TableCell>AD Groups</TableCell>
               <TableCell>Users</TableCell>
               <TableCell>Type</TableCell>
@@ -136,14 +139,24 @@ export function RolesPage() {
                 <TableCell>{r.description}</TableCell>
                 <TableCell>
                   {r.scope === 'form' ? (
-                    <Stack spacing={0.5}>
-                      <Chip size="small" label="Form" color="secondary" />
-                      <Typography variant="caption" color="text.secondary">
-                        {formNames(r.formIds) || 'No forms'}
-                      </Typography>
-                    </Stack>
+                    <Chip size="small" label="Form" color="secondary" />
                   ) : (
                     <Chip size="small" label="Application" color="primary" variant="outlined" />
+                  )}
+                </TableCell>
+                <TableCell>
+                  {r.scope === 'form' ? (
+                    <Typography variant="body2">
+                      {formNames(r.formIds) || (
+                        <Typography component="span" color="error.main">
+                          None selected
+                        </Typography>
+                      )}
+                    </Typography>
+                  ) : (
+                    <Typography variant="body2" color="text.secondary">
+                      All forms
+                    </Typography>
                   )}
                 </TableCell>
                 <TableCell>
@@ -223,8 +236,8 @@ export function RolesPage() {
                   if (next === 'app') setFormIds([]);
                 }}
               >
-                <MenuItem value="app">Core application</MenuItem>
-                <MenuItem value="form">Specific form(s)</MenuItem>
+                <MenuItem value="app">Core application (all forms)</MenuItem>
+                <MenuItem value="form">Specific form(s) only</MenuItem>
               </Select>
             </FormControl>
             {scope === 'form' && (
@@ -237,12 +250,18 @@ export function RolesPage() {
                 renderInput={(params) => (
                   <TextField
                     {...params}
-                    label="Forms"
+                    label="Forms this role can be used on"
                     required
-                    helperText="This role can only act on workflows for these forms"
+                    helperText="Required for form-scoped roles. Controls workflow step assignment and notification recipients for these forms only."
                   />
                 )}
               />
+            )}
+            {scope === 'app' && (
+              <Alert severity="info">
+                Application roles can be assigned on any form&apos;s workflow
+                steps and notification recipients.
+              </Alert>
             )}
             <Autocomplete
               multiple
