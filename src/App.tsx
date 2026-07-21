@@ -15,7 +15,7 @@ import { RequestsPage } from './pages/RequestsPage';
 import { RequestRegisterPage } from './pages/RequestRegisterPage';
 import { FormRegisterPage } from './pages/FormRegisterPage';
 import { RequestDetailPage } from './pages/RequestDetailPage';
-import { AdminToolsPage } from './pages/AdminToolsPage';
+import { DataToolsPage } from './pages/DataToolsPage';
 import { DelegationsPage } from './pages/DelegationsPage';
 import { NotificationsPage } from './pages/NotificationsPage';
 
@@ -44,7 +44,8 @@ export default function App() {
                 element={<FormRegisterPage />}
               />
               <Route path="register/:id" element={<RequestDetailPage />} />
-              <Route path="admin" element={<AdminToolsPage />} />
+              <Route path="data-tools" element={<DataToolsPage />} />
+              <Route path="admin" element={<Navigate to="/data-tools" replace />} />
               <Route path="*" element={<Navigate to="/" replace />} />
             </Route>
           </Routes>

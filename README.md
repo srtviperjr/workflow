@@ -39,4 +39,4 @@ Open the URL shown in the terminal (typically `http://localhost:5173`).
 
 ## Default login
 
-The app boots as **System Admin** (`admin@jansen.local`) with Admin + Requestor roles. Use **Admin Tools → Generate Sample Data** (choose clear-and-recreate or add more, and how many requests per form) to add demo users, requests, and notifications, then switch identity via the top-right selector.
+The app boots as **System Admin** (`admin@jansen.local`) with Admin + Requestor roles. Use **Administration → Data Tools** to seed users and requests (create additional or clear & recreate, with counts), then switch identity via the top-right selector.

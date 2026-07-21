@@ -48,14 +48,16 @@ export interface SampleSeedOptions {
    */
   mode?: SampleSeedMode;
   /**
-   * When true (default), create/update the demo sample users.
+   * When true, create sample users (honours userCount / userMode).
    */
   includeUsers?: boolean;
   /**
    * `replace` removes existing sample users then recreates them.
-   * `append` only adds sample users that are missing (by email).
+   * `append` adds new sample users without removing existing ones.
    */
   userMode?: SampleSeedMode;
+  /** How many sample users to create (default: full canned set size). */
+  userCount?: number;
 }
 
 export interface SampleSeedStats {
@@ -148,6 +150,114 @@ export function generateSampleUsers(): User[] {
       createdAt: ts,
     },
   ];
+}
+
+const EXTRA_FIRST = [
+  'Riley',
+  'Avery',
+  'Quinn',
+  'Jamie',
+  'Cameron',
+  'Drew',
+  'Parker',
+  'Reese',
+  'Skyler',
+  'Finley',
+];
+const EXTRA_LAST = [
+  'Nguyen',
+  'Singh',
+  'Walsh',
+  'Okoro',
+  'Martinez',
+  'Andersen',
+  'Kowalski',
+  'Berg',
+  'Silva',
+  'Nakamura',
+];
+const EXTRA_COMPANIES = ['BHP', 'Hatch', 'Bantrel', 'Fluor'] as const;
+const EXTRA_PROJECTS = ['JS1', 'JS2', 'Operations'] as const;
+const EXTRA_ROLES: string[][] = [
+  ['role-requestor'],
+  ['role-manager'],
+  ['role-requestor', 'role-manager'],
+  ['role-project-director', 'role-requestor'],
+  ['role-requestor'],
+];
+
+/** True for canned or generated demo sample users (never the system admin). */
+export function isDemoSampleUser(u: User): boolean {
+  if (u.id === 'user-admin' || u.email.toLowerCase() === 'admin@jansen.local') {
+    return false;
+  }
+  const email = u.email.toLowerCase();
+  if (sampleUserEmails().has(email)) return true;
+  if (email.endsWith('@sample.jansen.local')) return true;
+  if (
+    u.id.startsWith('user-alex') ||
+    u.id.startsWith('user-morgan') ||
+    u.id.startsWith('user-jordan') ||
+    u.id.startsWith('user-taylor') ||
+    u.id.startsWith('user-sam') ||
+    u.id.startsWith('user-casey') ||
+    u.id.startsWith('user-sample')
+  ) {
+    return true;
+  }
+  return false;
+}
+
+/**
+ * Build `count` sample users. Prefers the canned demo set, then generates
+ * extras with unique @sample.jansen.local emails.
+ */
+export function generateNSampleUsers(
+  count: number,
+  opts?: { existingEmails?: Set<string>; uniqueSuffix?: string },
+): User[] {
+  const n = Math.max(0, Math.min(50, Math.floor(count)));
+  if (n === 0) return [];
+  const existing = opts?.existingEmails ?? new Set<string>();
+  const suffix = opts?.uniqueSuffix ?? '';
+  const canned = generateSampleUsers();
+  const out: User[] = [];
+  const used = new Set(existing);
+
+  for (const u of canned) {
+    if (out.length >= n) break;
+    const email = u.email.toLowerCase();
+    if (used.has(email)) continue;
+    out.push({ ...u });
+    used.add(email);
+  }
+
+  let i = 0;
+  while (out.length < n) {
+    const first = EXTRA_FIRST[i % EXTRA_FIRST.length];
+    const last = EXTRA_LAST[Math.floor(i / EXTRA_FIRST.length) % EXTRA_LAST.length];
+    const email = `${first.toLowerCase()}.${last.toLowerCase()}${
+      suffix ? `.${suffix}` : ''
+    }.${i + 1}@sample.jansen.local`;
+    if (used.has(email)) {
+      i += 1;
+      continue;
+    }
+    out.push({
+      id: createId('user-sample'),
+      firstName: first,
+      lastName: last,
+      email,
+      company: EXTRA_COMPANIES[i % EXTRA_COMPANIES.length],
+      project: EXTRA_PROJECTS[i % EXTRA_PROJECTS.length],
+      roleIds: [...EXTRA_ROLES[i % EXTRA_ROLES.length]],
+      createdAt: now(),
+    });
+    used.add(email);
+    i += 1;
+  }
+
+  return out;
 }
 
 function makeHistory(
@@ -681,14 +791,19 @@ export function mergeSampleData(
   options: SampleSeedOptions = {},
 ): { data: AppData; stats: SampleSeedStats } {
   const includeNotifications = options.includeNotifications !== false;
-  const includeUsers = options.includeUsers !== false;
+  const userCount = Math.max(
+    0,
+    Math.min(50, Math.floor(options.userCount ?? 0)),
+  );
+  const includeUsers = options.includeUsers === true && userCount > 0
+    ? true
+    : options.includeUsers === false
+      ? false
+      : userCount > 0;
   const mode: SampleSeedMode = options.mode === 'append' ? 'append' : 'replace';
   const userMode: SampleSeedMode =
     options.userMode === 'append' ? 'append' : 'replace';
   const catalog = createSampleCatalog();
-  const sampleUsers = generateSampleUsers();
-  const sampleEmails = new Set(sampleUsers.map((u) => u.email.toLowerCase()));
-  const sampleIds = new Set(sampleUsers.map((u) => u.id));
 
   let users: User[] = data.users.map((u) => ({
     ...u,
@@ -699,22 +814,13 @@ export function mergeSampleData(
   let currentUserId = data.currentUserId;
   let delegations = [...(data.delegations ?? [])];
 
-  // Remap old sample-user ids → new canonical ids when replacing
+  // Remap old sample-user ids → new ids when replacing
   const idRemap = new Map<string, string>();
 
-  if (includeUsers) {
+  if (includeUsers && userCount > 0) {
     if (userMode === 'replace') {
-      const removed = users.filter(
-        (u) =>
-          sampleEmails.has(u.email.toLowerCase()) || sampleIds.has(u.id),
-      );
+      const removed = users.filter((u) => isDemoSampleUser(u));
       usersCleared = removed.length;
-      for (const old of removed) {
-        const match = sampleUsers.find(
-          (s) => s.email.toLowerCase() === old.email.toLowerCase(),
-        );
-        if (match) idRemap.set(old.id, match.id);
-      }
       const removedIds = new Set(removed.map((u) => u.id));
       users = users.filter((u) => !removedIds.has(u.id));
       delegations = delegations.filter(
@@ -726,43 +832,26 @@ export function mergeSampleData(
           users[0]?.id ??
           null;
       }
-    }
-
-    const usersByEmail = new Map(
-      users.map((u) => [u.email.toLowerCase(), u] as const),
-    );
-    for (const sample of sampleUsers) {
-      const key = sample.email.toLowerCase();
-      const existing = usersByEmail.get(key);
-      if (!existing) {
-        users.push({ ...sample });
-        usersByEmail.set(key, sample);
-        usersAdded += 1;
-      } else if (userMode === 'replace') {
-        // Re-insert canonical sample user (fixed id) after wipe
-        // (existing should not happen after replace wipe for sample emails)
-        const idx = users.findIndex((u) => u.id === existing.id);
-        if (idx >= 0) {
-          idRemap.set(users[idx].id, sample.id);
-          users[idx] = { ...sample };
-        }
-      } else {
-        // append: only ensure roles on existing match
-        const idx = users.findIndex((u) => u.id === existing.id);
-        if (idx >= 0) {
-          const before = users[idx].roleIds.length;
-          users[idx] = {
-            ...users[idx],
-            roleIds: Array.from(
-              new Set([...users[idx].roleIds, ...sample.roleIds]),
-            ),
-            project: users[idx].project ?? sample.project,
-          };
-          if (users[idx].roleIds.length > before) {
-            // treat role enrichment as an update, not a new user
-          }
-        }
+      const created = generateNSampleUsers(userCount);
+      // Prefer remapping canned emails when possible
+      for (const old of removed) {
+        const match = created.find(
+          (s) => s.email.toLowerCase() === old.email.toLowerCase(),
+        );
+        if (match) idRemap.set(old.id, match.id);
       }
+      users.push(...created);
+      usersAdded = created.length;
+    } else {
+      const existingEmails = new Set(
+        users.map((u) => u.email.toLowerCase()),
+      );
+      const created = generateNSampleUsers(userCount, {
+        existingEmails,
+        uniqueSuffix: Date.now().toString(36),
+      });
+      users.push(...created);
+      usersAdded = created.length;
     }
   }
 

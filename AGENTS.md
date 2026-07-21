@@ -9,4 +9,4 @@ Standard commands live in `package.json` (`dev`, `build`, `lint`, `preview`). No
 - **Dev server**: `npm run dev` serves the app on port `5173` (host `0.0.0.0`, configured in `vite.config.ts`). This is the only service; it *is* the product.
 - **Preview**: `npm run preview` serves a production build on port `4173` (requires `npm run build` first).
 - **Lint**: `npm run lint` (oxlint) currently emits one pre-existing benign warning in `src/context/AppContext.tsx` (react-refresh only-export-components); it exits 0.
-- **State reset**: because persistence is `localStorage`, use the in-app **Admin Tools** (Generate Sample Data / reset) to change data rather than editing files. The app boots as **System Admin** (`admin@jansen.local`); no login is required.
+- **State reset**: because persistence is `localStorage`, use the in-app **Data Tools** (sample seed / reset) under Administration to change data rather than editing files. The app boots as **System Admin** (`admin@jansen.local`); no login is required.

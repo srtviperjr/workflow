@@ -100,7 +100,7 @@ Users belong to one of: BHP, Hatch, Bantrel, Fluor.
 
 | ID | Requirement |
 |----|-------------|
-| AD-1 | Seed sample users and submissions; choose how many requests to generate per form. |
+| AD-1 | Data Tools can seed sample users and requests with create-additional or clear-and-recreate modes and counts. |
 | AD-2 | Reset requests for a single form. |
 | AD-3 | Reset all application data to defaults. |
 
