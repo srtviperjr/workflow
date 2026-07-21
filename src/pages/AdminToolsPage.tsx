@@ -194,15 +194,34 @@ export function AdminToolsPage() {
                   label="Include in-app notifications (submission, approval, rejection)"
                 />
 
+                {totalRequests === 0 && (
+                  <Alert severity="warning" sx={{ mb: 2 }}>
+                    Set at least one request per form above (or use Set all to
+                    2). Generating with all zeros will not create requests
+                    {seedMode === 'replace'
+                      ? ' and will clear existing sample requests.'
+                      : '.'}
+                  </Alert>
+                )}
+
                 <Button
                   variant="contained"
                   startIcon={<DatasetIcon />}
+                  disabled={totalRequests === 0}
                   onClick={() => {
                     const stats = seedSampleData({
                       requestsPerForm,
                       includeNotifications,
                       mode: seedMode,
                     });
+                    if (stats.submissionsAdded === 0) {
+                      setMessage(
+                        `No requests were created. Existing sample data was${
+                          stats.submissionsCleared > 0 ? '' : ' not'
+                        } cleared. Check that sample users/roles exist, then try Set all to 2 and generate again.`,
+                      );
+                      return;
+                    }
                     const cleared =
                       stats.mode === 'replace' &&
                       (stats.submissionsCleared > 0 ||

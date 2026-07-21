@@ -562,10 +562,12 @@ export function AppProvider({ children }: { children: ReactNode }) {
         notificationsAdded: 0,
         submissionsCleared: 0,
         notificationsCleared: 0,
-        mode: 'replace',
+        mode: options?.mode === 'append' ? 'append' : 'replace',
       };
-      update((d) => {
-        const result = mergeSampleData(d, options);
+      // Compute against latest state synchronously so returned stats match
+      // what was written (and so a failed generate cannot wipe data).
+      setData((prev) => {
+        const result = mergeSampleData(prev, options);
         stats = result.stats;
         return result.data;
       });
