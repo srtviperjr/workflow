@@ -3,6 +3,7 @@ import { Link as RouterLink, Outlet, useLocation } from 'react-router-dom';
 import {
   AppBar,
   Box,
+  Collapse,
   Divider,
   Drawer,
   IconButton,
@@ -24,8 +25,11 @@ import DescriptionIcon from '@mui/icons-material/Description';
 import GridOnIcon from '@mui/icons-material/GridOn';
 import AdminPanelSettingsIcon from '@mui/icons-material/AdminPanelSettings';
 import SwapHorizIcon from '@mui/icons-material/SwapHoriz';
-import NotificationsNoneIcon from '@mui/icons-material/NotificationsNone';
+import PostAddIcon from '@mui/icons-material/PostAdd';
+import ExpandLess from '@mui/icons-material/ExpandLess';
+import ExpandMore from '@mui/icons-material/ExpandMore';
 import { IdentitySwitcher } from './IdentitySwitcher';
+import { NotificationBell } from './NotificationBell';
 import { useApp } from '../context/AppContext';
 
 const DRAWER_WIDTH = 260;
@@ -33,26 +37,19 @@ const DRAWER_WIDTH = 260;
 /** App display version — shown in the AppBar and sidebar. */
 export const APP_VERSION = '0.3';
 
-const navItems = [
-  { to: '/', label: 'Dashboard', icon: <DashboardIcon />, adminOnly: false },
-  { to: '/register', label: 'Request Register', icon: <GridOnIcon />, adminOnly: false },
-  { to: '/forms', label: 'Forms', icon: <DescriptionIcon />, adminOnly: false },
-  { to: '/delegations', label: 'Delegations', icon: <SwapHorizIcon />, adminOnly: false },
-  {
-    to: '/notifications',
-    label: 'Notifications',
-    icon: <NotificationsNoneIcon />,
-    adminOnly: false,
-  },
-  { to: '/workflows', label: 'Workflows', icon: <AccountTreeIcon />, adminOnly: true },
-  { to: '/users', label: 'Users', icon: <PeopleIcon />, adminOnly: true },
-  { to: '/roles', label: 'Roles', icon: <BadgeIcon />, adminOnly: true },
-  {
-    to: '/admin',
-    label: 'Admin Tools',
-    icon: <AdminPanelSettingsIcon />,
-    adminOnly: true,
-  },
+const primaryNav = [
+  { to: '/', label: 'Dashboard', icon: <DashboardIcon /> },
+  { to: '/requests', label: 'Requests', icon: <PostAddIcon /> },
+  { to: '/register', label: 'Request Register', icon: <GridOnIcon /> },
+  { to: '/delegations', label: 'Delegations', icon: <SwapHorizIcon /> },
+];
+
+const adminNav = [
+  { to: '/admin', label: 'Admin Tools', icon: <AdminPanelSettingsIcon /> },
+  { to: '/forms', label: 'Forms', icon: <DescriptionIcon /> },
+  { to: '/workflows', label: 'Workflows', icon: <AccountTreeIcon /> },
+  { to: '/users', label: 'Users', icon: <PeopleIcon /> },
+  { to: '/roles', label: 'Roles', icon: <BadgeIcon /> },
 ];
 
 export function Layout() {
@@ -61,6 +58,26 @@ export function Layout() {
   const [open, setOpen] = useState(false);
   const location = useLocation();
   const { isAdmin } = useApp();
+
+  const adminSectionActive = adminNav.some((item) =>
+    location.pathname.startsWith(item.to),
+  );
+  const [adminOpen, setAdminOpen] = useState(adminSectionActive);
+
+  const isSelected = (to: string) =>
+    to === '/'
+      ? location.pathname === '/'
+      : location.pathname === to || location.pathname.startsWith(`${to}/`);
+
+  const navButtonSx = {
+    borderRadius: 2,
+    mb: 0.5,
+    '&.Mui-selected': {
+      bgcolor: 'rgba(13,115,119,0.12)',
+      color: 'primary.dark',
+      '& .MuiListItemIcon-root': { color: 'primary.main' },
+    },
+  };
 
   const drawer = (
     <Box sx={{ display: 'flex', flexDirection: 'column', height: '100%' }}>
@@ -94,38 +111,73 @@ export function Layout() {
       </Toolbar>
       <Divider />
       <List sx={{ px: 1, py: 1.5, flex: 1 }}>
-        {navItems
-          .filter((item) => !item.adminOnly || isAdmin)
-          .map((item) => {
-            const selected =
-              item.to === '/'
-                ? location.pathname === '/'
-                : location.pathname.startsWith(item.to);
-            return (
-              <ListItemButton
-                key={item.to}
-                component={RouterLink}
-                to={item.to}
-                selected={selected}
-                onClick={() => isMobile && setOpen(false)}
-                sx={{
-                  borderRadius: 2,
-                  mb: 0.5,
-                  '&.Mui-selected': {
-                    bgcolor: 'rgba(13,115,119,0.12)',
-                    color: 'primary.dark',
-                    '& .MuiListItemIcon-root': { color: 'primary.main' },
-                  },
+        {primaryNav.map((item) => {
+          const selected = isSelected(item.to);
+          return (
+            <ListItemButton
+              key={item.to}
+              component={RouterLink}
+              to={item.to}
+              selected={selected}
+              onClick={() => isMobile && setOpen(false)}
+              sx={navButtonSx}
+            >
+              <ListItemIcon sx={{ minWidth: 40 }}>{item.icon}</ListItemIcon>
+              <ListItemText
+                primary={item.label}
+                primaryTypographyProps={{ fontWeight: selected ? 700 : 500 }}
+              />
+            </ListItemButton>
+          );
+        })}
+
+        {isAdmin && (
+          <>
+            <Divider sx={{ my: 1.5 }} />
+            <ListItemButton
+              onClick={() => setAdminOpen((v) => !v)}
+              selected={adminSectionActive}
+              sx={navButtonSx}
+            >
+              <ListItemIcon sx={{ minWidth: 40 }}>
+                <AdminPanelSettingsIcon />
+              </ListItemIcon>
+              <ListItemText
+                primary="Administration"
+                primaryTypographyProps={{
+                  fontWeight: adminSectionActive ? 700 : 600,
                 }}
-              >
-                <ListItemIcon sx={{ minWidth: 40 }}>{item.icon}</ListItemIcon>
-                <ListItemText
-                  primary={item.label}
-                  primaryTypographyProps={{ fontWeight: selected ? 700 : 500 }}
-                />
-              </ListItemButton>
-            );
-          })}
+              />
+              {adminOpen || adminSectionActive ? <ExpandLess /> : <ExpandMore />}
+            </ListItemButton>
+            <Collapse in={adminOpen || adminSectionActive} timeout="auto" unmountOnExit>
+              <List component="div" disablePadding>
+                {adminNav.map((item) => {
+                  const selected = isSelected(item.to);
+                  return (
+                    <ListItemButton
+                      key={item.to}
+                      component={RouterLink}
+                      to={item.to}
+                      selected={selected}
+                      onClick={() => isMobile && setOpen(false)}
+                      sx={{ ...navButtonSx, pl: 4 }}
+                    >
+                      <ListItemIcon sx={{ minWidth: 40 }}>{item.icon}</ListItemIcon>
+                      <ListItemText
+                        primary={item.label}
+                        primaryTypographyProps={{
+                          fontWeight: selected ? 700 : 500,
+                          fontSize: '0.9rem',
+                        }}
+                      />
+                    </ListItemButton>
+                  );
+                })}
+              </List>
+            </Collapse>
+          </>
+        )}
       </List>
     </Box>
   );
@@ -178,7 +230,10 @@ export function Layout() {
               v{APP_VERSION}
             </Typography>
           </Box>
-          <IdentitySwitcher />
+          <Box sx={{ display: 'flex', alignItems: 'center', gap: 1.5 }}>
+            <NotificationBell />
+            <IdentitySwitcher />
+          </Box>
         </Toolbar>
       </AppBar>
 

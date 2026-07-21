@@ -114,7 +114,7 @@ export function DashboardPage() {
         <Stack direction="row" spacing={1.5} sx={{ mt: 3 }} flexWrap="wrap" useFlexGap>
           <Button
             component={RouterLink}
-            to="/forms"
+            to="/requests"
             variant="contained"
             color="secondary"
             startIcon={<AddIcon />}
@@ -187,9 +187,19 @@ export function DashboardPage() {
         </Grid>
       )}
 
-      <Typography variant="h5" gutterBottom fontWeight={700}>
-        Available forms
-      </Typography>
+      <Stack
+        direction="row"
+        justifyContent="space-between"
+        alignItems="center"
+        mb={2}
+      >
+        <Typography variant="h5" fontWeight={700}>
+          Available forms
+        </Typography>
+        <Button component={RouterLink} to="/requests" size="small">
+          View all requests
+        </Button>
+      </Stack>
       <Grid container spacing={2}>
         {data.forms.map((f) => (
           <Grid key={f.id} size={{ xs: 12, sm: 6, md: 4 }}>

@@ -11,6 +11,7 @@ import { WorkflowEditorPage } from './pages/WorkflowEditorPage';
 import { FormsPage } from './pages/FormsPage';
 import { FormBuilderPage } from './pages/FormBuilderPage';
 import { FormSubmitPage } from './pages/FormSubmitPage';
+import { RequestsPage } from './pages/RequestsPage';
 import { RequestRegisterPage } from './pages/RequestRegisterPage';
 import { FormRegisterPage } from './pages/FormRegisterPage';
 import { RequestDetailPage } from './pages/RequestDetailPage';
@@ -27,6 +28,7 @@ export default function App() {
           <Routes>
             <Route element={<Layout />}>
               <Route index element={<DashboardPage />} />
+              <Route path="requests" element={<RequestsPage />} />
               <Route path="users" element={<UsersPage />} />
               <Route path="roles" element={<RolesPage />} />
               <Route path="delegations" element={<DelegationsPage />} />
@@ -37,7 +39,10 @@ export default function App() {
               <Route path="forms/:id/edit" element={<FormBuilderPage />} />
               <Route path="forms/:id/submit" element={<FormSubmitPage />} />
               <Route path="register" element={<RequestRegisterPage />} />
-              <Route path="register/form/:formId" element={<FormRegisterPage />} />
+              <Route
+                path="register/form/:formId"
+                element={<FormRegisterPage />}
+              />
               <Route path="register/:id" element={<RequestDetailPage />} />
               <Route path="admin" element={<AdminToolsPage />} />
               <Route path="*" element={<Navigate to="/" replace />} />
