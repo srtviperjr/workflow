@@ -51,7 +51,9 @@ export function AdminToolsPage() {
     defaultRequestsPerForm(DEFAULT_REQUESTS_PER_FORM),
   );
   const [includeNotifications, setIncludeNotifications] = useState(true);
+  const [includeUsers, setIncludeUsers] = useState(true);
   const [seedMode, setSeedMode] = useState<SampleSeedMode>('replace');
+  const [userMode, setUserMode] = useState<SampleSeedMode>('replace');
 
   if (!isAdmin) {
     return <Typography>Admin access required.</Typography>;
@@ -61,6 +63,7 @@ export function AdminToolsPage() {
     (sum, f) => sum + (Number(requestsPerForm[f.id]) || 0),
     0,
   );
+  const canGenerate = includeUsers || totalRequests > 0;
 
   return (
     <Box maxWidth={800}>
@@ -90,14 +93,49 @@ export function AdminToolsPage() {
                 </Typography>
                 <Typography variant="body2" color="text.secondary" mb={2}>
                   Loads the sample form catalog (Overtime, Vehicle Registration,
-                  Change Request, Leave Request), sample users, requests, and
-                  optional in-app notifications. Choose whether to clear existing
-                  sample requests first or append more.
+                  Change Request, Leave Request). Optionally seed demo users,
+                  requests, and in-app notifications. Each section can clear
+                  existing sample data or only add more.
                 </Typography>
+
+                <FormControlLabel
+                  sx={{ display: 'flex', mb: 0.5 }}
+                  control={
+                    <Checkbox
+                      checked={includeUsers}
+                      onChange={(e) => setIncludeUsers(e.target.checked)}
+                    />
+                  }
+                  label="Create sample users"
+                />
+                {includeUsers && (
+                  <FormControl component="fieldset" sx={{ mb: 2, ml: 1 }}>
+                    <FormLabel component="legend" sx={{ fontWeight: 600, mb: 0.5 }}>
+                      Existing sample users
+                    </FormLabel>
+                    <RadioGroup
+                      value={userMode}
+                      onChange={(e) =>
+                        setUserMode(e.target.value as SampleSeedMode)
+                      }
+                    >
+                      <FormControlLabel
+                        value="replace"
+                        control={<Radio size="small" />}
+                        label="Clear existing sample users, then recreate"
+                      />
+                      <FormControlLabel
+                        value="append"
+                        control={<Radio size="small" />}
+                        label="Keep existing users and add any that are missing"
+                      />
+                    </RadioGroup>
+                  </FormControl>
+                )}
 
                 <FormControl component="fieldset" sx={{ mb: 2 }}>
                   <FormLabel component="legend" sx={{ fontWeight: 700, mb: 0.5 }}>
-                    Existing sample data
+                    Existing sample requests
                   </FormLabel>
                   <RadioGroup
                     value={seedMode}
@@ -194,53 +232,75 @@ export function AdminToolsPage() {
                   label="Include in-app notifications (submission, approval, rejection)"
                 />
 
-                {totalRequests === 0 && (
+                {totalRequests === 0 && !includeUsers && (
                   <Alert severity="warning" sx={{ mb: 2 }}>
-                    Set at least one request per form above (or use Set all to
-                    2). Generating with all zeros will not create requests
-                    {seedMode === 'replace'
-                      ? ' and will clear existing sample requests.'
-                      : '.'}
+                    Enable sample users and/or set at least one request per form
+                    to generate data.
+                  </Alert>
+                )}
+                {totalRequests === 0 && includeUsers && (
+                  <Alert severity="info" sx={{ mb: 2 }}>
+                    Request counts are all zero — only sample users will be
+                    created/updated. Existing requests are left unchanged.
                   </Alert>
                 )}
 
                 <Button
                   variant="contained"
                   startIcon={<DatasetIcon />}
-                  disabled={totalRequests === 0}
+                  disabled={!canGenerate}
                   onClick={() => {
                     const stats = seedSampleData({
                       requestsPerForm,
                       includeNotifications,
+                      includeUsers,
                       mode: seedMode,
+                      userMode,
                     });
-                    if (stats.submissionsAdded === 0) {
+                    const parts: string[] = [];
+                    if (includeUsers) {
+                      parts.push(
+                        stats.userMode === 'replace'
+                          ? `Users: cleared ${stats.usersCleared}, added ${stats.usersAdded}`
+                          : `Users: added ${stats.usersAdded}`,
+                      );
+                    }
+                    if (totalRequests > 0 || stats.submissionsCleared > 0) {
+                      const action =
+                        stats.mode === 'replace' ? 'Recreated' : 'Added';
+                      parts.push(
+                        `${action} ${stats.submissionsAdded} request${
+                          stats.submissionsAdded === 1 ? '' : 's'
+                        } and ${stats.notificationsAdded} notification${
+                          stats.notificationsAdded === 1 ? '' : 's'
+                        }`,
+                      );
+                      if (
+                        stats.mode === 'replace' &&
+                        (stats.submissionsCleared > 0 ||
+                          stats.notificationsCleared > 0)
+                      ) {
+                        parts.push(
+                          `cleared ${stats.submissionsCleared} request${
+                            stats.submissionsCleared === 1 ? '' : 's'
+                          } / ${stats.notificationsCleared} notification${
+                            stats.notificationsCleared === 1 ? '' : 's'
+                          }`,
+                        );
+                      }
+                    }
+                    if (
+                      stats.submissionsAdded === 0 &&
+                      stats.usersAdded === 0 &&
+                      stats.usersCleared === 0 &&
+                      stats.submissionsCleared === 0
+                    ) {
                       setMessage(
-                        `No requests were created. Existing sample data was${
-                          stats.submissionsCleared > 0 ? '' : ' not'
-                        } cleared. Check that sample users/roles exist, then try Set all to 2 and generate again.`,
+                        'Nothing changed. Try enabling users or setting request counts above zero.',
                       );
                       return;
                     }
-                    const cleared =
-                      stats.mode === 'replace' &&
-                      (stats.submissionsCleared > 0 ||
-                        stats.notificationsCleared > 0)
-                        ? ` Cleared ${stats.submissionsCleared} request${
-                            stats.submissionsCleared === 1 ? '' : 's'
-                          } and ${stats.notificationsCleared} notification${
-                            stats.notificationsCleared === 1 ? '' : 's'
-                          }.`
-                        : '';
-                    const action =
-                      stats.mode === 'replace' ? 'Recreated' : 'Added';
-                    setMessage(
-                      `${action} ${stats.submissionsAdded} request${
-                        stats.submissionsAdded === 1 ? '' : 's'
-                      } and ${stats.notificationsAdded} notification${
-                        stats.notificationsAdded === 1 ? '' : 's'
-                      }.${cleared}`,
-                    );
+                    setMessage(parts.join('. ') + '.');
                   }}
                 >
                   Generate Sample Data

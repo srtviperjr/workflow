@@ -562,7 +562,10 @@ export function AppProvider({ children }: { children: ReactNode }) {
         notificationsAdded: 0,
         submissionsCleared: 0,
         notificationsCleared: 0,
+        usersAdded: 0,
+        usersCleared: 0,
         mode: options?.mode === 'append' ? 'append' : 'replace',
+        userMode: options?.userMode === 'append' ? 'append' : 'replace',
       };
       // Compute against latest state synchronously so returned stats match
       // what was written (and so a failed generate cannot wipe data).
