@@ -45,11 +45,11 @@ const primaryNav = [
 ];
 
 const adminNav = [
-  { to: '/admin', label: 'Admin Tools', icon: <AdminPanelSettingsIcon /> },
   { to: '/forms', label: 'Forms', icon: <DescriptionIcon /> },
   { to: '/workflows', label: 'Workflows', icon: <AccountTreeIcon /> },
   { to: '/users', label: 'Users', icon: <PeopleIcon /> },
   { to: '/roles', label: 'Roles', icon: <BadgeIcon /> },
+  { to: '/data-tools', label: 'Data Tools', icon: <AdminPanelSettingsIcon /> },
 ];
 
 export function Layout() {

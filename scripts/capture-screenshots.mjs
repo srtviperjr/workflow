@@ -25,7 +25,7 @@ async function shot(page, name) {
 }
 
 async function seedSampleData(page) {
-  await page.goto(`${BASE}/admin`, { waitUntil: 'networkidle0', timeout: 30000 });
+  await page.goto(`${BASE}/data-tools`, { waitUntil: 'networkidle0', timeout: 30000 });
   await new Promise((r) => setTimeout(r, 500));
   await page.evaluate(() => {
     const buttons = [...document.querySelectorAll('button')];
