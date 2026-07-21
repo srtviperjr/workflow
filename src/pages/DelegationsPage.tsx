@@ -81,6 +81,7 @@ export function DelegationsPage() {
   const visibleDelegations = useMemo(() => {
     if (!currentUser) return [];
     if (isAdmin) return data.delegations ?? [];
+    // Non-admins: own outbound delegations, plus inbound ones they receive
     return (data.delegations ?? []).filter(
       (d) =>
         d.fromUserId === currentUser.id || d.toUserId === currentUser.id,
@@ -105,6 +106,10 @@ export function DelegationsPage() {
     return <Typography>Select a user identity to manage delegations.</Typography>;
   }
 
+  /** Non-admins may only create/edit as themselves; admins may pick any from-user. */
+  const resolvedFromUserId = (requested: string) =>
+    isAdmin ? requested : currentUser.id;
+
   const openCreate = () => {
     setEditing(null);
     setFromUserId(currentUser.id);
@@ -117,8 +122,10 @@ export function DelegationsPage() {
   };
 
   const openEdit = (d: ApprovalDelegation) => {
+    if (!isAdmin && d.fromUserId !== currentUser.id) return;
+    const ownerId = resolvedFromUserId(d.fromUserId);
     setEditing(d);
-    setFromUserId(d.fromUserId);
+    setFromUserId(ownerId);
     setScope(d.scope);
     setToUserId(d.toUserId);
     if (d.scope === 'workflows') {
@@ -126,9 +133,9 @@ export function DelegationsPage() {
       for (const wid of d.workflowIds) {
         prefill[wid] = d.toUserId;
       }
-      setMappings(buildMappingsForUser(d.fromUserId, prefill));
+      setMappings(buildMappingsForUser(ownerId, prefill));
     } else {
-      setMappings(buildMappingsForUser(d.fromUserId));
+      setMappings(buildMappingsForUser(ownerId));
     }
     setStartDate(d.startDate);
     setDurationDays(d.durationDays || 7);
@@ -150,9 +157,11 @@ export function DelegationsPage() {
   };
 
   const save = () => {
-    if (!fromUserId || durationDays < 1) return;
+    const ownerId = resolvedFromUserId(fromUserId);
+    if (!ownerId || durationDays < 1) return;
+    if (editing && !isAdmin && editing.fromUserId !== currentUser.id) return;
     const payloadBase = {
-      fromUserId,
+      fromUserId: ownerId,
       startDate,
       endDate,
       durationDays: Math.max(1, Math.floor(durationDays)),
@@ -213,6 +222,9 @@ export function DelegationsPage() {
   const canEditRow = (d: ApprovalDelegation) =>
     isAdmin || d.fromUserId === currentUser.id;
 
+  const canDeleteRow = (d: ApprovalDelegation) =>
+    isAdmin || d.fromUserId === currentUser.id;
+
   return (
     <Box>
       <Stack
@@ -229,6 +241,10 @@ export function DelegationsPage() {
             Grant your approval permissions to another user for a set number of
             days. Their existing permissions are kept — yours are added for the
             duration only.
+            {!isAdmin &&
+              ' You can only create and manage delegations for yourself.'}
+            {isAdmin &&
+              ' As an admin you can create and manage delegations for any user.'}
           </Typography>
         </Box>
         <Button variant="contained" startIcon={<AddIcon />} onClick={openCreate}>
@@ -297,21 +313,21 @@ export function DelegationsPage() {
                   </TableCell>
                   <TableCell align="right">
                     {canEditRow(d) && (
-                      <>
-                        <Button size="small" onClick={() => openEdit(d)}>
-                          Edit
-                        </Button>
-                        <IconButton
-                          size="small"
-                          color="error"
-                          onClick={() => {
-                            if (confirm('Remove this delegation?'))
-                              deleteDelegation(d.id);
-                          }}
-                        >
-                          <DeleteIcon fontSize="small" />
-                        </IconButton>
-                      </>
+                      <Button size="small" onClick={() => openEdit(d)}>
+                        Edit
+                      </Button>
+                    )}
+                    {canDeleteRow(d) && (
+                      <IconButton
+                        size="small"
+                        color="error"
+                        onClick={() => {
+                          if (confirm('Remove this delegation?'))
+                            deleteDelegation(d.id);
+                        }}
+                      >
+                        <DeleteIcon fontSize="small" />
+                      </IconButton>
                     )}
                   </TableCell>
                 </TableRow>
@@ -327,7 +343,7 @@ export function DelegationsPage() {
         </DialogTitle>
         <DialogContent>
           <Stack spacing={2} sx={{ mt: 1 }}>
-            {isAdmin && (
+            {isAdmin ? (
               <FormControl fullWidth>
                 <InputLabel>Delegating user</InputLabel>
                 <Select
@@ -347,6 +363,11 @@ export function DelegationsPage() {
                   ))}
                 </Select>
               </FormControl>
+            ) : (
+              <Alert severity="info">
+                Delegating as {currentUser.firstName} {currentUser.lastName}.
+                Only admins can create delegations on behalf of other users.
+              </Alert>
             )}
 
             <FormControl fullWidth>
