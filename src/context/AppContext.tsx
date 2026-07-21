@@ -311,8 +311,13 @@ export function AppProvider({ children }: { children: ReactNode }) {
       })),
 
     addDelegation: (delegation) => {
+      const actor = data.users.find((u) => u.id === data.currentUserId);
+      const actorIsAdmin = Boolean(actor?.roleIds.includes('role-admin'));
+      const fromUserId =
+        actor && !actorIsAdmin ? actor.id : delegation.fromUserId;
       const created: ApprovalDelegation = {
         ...delegation,
+        fromUserId,
         id: createId('deleg'),
         createdAt: new Date().toISOString(),
       };
@@ -323,8 +328,12 @@ export function AppProvider({ children }: { children: ReactNode }) {
       return created;
     },
     addDelegations: (items) => {
+      const actor = data.users.find((u) => u.id === data.currentUserId);
+      const actorIsAdmin = Boolean(actor?.roleIds.includes('role-admin'));
       const created = items.map((item) => ({
         ...item,
+        fromUserId:
+          actor && !actorIsAdmin ? actor.id : item.fromUserId,
         id: createId('deleg'),
         createdAt: new Date().toISOString(),
       }));
@@ -335,17 +344,43 @@ export function AppProvider({ children }: { children: ReactNode }) {
       return created;
     },
     updateDelegation: (id, patch) =>
-      update((d) => ({
-        ...d,
-        delegations: d.delegations.map((del) =>
-          del.id === id ? { ...del, ...patch } : del,
-        ),
-      })),
+      update((d) => {
+        const actor = d.users.find((u) => u.id === d.currentUserId);
+        const actorIsAdmin = Boolean(actor?.roleIds.includes('role-admin'));
+        const existing = d.delegations.find((del) => del.id === id);
+        if (!existing) return d;
+        if (actor && !actorIsAdmin && existing.fromUserId !== actor.id) {
+          return d;
+        }
+        const nextPatch = { ...patch };
+        if (actor && !actorIsAdmin) {
+          nextPatch.fromUserId = actor.id;
+        }
+        return {
+          ...d,
+          delegations: d.delegations.map((del) =>
+            del.id === id ? { ...del, ...nextPatch } : del,
+          ),
+        };
+      }),
     deleteDelegation: (id) =>
-      update((d) => ({
-        ...d,
-        delegations: d.delegations.filter((del) => del.id !== id),
-      })),
+      update((d) => {
+        const actor = d.users.find((u) => u.id === d.currentUserId);
+        const actorIsAdmin = Boolean(actor?.roleIds.includes('role-admin'));
+        const existing = d.delegations.find((del) => del.id === id);
+        if (
+          actor &&
+          !actorIsAdmin &&
+          existing &&
+          existing.fromUserId !== actor.id
+        ) {
+          return d;
+        }
+        return {
+          ...d,
+          delegations: d.delegations.filter((del) => del.id !== id),
+        };
+      }),
 
     seedSampleData: () => update((d) => mergeSampleData(d)),
     resetEverything: () => {
