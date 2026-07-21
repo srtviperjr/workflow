@@ -13,6 +13,7 @@ import {
   createId,
   createInitialData,
 } from './defaults';
+import { enforceFormWorkflowOneToOne } from './formWorkflowLink';
 
 const now = () => new Date().toISOString();
 
@@ -310,10 +311,26 @@ export function mergeSampleData(data: AppData): AppData {
     });
   }
 
+  const paired = enforceFormWorkflowOneToOne({
+    ...data,
+    users,
+    workflows,
+    forms,
+  });
+  workflows = paired.workflows;
+  forms = paired.forms;
+
   const sampleSubs = generateSampleSubmissions(forms, workflows, users);
   const submissions = [...data.submissions, ...sampleSubs];
 
-  return { ...data, users, workflows, forms, submissions, delegations: data.delegations ?? [] };
+  return {
+    ...paired,
+    users,
+    workflows,
+    forms,
+    submissions,
+    delegations: data.delegations ?? [],
+  };
 }
 
 export function resetAllData(): AppData {

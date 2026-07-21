@@ -69,7 +69,7 @@ export function WorkflowsPage() {
             Workflows
           </Typography>
           <Typography color="text.secondary">
-            Visual flowchart editor with decision routing
+            Visual flowchart editor — each form owns exactly one workflow
           </Typography>
         </Box>
         <Button
@@ -83,10 +83,9 @@ export function WorkflowsPage() {
 
       <Grid container spacing={2}>
         {data.workflows.map((wf) => {
-          const attached = data.forms.filter(
-            (f) => f.workflowId === wf.id || f.id === wf.formId,
-          );
-          const primary = data.forms.find((f) => f.id === wf.formId);
+          const primary =
+            data.forms.find((f) => f.id === wf.formId) ??
+            data.forms.find((f) => f.workflowId === wf.id);
           return (
             <Grid key={wf.id} size={{ xs: 12, md: 6 }}>
               <Card elevation={1}>
@@ -103,9 +102,7 @@ export function WorkflowsPage() {
                   <Typography variant="caption" color="text.secondary">
                     {primary
                       ? `Form: ${primary.name}`
-                      : attached.length > 0
-                        ? `Used by ${attached.map((f) => f.name).join(', ')}`
-                        : 'No related form'}
+                      : 'Unassigned (available for a form)'}
                   </Typography>
                 </CardContent>
                 <CardActions>
@@ -121,7 +118,13 @@ export function WorkflowsPage() {
                     size="small"
                     color="error"
                     onClick={() => {
-                      if (confirm(`Delete workflow "${wf.name}"?`))
+                      if (
+                        confirm(
+                          primary
+                            ? `Delete workflow "${wf.name}"? A new dedicated workflow will be created for form "${primary.name}".`
+                            : `Delete workflow "${wf.name}"?`,
+                        )
+                      )
                         deleteWorkflow(wf.id);
                     }}
                   >

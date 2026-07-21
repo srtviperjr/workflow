@@ -25,6 +25,7 @@ import DragIndicatorIcon from '@mui/icons-material/DragIndicator';
 import { useApp } from '../context/AppContext';
 import { FormRenderer } from '../components/forms/FormRenderer';
 import { createId } from '../data/defaults';
+import { workflowsAvailableForForm } from '../data/formWorkflowLink';
 import type { FieldType, FormField } from '../types';
 
 const FIELD_TYPES: FieldType[] = ['text', 'textarea', 'number', 'select', 'date'];
@@ -43,6 +44,7 @@ export function FormBuilderPage() {
     form?.fields[0]?.id ?? null,
   );
   const [saved, setSaved] = useState(false);
+  const [error, setError] = useState<string | null>(null);
   const [previewValues, setPreviewValues] = useState<
     Record<string, string | number>
   >({});
@@ -55,7 +57,17 @@ export function FormBuilderPage() {
     setWorkflowId(form.workflowId ?? '');
     setSelectedFieldId(form.fields[0]?.id ?? null);
     setSaved(false);
+    setError(null);
   }, [form?.id]); // eslint-disable-line react-hooks/exhaustive-deps
+
+  const availableWorkflows = form
+    ? workflowsAvailableForForm(
+        form.id,
+        form.workflowId,
+        data.forms,
+        data.workflows,
+      )
+    : [];
 
   if (!isAdmin) {
     return <Typography>Admin access required.</Typography>;
@@ -114,12 +126,26 @@ export function FormBuilderPage() {
   };
 
   const save = () => {
+    if (!workflowId) {
+      setError('Each form must have its own workflow.');
+      return;
+    }
+    const taken = data.forms.some(
+      (f) => f.id !== form.id && f.workflowId === workflowId,
+    );
+    if (taken) {
+      setError(
+        'That workflow already belongs to another form. Choose an available workflow.',
+      );
+      return;
+    }
     updateForm(form.id, {
       name: name.trim() || 'Untitled Form',
       description,
       fields,
-      workflowId: workflowId || null,
+      workflowId,
     });
+    setError(null);
     setSaved(true);
   };
 
@@ -153,6 +179,11 @@ export function FormBuilderPage() {
           Form saved.
         </Alert>
       )}
+      {error && (
+        <Alert severity="error" sx={{ mb: 2 }} onClose={() => setError(null)}>
+          {error}
+        </Alert>
+      )}
 
       <Stack direction={{ xs: 'column', md: 'row' }} spacing={2} mb={2}>
         <TextField
@@ -173,27 +204,30 @@ export function FormBuilderPage() {
           }}
           fullWidth
         />
-        <FormControl fullWidth>
-          <InputLabel>Attached Workflow</InputLabel>
+        <FormControl fullWidth required>
+          <InputLabel>Dedicated Workflow</InputLabel>
           <Select
-            label="Attached Workflow"
+            label="Dedicated Workflow"
             value={workflowId}
             onChange={(e) => {
               setWorkflowId(e.target.value);
               setSaved(false);
+              setError(null);
             }}
           >
-            <MenuItem value="">
-              <em>None</em>
-            </MenuItem>
-            {data.workflows.map((w) => (
+            {availableWorkflows.map((w) => (
               <MenuItem key={w.id} value={w.id}>
                 {w.name}
+                {w.id === form.workflowId ? ' (current)' : ''}
               </MenuItem>
             ))}
           </Select>
         </FormControl>
       </Stack>
+      <Alert severity="info" sx={{ mb: 2 }}>
+        Each form must have its own workflow. Workflows already linked to other
+        forms are hidden from this list.
+      </Alert>
 
       <Stack direction={{ xs: 'column', lg: 'row' }} spacing={2} alignItems="stretch">
         {/* Field list */}
