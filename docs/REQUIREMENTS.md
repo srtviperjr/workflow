@@ -1,4 +1,4 @@
-# Jansen Workflows — Product Requirements
+# Jansen Workflows — Product Requirements (v0.4)
 
 ## 1. Purpose
 
@@ -13,6 +13,7 @@ Jansen Workflows is a browser-based approval workflow application for designing 
 | G3 | Provide a clear register and audit history for every request |
 | G4 | Support temporary approval delegation without removing existing permissions |
 | G5 | Demonstrate multi-company / multi-role scenarios via an identity switcher |
+| G6 | Support optional file attachments on forms (stored locally) |
 
 ## 3. Users & access
 
@@ -23,7 +24,7 @@ Jansen Workflows is a browser-based approval workflow application for designing 
 | **Requestor** | Submit forms; act on steps assigned to Requestor |
 | **Manager** | Act on Manager decision/step nodes |
 | **Project Director** | Act on Project Director nodes |
-| **Admin** | Full access: users, roles, forms, workflows, admin tools, all approvals |
+| **Admin** | Full access: users, roles, forms, workflows, Data Tools, all approvals |
 
 Custom roles may be app-scoped or form-scoped. Roles can map to Azure AD / AD group names for future SSO.
 
@@ -33,9 +34,18 @@ Custom roles may be app-scoped or form-scoped. Roles can map to Azure AD / AD gr
 - Top-right **Acting as** switcher selects any local user (demo / testing).
 - No real authentication in this version.
 
-### 3.3 Companies
+### 3.3 Companies & projects
 
-Users belong to one of: BHP, Hatch, Bantrel, Fluor.
+- Companies: BHP, Hatch, Bantrel, Fluor.
+- Projects: JS1, JS2, Operations.
+
+### 3.4 Navigation
+
+| Audience | Items |
+|----------|--------|
+| Everyone | Dashboard, Requests, Request Register, Delegations |
+| Admin only | Forms, Workflows, Users, Roles, Data Tools (under Administration) |
+| App bar | Notification bell, identity switcher, version badge (`v0.4`) |
 
 ## 4. Functional requirements
 
@@ -57,10 +67,13 @@ Users belong to one of: BHP, Hatch, Bantrel, Fluor.
 
 | ID | Requirement |
 |----|-------------|
-| FB-1 | Admins can create forms with fields: text, textarea, number, select, date. |
-| FB-2 | Fields support label, required, placeholder, and select options. |
+| FB-1 | Admins can create forms with fields: text, textarea, number, select, date, **file**. |
+| FB-2 | Fields support label, required, placeholder/help text, and select options. |
 | FB-3 | Live preview mirrors the submit experience. |
 | FB-4 | Field order can be changed. |
+| FB-5 | File fields store a single attachment as a data URL in localStorage (max **512 KB**). |
+| FB-6 | Registers, PDF, notifications, and detail views show the **filename** (not raw base64). |
+| FB-7 | The Change Request sample form includes an optional **Attachment** file field by default. |
 
 ### 4.3 Workflow editor
 
@@ -71,19 +84,21 @@ Users belong to one of: BHP, Hatch, Bantrel, Fluor.
 | WE-3 | Steps/decisions assign a role; optional field-edit permission on the step. |
 | WE-4 | Decision routing: manual outcomes and/or form-field conditions. |
 | WE-5 | Related form enables field-based conditions and form-scoped roles. |
+| WE-6 | Notification nodes support role recipients and/or notify submitter, with templated subject/body. |
 
 ### 4.4 Requests & register
 
 | ID | Requirement |
 |----|-------------|
-| RQ-1 | Users submit a form; submission starts on the linked workflow. |
-| RQ-2 | Request detail shows form data, current step, and history. |
+| RQ-1 | Users open **Requests** to pick a form and submit; submission starts on the linked workflow. |
+| RQ-2 | Request detail shows form data (including downloadable attachments), current step, and history. |
 | RQ-3 | Eligible actors can approve / reject / complete steps with comments. |
 | RQ-4 | History records actor, action, outcome, timestamp; delegate actions are labeled. |
-| RQ-5 | Overall request register lists submissions with basic columns: request #, form name, submitter, submission date, last change date, status, current step. |
+| RQ-5 | Overall request register lists submissions with: request #, form name, submitter, submission date, last change date, status, current step. |
 | RQ-6 | Each form has its own register showing form fields; users can customize column visibility and order (saved per identity). |
 | RQ-7 | Registers support filtering from column headers. |
 | RQ-8 | Dashboard shows pending items for the current identity. |
+| RQ-9 | Form design (`/forms`) is admin-only; non-admins are redirected to Requests. |
 
 ### 4.5 Delegations
 
@@ -96,13 +111,15 @@ Users belong to one of: BHP, Hatch, Bantrel, Fluor.
 | DG-5 | Admins may create/manage delegations for any user. |
 | DG-6 | Per-workflow UI lists workflows the delegator can act on, each with a user dropdown. |
 
-### 4.6 Admin tools
+### 4.6 Data Tools
 
 | ID | Requirement |
 |----|-------------|
-| AD-1 | Data Tools can seed sample users and requests with create-additional or clear-and-recreate modes and counts. |
-| AD-2 | Reset requests for a single form. |
-| AD-3 | Reset all application data to defaults. |
+| AD-1 | Data Tools can seed sample users and requests with **Create additional** or **Clear & recreate** modes and counts. |
+| AD-2 | Optional checkbox to seed matching in-app notifications with requests. |
+| AD-3 | Reset requests for a single form. |
+| AD-4 | Reset all application data to defaults. |
+| AD-5 | Data Tools is the last item under Administration; `/admin` redirects to `/data-tools`. |
 
 ### 4.7 In-app notifications
 
@@ -112,59 +129,75 @@ Users belong to one of: BHP, Hatch, Bantrel, Fluor.
 | EN-2 | Subject/body are templates with static text and `{{Field Label}}` / builtin tokens. |
 | EN-3 | Recipients are selected by role(s) and/or the request submitter; form-scoped roles only apply on linked forms. |
 | EN-4 | Notifications are created automatically when the workflow reaches the step. |
-| EN-5 | Messages are **in-app only** (not emailed) and listed under **Notifications**. |
-| EN-6 | Sample manager-approval workflows notify managers on submission and the submitter on approval or rejection. |
+| EN-5 | Messages are **in-app only** (not emailed); open from the AppBar bell or Notifications page. |
+| EN-6 | Sample manager-approval workflows notify managers/admin on submission and the submitter on approval or rejection. |
 
 ### 4.8 PDF export
 
 | ID | Requirement |
 |----|-------------|
 | PD-1 | Request detail provides a Print icon that downloads a PDF of the current form values and history. |
+| PD-2 | File field values appear as filenames in the PDF. |
+
+### 4.9 Submission visibility
+
+| ID | Requirement |
+|----|-------------|
+| SV-1 | Each form has a visibility boundary: own submissions, within company, or within project. |
+| SV-2 | Admins always see all submissions. |
+| SV-3 | Users who can act on a request always see it regardless of visibility. |
 
 ## 5. Non-functional requirements
 
 | ID | Requirement |
 |----|-------------|
-| NF-1 | Frontend-only; persistence via `localStorage`. |
+| NF-1 | Frontend-only; persistence via `localStorage` key `jansen-workflows-data`. |
 | NF-2 | Runs with Vite on port **5173** (dev) / **4173** (preview). |
 | NF-3 | Responsive enough for desktop and tablet admin use. |
 | NF-4 | No secrets or external API keys required. |
+| NF-5 | Display version `APP_VERSION` (`0.4`) in AppBar and sidebar. |
 
 ## 6. Out of scope (current version)
 
 - Real authentication / Azure AD sign-in (AD group names are metadata only)
 - Multi-user realtime sync or server database
 - Email / push notifications
-- File attachments on forms
+- Multiple files per field or attachments larger than 512 KB
 - Mobile-first native apps
 
 ## 7. Sample screenshots
 
-Captured from the running app (also under `docs/screenshots/`).
+Captured from the running app (also under `docs/screenshots/`). See **[USER_GUIDE.md](./USER_GUIDE.md)** for a full walkthrough.
 
 ### Dashboard
 ![Dashboard](./screenshots/01-dashboard.png)
 
-### Forms (each form shows its dedicated workflow)
-![Forms](./screenshots/02-forms.png)
+### Requests
+![Requests](./screenshots/02-requests.png)
 
-### Form builder
-![Form builder](./screenshots/03-form-builder.png)
+### Forms
+![Forms](./screenshots/03-forms.png)
+
+### Form builder (includes file field type)
+![Form builder](./screenshots/04-form-builder.png)
 
 ### Workflows
-![Workflows](./screenshots/04-workflows.png)
+![Workflows](./screenshots/05-workflows.png)
 
-### Workflow editor (1:1 form link)
-![Workflow editor](./screenshots/05-workflow-editor.png)
+### Workflow editor
+![Workflow editor](./screenshots/06-workflow-editor.png)
 
 ### Request register
-![Request register](./screenshots/06-request-register.png)
+![Request register](./screenshots/07-request-register.png)
 
-### Request detail / approval
-![Request detail](./screenshots/07-request-detail.png)
+### Request detail
+![Request detail](./screenshots/09-request-detail.png)
 
 ### Delegations
-![Delegations](./screenshots/08-delegations.png)
+![Delegations](./screenshots/11-delegations.png)
+
+### Data Tools
+![Data Tools](./screenshots/12-data-tools.png)
 
 Regenerate with:
 
@@ -173,10 +206,26 @@ npm run dev   # in one terminal
 npm run screenshots
 ```
 
-## 8. Acceptance criteria (1:1 form–workflow)
+## 8. Related documents
+
+| Doc | Purpose |
+|-----|---------|
+| [USER_GUIDE.md](./USER_GUIDE.md) | End-user / admin how-to with screenshots |
+| [RECREATE_PROMPT.md](./RECREATE_PROMPT.md) | Prompt to recreate this application from scratch |
+| [AGENTS.md](../AGENTS.md) | Cursor Cloud agent notes |
+
+## 9. Acceptance criteria (1:1 form–workflow)
 
 1. Create Form twice → two forms and two distinct workflows.
 2. Form builder cannot select another form’s workflow.
 3. After reload, no two forms share `workflowId`.
 4. Delete form removes its workflow; other forms unchanged.
 5. Delete a linked workflow leaves the form with a newly created dedicated workflow.
+
+## 10. Acceptance criteria (file attachments — v0.4)
+
+1. Form builder offers a **file** field type.
+2. Change Request includes optional Attachment by default (and after Data Tools reset).
+3. Submitting with a small file stores it; detail page offers download by filename.
+4. Oversized files (>512 KB) are rejected with a clear message.
+5. Register / PDF / notification tokens show the filename only.
