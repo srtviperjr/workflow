@@ -32,19 +32,29 @@ export const SAMPLE_FORM_META = [
 
 export type RequestsPerForm = Record<string, number>;
 
+export type SampleSeedMode = 'replace' | 'append';
+
 export interface SampleSeedOptions {
   /** Number of sample requests to generate for each form id. */
   requestsPerForm?: RequestsPerForm;
   /**
    * When true (default), seed in-app notifications for submission /
-   * approval / rejection paths and replace prior sample-form notifications.
+   * approval / rejection paths.
    */
   includeNotifications?: boolean;
+  /**
+   * `replace` (default) clears existing sample-form requests/notifications
+   * then recreates them. `append` keeps existing records and adds more.
+   */
+  mode?: SampleSeedMode;
 }
 
 export interface SampleSeedStats {
   submissionsAdded: number;
   notificationsAdded: number;
+  submissionsCleared: number;
+  notificationsCleared: number;
+  mode: SampleSeedMode;
 }
 
 function userName(u: User): string {
@@ -595,6 +605,7 @@ export function mergeSampleData(
   options: SampleSeedOptions = {},
 ): { data: AppData; stats: SampleSeedStats } {
   const includeNotifications = options.includeNotifications !== false;
+  const mode: SampleSeedMode = options.mode === 'append' ? 'append' : 'replace';
   const catalog = createSampleCatalog();
   const sampleUsers = generateSampleUsers();
   const existingEmails = new Set(data.users.map((u) => u.email.toLowerCase()));
@@ -632,16 +643,34 @@ export function mergeSampleData(
     );
 
   const sampleFormIds = new Set(forms.map((f) => f.id));
-  const kept = data.submissions.filter((s) => sampleFormIds.has(s.formId));
-  const submissions = [...kept, ...sampleSubs];
-
-  // Replace prior notifications for sample forms so regenerating stays tidy
-  const keptNotifications = (data.notifications ?? []).filter(
+  const existingSampleSubs = data.submissions.filter((s) =>
+    sampleFormIds.has(s.formId),
+  );
+  const existingSampleNotifs = (data.notifications ?? []).filter((n) =>
+    sampleFormIds.has(n.formId),
+  );
+  const otherSubs = data.submissions.filter((s) => !sampleFormIds.has(s.formId));
+  const otherNotifs = (data.notifications ?? []).filter(
     (n) => !sampleFormIds.has(n.formId),
   );
-  const notifications = includeNotifications
-    ? [...keptNotifications, ...sampleNotifs]
-    : keptNotifications;
+
+  const submissionsCleared =
+    mode === 'replace' ? existingSampleSubs.length : 0;
+  const notificationsCleared =
+    mode === 'replace' ? existingSampleNotifs.length : 0;
+
+  const submissions =
+    mode === 'replace'
+      ? [...otherSubs, ...sampleSubs]
+      : [...otherSubs, ...existingSampleSubs, ...sampleSubs];
+
+  let notifications = otherNotifs;
+  if (mode === 'append') {
+    notifications = [...otherNotifs, ...existingSampleNotifs];
+  }
+  if (includeNotifications) {
+    notifications = [...notifications, ...sampleNotifs];
+  }
 
   return {
     data: {
@@ -657,6 +686,9 @@ export function mergeSampleData(
     stats: {
       submissionsAdded: sampleSubs.length,
       notificationsAdded: includeNotifications ? sampleNotifs.length : 0,
+      submissionsCleared,
+      notificationsCleared,
+      mode,
     },
   };
 }
