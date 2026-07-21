@@ -30,7 +30,7 @@ async function seedSampleData(page) {
   await page.evaluate(() => {
     const buttons = [...document.querySelectorAll('button')];
     const seed = buttons.find((b) =>
-      /sample data|generate/i.test(b.textContent || ''),
+      /data tools|sample data|generate/i.test(b.textContent || ''),
     );
     if (seed) seed.click();
   });
