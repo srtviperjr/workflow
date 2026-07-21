@@ -12,11 +12,11 @@ See **[docs/REQUIREMENTS.md](./docs/REQUIREMENTS.md)** for the full product requ
 - **1:1 forms & workflows** — Each form owns exactly one dedicated workflow; forms never share a workflow.
 - **Sample forms** — Overtime Request, Vehicle Registration, Change Request, and Leave Request, each with a manager-approval workflow.
 - **Submission visibility** — Per-form boundary: only own submissions, within company, or within project.
-- **In-app notifications** — Workflow “Notify” steps create templated messages for selected roles (and optionally the submitter) on submission, approval, or rejection; view under **Notifications**.
+- **In-app notifications** — Workflow “Notify” steps create templated messages for selected roles (and optionally the submitter); open from the bell icon next to the identity picker.
 - **Form-scoped roles** — Roles can be limited to specific forms for steps and notification recipients.
 - **PDF export** — Print icon on request detail downloads a PDF of the current form.
 - **Dynamic workflow history** — Every request tracks who acted and when; history columns follow the live workflow definition.
-- **Forms** — Start with Simple Request; admins can build forms visually with a paired workflow.
+- **Requests** — Users open **Requests** to pick a form and submit; admins design forms under Administration → Forms.
 - **Delegations** — Temporarily grant your approval permissions to another user (additive; non-admins only for themselves).
 - **Request register** — Overall register with basic columns; per-form registers with customizable field visibility/order and header filters.
 - **Admin tools** — Seed sample data, clear requests by form, or reset everything.

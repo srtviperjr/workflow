@@ -1,4 +1,4 @@
-import { Link as RouterLink, useNavigate } from 'react-router-dom';
+import { Link as RouterLink, Navigate, useNavigate } from 'react-router-dom';
 import {
   Box,
   Button,
@@ -14,15 +14,19 @@ import {
 import AddIcon from '@mui/icons-material/Add';
 import EditIcon from '@mui/icons-material/Edit';
 import DeleteIcon from '@mui/icons-material/Delete';
-import SendIcon from '@mui/icons-material/Send';
 import GridOnIcon from '@mui/icons-material/GridOn';
 import { useApp } from '../context/AppContext';
 import { createId } from '../data/defaults';
 import { FORM_VISIBILITY_LABELS } from '../types';
 
+/** Admin-only form design catalog. End users submit via /requests. */
 export function FormsPage() {
   const { data, isAdmin, addForm, deleteForm } = useApp();
   const navigate = useNavigate();
+
+  if (!isAdmin) {
+    return <Navigate to="/requests" replace />;
+  }
 
   const createForm = () => {
     const form = addForm({
@@ -56,18 +60,16 @@ export function FormsPage() {
             Forms
           </Typography>
           <Typography color="text.secondary">
-            Submit requests or design new forms — each form has its own workflow
+            Design forms and their dedicated workflows (admin)
           </Typography>
         </Box>
-        {isAdmin && (
-          <Button
-            variant="contained"
-            startIcon={<AddIcon />}
-            onClick={createForm}
-          >
-            Create Form
-          </Button>
-        )}
+        <Button
+          variant="contained"
+          startIcon={<AddIcon />}
+          onClick={createForm}
+        >
+          Create Form
+        </Button>
       </Stack>
 
       <Grid container spacing={2}>
@@ -103,11 +105,11 @@ export function FormsPage() {
                 <CardActions>
                   <Button
                     size="small"
-                    startIcon={<SendIcon />}
+                    startIcon={<EditIcon />}
                     component={RouterLink}
-                    to={`/forms/${f.id}/submit`}
+                    to={`/forms/${f.id}/edit`}
                   >
-                    Submit
+                    Edit
                   </Button>
                   <Button
                     size="small"
@@ -117,32 +119,20 @@ export function FormsPage() {
                   >
                     Register
                   </Button>
-                  {isAdmin && (
-                    <>
-                      <Button
-                        size="small"
-                        startIcon={<EditIcon />}
-                        component={RouterLink}
-                        to={`/forms/${f.id}/edit`}
-                      >
-                        Edit
-                      </Button>
-                      <IconButton
-                        size="small"
-                        color="error"
-                        onClick={() => {
-                          if (
-                            confirm(
-                              `Delete form "${f.name}", its dedicated workflow, and its submissions?`,
-                            )
-                          )
-                            deleteForm(f.id);
-                        }}
-                      >
-                        <DeleteIcon fontSize="small" />
-                      </IconButton>
-                    </>
-                  )}
+                  <IconButton
+                    size="small"
+                    color="error"
+                    onClick={() => {
+                      if (
+                        confirm(
+                          `Delete form "${f.name}", its dedicated workflow, and its submissions?`,
+                        )
+                      )
+                        deleteForm(f.id);
+                    }}
+                  >
+                    <DeleteIcon fontSize="small" />
+                  </IconButton>
                 </CardActions>
               </Card>
             </Grid>

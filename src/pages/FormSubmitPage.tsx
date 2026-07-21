@@ -37,7 +37,7 @@ export function FormSubmitPage() {
     return (
       <Box>
         <Alert severity="error">Form not found.</Alert>
-        <Button component={RouterLink} to="/forms" sx={{ mt: 2 }}>
+        <Button component={RouterLink} to="/requests" sx={{ mt: 2 }}>
           Back
         </Button>
       </Box>
@@ -87,10 +87,10 @@ export function FormSubmitPage() {
       <Button
         startIcon={<ArrowBackIcon />}
         component={RouterLink}
-        to="/forms"
+        to="/requests"
         sx={{ mb: 2 }}
       >
-        Back to forms
+        Back to requests
       </Button>
 
       <Paper elevation={1} sx={{ p: { xs: 2, md: 3 } }}>
