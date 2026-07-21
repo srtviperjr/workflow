@@ -78,7 +78,7 @@ export function downloadFormPdf(opts: {
   }
 
   const safeName = (submission.formName || form.name || 'form')
-    .replace(/[^\w\-]+/g, '_')
+    .replace(/[^\w-]+/g, '_')
     .slice(0, 40);
   doc.save(`${safeName}_${submission.id}.pdf`);
 }
