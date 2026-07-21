@@ -5,12 +5,14 @@ import {
   Button,
   Card,
   CardContent,
+  Checkbox,
   Dialog,
   DialogActions,
   DialogContent,
   DialogContentText,
   DialogTitle,
   FormControl,
+  FormControlLabel,
   InputLabel,
   MenuItem,
   Select,
@@ -44,6 +46,7 @@ export function AdminToolsPage() {
   const [requestsPerForm, setRequestsPerForm] = useState<RequestsPerForm>(() =>
     defaultRequestsPerForm(DEFAULT_REQUESTS_PER_FORM),
   );
+  const [includeNotifications, setIncludeNotifications] = useState(true);
 
   if (!isAdmin) {
     return <Typography>Admin access required.</Typography>;
@@ -82,10 +85,10 @@ export function AdminToolsPage() {
                 </Typography>
                 <Typography variant="body2" color="text.secondary" mb={2}>
                   Replaces forms with Overtime, Vehicle Registration, Change
-                  Request, and Leave Request (manager-approval workflows with
-                  notifications on submission, approval, and rejection), adds
-                  sample users across companies/projects, and sample
-                  submissions plus in-app notifications.
+                  Request, and Leave Request (manager-approval workflows), adds
+                  sample users, requests, and optionally in-app notifications
+                  for submission / approval / rejection. Open{' '}
+                  <strong>Notifications</strong> afterward to review them.
                 </Typography>
 
                 <Typography variant="subtitle2" fontWeight={700} mb={1}>
@@ -120,7 +123,7 @@ export function AdminToolsPage() {
                     />
                   ))}
                 </Stack>
-                <Stack direction="row" spacing={1} alignItems="center" mb={2}>
+                <Stack direction="row" spacing={1} alignItems="center" mb={1} flexWrap="wrap" useFlexGap>
                   <Button
                     size="small"
                     onClick={() =>
@@ -151,15 +154,33 @@ export function AdminToolsPage() {
                   </Typography>
                 </Stack>
 
+                <FormControlLabel
+                  sx={{ mb: 2, display: 'flex' }}
+                  control={
+                    <Checkbox
+                      checked={includeNotifications}
+                      onChange={(e) =>
+                        setIncludeNotifications(e.target.checked)
+                      }
+                    />
+                  }
+                  label="Include in-app notifications (submission, approval, rejection)"
+                />
+
                 <Button
                   variant="contained"
                   startIcon={<DatasetIcon />}
                   onClick={() => {
-                    seedSampleData({ requestsPerForm });
+                    const stats = seedSampleData({
+                      requestsPerForm,
+                      includeNotifications,
+                    });
                     setMessage(
-                      `Sample catalog loaded with ${totalRequests} request${
-                        totalRequests === 1 ? '' : 's'
-                      } and matching notifications.`,
+                      `Sample catalog loaded: ${stats.submissionsAdded} request${
+                        stats.submissionsAdded === 1 ? '' : 's'
+                      }, ${stats.notificationsAdded} notification${
+                        stats.notificationsAdded === 1 ? '' : 's'
+                      }.`,
                     );
                   }}
                 >
