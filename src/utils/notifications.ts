@@ -8,6 +8,7 @@ import type {
   WorkflowNode,
 } from '../types';
 import { createId } from '../data/defaults';
+import { formatFieldDisplayValue } from './formValues';
 
 function roleAppliesToForm(role: Role, formId: string): boolean {
   if (role.scope !== 'form') return true;
@@ -86,7 +87,7 @@ export function renderNotificationTemplate(
       byLabel.get(key.replace(/^field:/i, '').toLowerCase());
     if (field) {
       const val = ctx.submission.data[field.id];
-      return val === undefined || val === null ? '' : String(val);
+      return formatFieldDisplayValue(val);
     }
     return '';
   });

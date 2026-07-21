@@ -89,9 +89,31 @@ function normalizeVisibility(value: unknown): FormVisibility {
 }
 
 function normalizeForm(form: FormDefinition): FormDefinition {
-  return {
+  const withVisibility = {
     ...form,
     visibility: normalizeVisibility(form.visibility),
+  };
+  // Ensure Change Request includes the optional Attachment field for older localStorage data
+  if (withVisibility.id !== 'form-change') return withVisibility;
+  if (
+    withVisibility.fields.some(
+      (f) => f.id === 'cr-attachment' || f.type === 'file',
+    )
+  ) {
+    return withVisibility;
+  }
+  return {
+    ...withVisibility,
+    fields: [
+      ...withVisibility.fields,
+      {
+        id: 'cr-attachment',
+        label: 'Attachment',
+        type: 'file',
+        required: false,
+        placeholder: 'Optional supporting document',
+      },
+    ],
   };
 }
 

@@ -1,5 +1,6 @@
 import { jsPDF } from 'jspdf';
 import type { FormDefinition, FormSubmission, User } from '../types';
+import { formatFieldDisplayValue } from './formValues';
 
 /** Generate and download a PDF snapshot of the current form submission. */
 export function downloadFormPdf(opts: {
@@ -51,10 +52,8 @@ export function downloadFormPdf(opts: {
 
   for (const field of form.fields) {
     const raw = submission.data[field.id];
-    const value =
-      raw === undefined || raw === null || String(raw).trim() === ''
-        ? '—'
-        : String(raw);
+    const display = formatFieldDisplayValue(raw);
+    const value = display.trim() === '' ? '—' : display;
     line(`${field.label}`, 11, 'bold');
     line(value, 11, 'normal');
     y += 6;

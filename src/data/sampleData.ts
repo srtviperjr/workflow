@@ -3,6 +3,7 @@ import type {
   AppData,
   AppNotification,
   FormDefinition,
+  FormFieldData,
   FormSubmission,
   HistoryEntry,
   Role,
@@ -17,6 +18,7 @@ import {
 } from './defaults';
 import { enforceFormWorkflowOneToOne } from './formWorkflowLink';
 import { buildNotificationFromNode } from '../utils/notifications';
+import { sampleTextAttachment } from '../utils/formValues';
 
 const now = () => new Date().toISOString();
 
@@ -386,7 +388,7 @@ function synthesizeNotification(opts: {
 function sampleFieldData(
   form: FormDefinition,
   index: number,
-): Record<string, string | number> {
+): FormFieldData {
   switch (form.id) {
     case 'form-overtime':
       return {
@@ -429,6 +431,14 @@ function sampleFieldData(
         ][index % 4],
         'cr-priority': ['Low', 'Medium', 'High', 'Critical'][index % 4],
         'cr-impact': ['Low', 'Medium', 'High'][index % 3],
+        ...(index % 2 === 0
+          ? {
+              'cr-attachment': sampleTextAttachment(
+                `change-brief-${index + 1}.txt`,
+                `Supporting notes for change request sample ${index + 1}`,
+              ),
+            }
+          : {}),
       };
     case 'form-leave':
       return {
@@ -438,14 +448,21 @@ function sampleFieldData(
         'lv-notes': index % 2 === 0 ? 'Family travel' : '',
       };
     default: {
-      const data: Record<string, string | number> = {};
+      const data: FormFieldData = {};
       for (const field of form.fields) {
         if (field.type === 'number') data[field.id] = index + 1;
         else if (field.type === 'select' && field.options?.length)
           data[field.id] = field.options[index % field.options.length];
         else if (field.type === 'date')
           data[field.id] = `2026-07-${String(10 + (index % 15)).padStart(2, '0')}`;
-        else data[field.id] = `Sample ${field.label} ${index + 1}`;
+        else if (field.type === 'file') {
+          if (index % 2 === 0) {
+            data[field.id] = sampleTextAttachment(
+              `sample-${field.id}-${index + 1}.txt`,
+              `Sample attachment for ${field.label}`,
+            );
+          }
+        } else data[field.id] = `Sample ${field.label} ${index + 1}`;
       }
       return data;
     }

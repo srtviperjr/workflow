@@ -13,6 +13,8 @@ import SendIcon from '@mui/icons-material/Send';
 import { useApp } from '../context/AppContext';
 import { FormRenderer } from '../components/forms/FormRenderer';
 import { startSubmission } from '../utils/workflowEngine';
+import type { FormFieldData } from '../types';
+import { isEmptyFieldValue } from '../utils/formValues';
 
 export function FormSubmitPage() {
   const { id } = useParams<{ id: string }>();
@@ -30,7 +32,7 @@ export function FormSubmitPage() {
     ? getWorkflowById(form.workflowId) ?? null
     : null;
 
-  const [values, setValues] = useState<Record<string, string | number>>({});
+  const [values, setValues] = useState<FormFieldData>({});
   const [errors, setErrors] = useState<Record<string, string>>({});
 
   if (!form) {
@@ -51,11 +53,7 @@ export function FormSubmitPage() {
   const validate = () => {
     const next: Record<string, string> = {};
     for (const field of form.fields) {
-      const v = values[field.id];
-      if (
-        field.required &&
-        (v === undefined || v === null || String(v).trim() === '')
-      ) {
+      if (field.required && isEmptyFieldValue(values[field.id])) {
         next[field.id] = 'This field is required';
       }
     }
