@@ -113,7 +113,7 @@ export function createManagerApprovalWorkflow(
         position: { x: 280, y: 220 },
         data: {
           label: 'Notify on submission',
-          notifyRoleIds: ['role-manager'],
+          notifyRoleIds: ['role-manager', 'role-admin'],
           notifySubmitter: false,
           notifySubject: 'New {{formName}} from {{submitter}}',
           notifyBody:

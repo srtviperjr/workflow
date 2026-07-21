@@ -35,6 +35,16 @@ export type RequestsPerForm = Record<string, number>;
 export interface SampleSeedOptions {
   /** Number of sample requests to generate for each form id. */
   requestsPerForm?: RequestsPerForm;
+  /**
+   * When true (default), seed in-app notifications for submission /
+   * approval / rejection paths and replace prior sample-form notifications.
+   */
+  includeNotifications?: boolean;
+}
+
+export interface SampleSeedStats {
+  submissionsAdded: number;
+  notificationsAdded: number;
 }
 
 function userName(u: User): string {
@@ -141,9 +151,93 @@ function hoursAgoIso(hours: number): string {
 
 function findNotifyNode(
   workflow: Workflow,
-  match: (n: WorkflowNode) => boolean,
+  kind: 'submit' | 'ok' | 'no',
 ): WorkflowNode | undefined {
-  return workflow.nodes.find((n) => n.type === 'notification' && match(n));
+  const byId = workflow.nodes.find((n) => {
+    if (n.type !== 'notification') return false;
+    if (kind === 'submit') return n.id.endsWith('-notify-submit');
+    if (kind === 'ok') return n.id.endsWith('-notify-ok');
+    return n.id.endsWith('-notify-no');
+  });
+  if (byId) return byId;
+
+  return workflow.nodes.find((n) => {
+    if (n.type !== 'notification') return false;
+    const label = n.data.label.toLowerCase();
+    if (kind === 'submit') return label.includes('submission') || label.includes('submit');
+    if (kind === 'ok') return label.includes('approval') || label.includes('approved');
+    return label.includes('rejection') || label.includes('rejected');
+  });
+}
+
+/** Fallback notification when a workflow has no Notify node for this event. */
+function synthesizeNotification(opts: {
+  form: FormDefinition;
+  submission: FormSubmission;
+  users: User[];
+  roles: Role[];
+  triggeredBy: User;
+  kind: 'submit' | 'ok' | 'no';
+  hoursAgo: number;
+}): AppNotification {
+  const subject =
+    opts.kind === 'submit'
+      ? `New ${opts.form.name} from {{submitter}}`
+      : opts.kind === 'ok'
+        ? `${opts.form.name} approved`
+        : `${opts.form.name} rejected`;
+  const body =
+    opts.kind === 'submit'
+      ? 'A new request needs review.\n\nForm: {{formName}}\nRequest: {{requestId}}\nSubmitted by: {{submitter}}'
+      : opts.kind === 'ok'
+        ? 'Your request was approved.\n\nForm: {{formName}}\nRequest: {{requestId}}'
+        : 'Your request was rejected.\n\nForm: {{formName}}\nRequest: {{requestId}}';
+
+  const fakeNode: WorkflowNode = {
+    id: `${opts.submission.workflowId ?? opts.form.id}-notify-${opts.kind}`,
+    type: 'notification',
+    position: { x: 0, y: 0 },
+    data: {
+      label:
+        opts.kind === 'submit'
+          ? 'Notify on submission'
+          : opts.kind === 'ok'
+            ? 'Notify on approval'
+            : 'Notify on rejection',
+      notifyRoleIds: opts.kind === 'submit' ? ['role-manager', 'role-admin'] : [],
+      notifySubmitter: opts.kind !== 'submit',
+      notifySubject: subject,
+      notifyBody: body,
+    },
+  };
+
+  const notif =
+    buildNotificationFromNode(fakeNode, {
+      form: opts.form,
+      submission: opts.submission,
+      users: opts.users,
+      roles: opts.roles,
+      triggeredBy: opts.triggeredBy,
+    }) ?? {
+      id: createId('notif'),
+      submissionId: opts.submission.id,
+      formId: opts.form.id,
+      workflowId: opts.submission.workflowId,
+      nodeId: fakeNode.id,
+      nodeLabel: fakeNode.data.label,
+      toUserIds: [] as string[],
+      toUserNames: [] as string[],
+      subject: opts.form.name,
+      body: '',
+      sentAt: new Date().toISOString(),
+      triggeredByUserId: opts.triggeredBy.id,
+      readByUserIds: [],
+    };
+
+  const sent = new Date();
+  sent.setHours(sent.getHours() - opts.hoursAgo);
+  notif.sentAt = sent.toISOString();
+  return notif;
 }
 
 function sampleFieldData(
@@ -223,26 +317,55 @@ function recordNotification(
   roles: Role[],
   triggeredBy: User,
   hoursAgo: number,
+  kind: 'submit' | 'ok' | 'no',
   out: AppNotification[],
   history: HistoryEntry[],
 ) {
-  if (!node) return;
-  const notif = buildNotificationFromNode(node, {
-    form,
-    submission,
-    users,
-    roles,
-    triggeredBy,
-  });
-  if (!notif) return;
-  const sent = new Date();
-  sent.setHours(sent.getHours() - hoursAgo);
-  notif.sentAt = sent.toISOString();
+  let notif: AppNotification | null = null;
+  if (node) {
+    notif = buildNotificationFromNode(node, {
+      form,
+      submission,
+      users,
+      roles,
+      triggeredBy,
+    });
+    if (notif) {
+      const sent = new Date();
+      sent.setHours(sent.getHours() - hoursAgo);
+      notif.sentAt = sent.toISOString();
+    }
+  }
+  if (!notif) {
+    notif = synthesizeNotification({
+      form,
+      submission,
+      users,
+      roles,
+      triggeredBy,
+      kind,
+      hoursAgo,
+    });
+  }
+
+  // Ensure at least one recipient so the inbox is demonstrable
+  if (notif.toUserIds.length === 0) {
+    const fallback =
+      kind === 'submit'
+        ? users.find((u) => u.roleIds.includes('role-manager')) ??
+          users.find((u) => u.roleIds.includes('role-admin'))
+        : users.find((u) => u.id === submission.submittedBy);
+    if (fallback) {
+      notif.toUserIds = [fallback.id];
+      notif.toUserNames = [`${fallback.firstName} ${fallback.lastName}`];
+    }
+  }
+
   out.push(notif);
   history.push(
     makeHistory(
-      node.id,
-      node.data.label,
+      node?.id ?? notif.nodeId,
+      node?.data.label ?? notif.nodeLabel,
       'notification',
       triggeredBy,
       'Notification sent',
@@ -258,6 +381,7 @@ export function generateSampleSubmissions(
   users: User[],
   roles: Role[],
   requestsPerForm: RequestsPerForm = {},
+  includeNotifications = true,
 ): { submissions: FormSubmission[]; notifications: AppNotification[] } {
   const byId = Object.fromEntries(forms.map((f) => [f.id, f]));
   const submitters = [
@@ -303,15 +427,9 @@ export function generateSampleSubmissions(
     const mgrNode = workflow.nodes.find(
       (n) => n.type === 'decision' && n.data.roleId === 'role-manager',
     );
-    const notifySubmit = findNotifyNode(workflow, (n) =>
-      n.data.label.toLowerCase().includes('submission'),
-    );
-    const notifyOk = findNotifyNode(workflow, (n) =>
-      n.data.label.toLowerCase().includes('approval'),
-    );
-    const notifyNo = findNotifyNode(workflow, (n) =>
-      n.data.label.toLowerCase().includes('rejection'),
-    );
+    const notifySubmit = findNotifyNode(workflow, 'submit');
+    const notifyOk = findNotifyNode(workflow, 'ok');
+    const notifyNo = findNotifyNode(workflow, 'no');
     const endOk = workflow.nodes.find(
       (n) => n.type === 'end' && n.data.label.toLowerCase().includes('approv'),
     );
@@ -356,18 +474,20 @@ export function generateSampleSubmissions(
         workflowId: workflow.id,
       };
 
-      // Submission notification (managers)
-      recordNotification(
-        notifySubmit,
-        form,
-        { ...draft, status: 'in_progress' },
-        users,
-        roles,
-        submitter,
-        hours,
-        notifications,
-        history,
-      );
+      if (includeNotifications) {
+        recordNotification(
+          notifySubmit,
+          form,
+          { ...draft, status: 'in_progress' },
+          users,
+          roles,
+          submitter,
+          hours,
+          'submit',
+          notifications,
+          history,
+        );
+      }
 
       if (kind === 'approved' && endOk) {
         history.push(
@@ -381,17 +501,20 @@ export function generateSampleSubmissions(
             Math.max(0, hours - 2),
           ),
         );
-        recordNotification(
-          notifyOk,
-          form,
-          { ...draft, status: 'completed', history },
-          users,
-          roles,
-          manager,
-          Math.max(0, hours - 2),
-          notifications,
-          history,
-        );
+        if (includeNotifications) {
+          recordNotification(
+            notifyOk,
+            form,
+            { ...draft, status: 'completed', history },
+            users,
+            roles,
+            manager,
+            Math.max(0, hours - 2),
+            'ok',
+            notifications,
+            history,
+          );
+        }
         history.push(
           makeHistory(
             endOk.id,
@@ -418,17 +541,20 @@ export function generateSampleSubmissions(
             'Insufficient justification',
           ),
         );
-        recordNotification(
-          notifyNo,
-          form,
-          { ...draft, status: 'rejected', history },
-          users,
-          roles,
-          manager,
-          Math.max(0, hours - 1),
-          notifications,
-          history,
-        );
+        if (includeNotifications) {
+          recordNotification(
+            notifyNo,
+            form,
+            { ...draft, status: 'rejected', history },
+            users,
+            roles,
+            manager,
+            Math.max(0, hours - 1),
+            'no',
+            notifications,
+            history,
+          );
+        }
         history.push(
           makeHistory(
             endNo.id,
@@ -467,7 +593,8 @@ export function defaultRequestsPerForm(
 export function mergeSampleData(
   data: AppData,
   options: SampleSeedOptions = {},
-): AppData {
+): { data: AppData; stats: SampleSeedStats } {
+  const includeNotifications = options.includeNotifications !== false;
   const catalog = createSampleCatalog();
   const sampleUsers = generateSampleUsers();
   const existingEmails = new Set(data.users.map((u) => u.email.toLowerCase()));
@@ -501,28 +628,36 @@ export function mergeSampleData(
       users,
       paired.roles,
       requestsPerForm,
+      includeNotifications,
     );
 
-  const kept = data.submissions.filter((s) =>
-    forms.some((f) => f.id === s.formId),
-  );
+  const sampleFormIds = new Set(forms.map((f) => f.id));
+  const kept = data.submissions.filter((s) => sampleFormIds.has(s.formId));
   const submissions = [...kept, ...sampleSubs];
-  const notifications = [
-    ...(data.notifications ?? []).filter((n) =>
-      forms.some((f) => f.id === n.formId),
-    ),
-    ...sampleNotifs,
-  ];
+
+  // Replace prior notifications for sample forms so regenerating stays tidy
+  const keptNotifications = (data.notifications ?? []).filter(
+    (n) => !sampleFormIds.has(n.formId),
+  );
+  const notifications = includeNotifications
+    ? [...keptNotifications, ...sampleNotifs]
+    : keptNotifications;
 
   return {
-    ...paired,
-    users,
-    workflows,
-    forms,
-    submissions,
-    delegations: data.delegations ?? [],
-    notifications,
-    formRegisterViews: data.formRegisterViews ?? [],
+    data: {
+      ...paired,
+      users,
+      workflows,
+      forms,
+      submissions,
+      delegations: data.delegations ?? [],
+      notifications,
+      formRegisterViews: data.formRegisterViews ?? [],
+    },
+    stats: {
+      submissionsAdded: sampleSubs.length,
+      notificationsAdded: includeNotifications ? sampleNotifs.length : 0,
+    },
   };
 }
 

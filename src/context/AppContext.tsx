@@ -26,6 +26,7 @@ import {
   resetAllData,
   resetByForm,
   type SampleSeedOptions,
+  type SampleSeedStats,
 } from '../data/sampleData';
 
 interface AppContextValue {
@@ -69,7 +70,7 @@ interface AppContextValue {
   updateDelegation: (id: string, patch: Partial<ApprovalDelegation>) => void;
   deleteDelegation: (id: string) => void;
   // Admin tools
-  seedSampleData: (options?: SampleSeedOptions) => void;
+  seedSampleData: (options?: SampleSeedOptions) => SampleSeedStats;
   resetEverything: () => void;
   resetFormData: (formId: string) => void;
   // Register column layouts (per user + form)
@@ -555,7 +556,18 @@ export function AppProvider({ children }: { children: ReactNode }) {
         };
       }),
 
-    seedSampleData: (options) => update((d) => mergeSampleData(d, options)),
+    seedSampleData: (options) => {
+      let stats: SampleSeedStats = {
+        submissionsAdded: 0,
+        notificationsAdded: 0,
+      };
+      update((d) => {
+        const result = mergeSampleData(d, options);
+        stats = result.stats;
+        return result.data;
+      });
+      return stats;
+    },
     resetEverything: () => {
       const fresh = resetAllData();
       setData(fresh);
