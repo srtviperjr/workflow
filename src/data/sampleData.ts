@@ -394,21 +394,34 @@ export function generateSampleSubmissions(
   includeNotifications = true,
 ): { submissions: FormSubmission[]; notifications: AppNotification[] } {
   const byId = Object.fromEntries(forms.map((f) => [f.id, f]));
+
+  // Prefer fixed sample users, then fall back to anyone with the right roles
+  const byFixedId = (id: string) => users.find((u) => u.id === id);
+  const withRole = (roleId: string) =>
+    users.filter((u) => u.roleIds.includes(roleId));
+
   const submitters = [
-    users.find((u) => u.id === 'user-alex'),
-    users.find((u) => u.id === 'user-morgan'),
-    users.find((u) => u.id === 'user-casey'),
-    users.find((u) => u.id === 'user-taylor'),
-  ].filter((u): u is User => Boolean(u));
+    byFixedId('user-alex'),
+    byFixedId('user-morgan'),
+    byFixedId('user-casey'),
+    byFixedId('user-taylor'),
+    ...withRole('role-requestor'),
+    ...withRole('role-admin'),
+  ].filter((u, i, arr): u is User => Boolean(u) && arr.indexOf(u) === i);
+
   const managers = [
-    users.find((u) => u.id === 'user-jordan'),
-    users.find((u) => u.id === 'user-taylor'),
-  ].filter((u): u is User => Boolean(u));
+    byFixedId('user-jordan'),
+    byFixedId('user-taylor'),
+    ...withRole('role-manager'),
+    ...withRole('role-admin'),
+  ].filter((u, i, arr): u is User => Boolean(u) && arr.indexOf(u) === i);
 
   const fallbackUser = users[0];
-  if (!fallbackUser || submitters.length === 0 || managers.length === 0) {
+  if (!fallbackUser || submitters.length === 0) {
     return { submissions: [], notifications: [] };
   }
+  // If no managers, let requestors/admin act as manager for sample history
+  const actingManagers = managers.length > 0 ? managers : submitters;
 
   const submissions: FormSubmission[] = [];
   const notifications: AppNotification[] = [];
@@ -418,14 +431,39 @@ export function generateSampleSubmissions(
     'rejected',
   ];
 
-  const formIds =
+  // Normalize counts: empty/missing → defaults; coerce strings; ignore unknown keys
+  const normalizedCounts: RequestsPerForm = {};
+  const sourceKeys =
     Object.keys(requestsPerForm).length > 0
       ? Object.keys(requestsPerForm)
       : SAMPLE_FORM_META.map((f) => f.id);
+  for (const formId of SAMPLE_FORM_META.map((f) => f.id)) {
+    const raw = requestsPerForm[formId];
+    if (raw === undefined || raw === null) {
+      // If caller passed a partial map, missing forms get 0; if empty map, use default
+      normalizedCounts[formId] =
+        Object.keys(requestsPerForm).length === 0
+          ? DEFAULT_REQUESTS_PER_FORM
+          : 0;
+    } else {
+      const n = Number(raw);
+      normalizedCounts[formId] = Number.isFinite(n)
+        ? Math.max(0, Math.min(50, Math.floor(n)))
+        : 0;
+    }
+  }
+  // Also honor any extra form ids present in forms + requestsPerForm
+  for (const formId of sourceKeys) {
+    if (formId in normalizedCounts) continue;
+    const n = Number(requestsPerForm[formId]);
+    normalizedCounts[formId] = Number.isFinite(n)
+      ? Math.max(0, Math.min(50, Math.floor(n)))
+      : 0;
+  }
 
-  for (const formId of formIds) {
+  for (const formId of Object.keys(normalizedCounts)) {
     const form = byId[formId];
-    const count = Math.max(0, Math.floor(requestsPerForm[formId] ?? 0));
+    const count = normalizedCounts[formId] ?? 0;
     if (!form || count === 0) continue;
 
     const workflow =
@@ -433,10 +471,15 @@ export function generateSampleSubmissions(
       workflows.find((w) => w.formId === form.id);
     if (!workflow) continue;
 
-    const submitNode = workflow.nodes.find((n) => n.type === 'step');
-    const mgrNode = workflow.nodes.find(
-      (n) => n.type === 'decision' && n.data.roleId === 'role-manager',
-    );
+    // Prefer a requestor step + manager decision; fall back to any step/decision
+    const submitNode =
+      workflow.nodes.find(
+        (n) => n.type === 'step' && n.data.roleId === 'role-requestor',
+      ) ?? workflow.nodes.find((n) => n.type === 'step');
+    const mgrNode =
+      workflow.nodes.find(
+        (n) => n.type === 'decision' && n.data.roleId === 'role-manager',
+      ) ?? workflow.nodes.find((n) => n.type === 'decision');
     const notifySubmit = findNotifyNode(workflow, 'submit');
     const notifyOk = findNotifyNode(workflow, 'ok');
     const notifyNo = findNotifyNode(workflow, 'no');
@@ -446,29 +489,35 @@ export function generateSampleSubmissions(
     const endNo = workflow.nodes.find(
       (n) => n.type === 'end' && n.data.label.toLowerCase().includes('reject'),
     );
-    if (!submitNode || !mgrNode) continue;
+    // Need at least a place to park the request
+    if (!submitNode && !mgrNode) continue;
+    const parkNode = mgrNode ?? submitNode;
+    if (!parkNode) continue;
 
     for (let i = 0; i < count; i++) {
       const submitter = submitters[i % submitters.length] ?? fallbackUser;
-      const manager = managers[i % managers.length] ?? fallbackUser;
+      const manager = actingManagers[i % actingManagers.length] ?? fallbackUser;
       const kind = kinds[i % kinds.length];
       const hours = 4 + i * 6;
       const data = sampleFieldData(form, i);
 
-      const history: HistoryEntry[] = [
-        makeHistory(
-          submitNode.id,
-          submitNode.data.label,
-          'step',
-          submitter,
-          'Submitted',
-          undefined,
-          hours,
-        ),
-      ];
+      const history: HistoryEntry[] = [];
+      if (submitNode) {
+        history.push(
+          makeHistory(
+            submitNode.id,
+            submitNode.data.label,
+            'step',
+            submitter,
+            'Submitted',
+            undefined,
+            hours,
+          ),
+        );
+      }
 
       let status: FormSubmission['status'] = 'in_progress';
-      let currentNodeId: string | null = mgrNode.id;
+      let currentNodeId: string | null = parkNode.id;
 
       const draft: FormSubmission = {
         id: createId('sub'),
@@ -500,17 +549,19 @@ export function generateSampleSubmissions(
       }
 
       if (kind === 'approved' && endOk) {
-        history.push(
-          makeHistory(
-            mgrNode.id,
-            mgrNode.data.label,
-            'decision',
-            manager,
-            'Approved',
-            'Approve',
-            Math.max(0, hours - 2),
-          ),
-        );
+        if (mgrNode) {
+          history.push(
+            makeHistory(
+              mgrNode.id,
+              mgrNode.data.label,
+              'decision',
+              manager,
+              'Approved',
+              'Approve',
+              Math.max(0, hours - 2),
+            ),
+          );
+        }
         if (includeNotifications) {
           recordNotification(
             notifyOk,
@@ -539,18 +590,20 @@ export function generateSampleSubmissions(
         status = 'completed';
         currentNodeId = endOk.id;
       } else if (kind === 'rejected' && endNo) {
-        history.push(
-          makeHistory(
-            mgrNode.id,
-            mgrNode.data.label,
-            'decision',
-            manager,
-            'Rejected',
-            'Reject',
-            Math.max(0, hours - 1),
-            'Insufficient justification',
-          ),
-        );
+        if (mgrNode) {
+          history.push(
+            makeHistory(
+              mgrNode.id,
+              mgrNode.data.label,
+              'decision',
+              manager,
+              'Rejected',
+              'Reject',
+              Math.max(0, hours - 1),
+              'Insufficient justification',
+            ),
+          );
+        }
         if (includeNotifications) {
           recordNotification(
             notifyNo,
@@ -608,14 +661,34 @@ export function mergeSampleData(
   const mode: SampleSeedMode = options.mode === 'append' ? 'append' : 'replace';
   const catalog = createSampleCatalog();
   const sampleUsers = generateSampleUsers();
-  const existingEmails = new Set(data.users.map((u) => u.email.toLowerCase()));
-  const newUsers = sampleUsers.filter(
-    (u) => !existingEmails.has(u.email.toLowerCase()),
+
+  // Ensure sample users exist (by email). Additive role merge if already present.
+  const usersByEmail = new Map(
+    data.users.map((u) => [u.email.toLowerCase(), u] as const),
   );
-  const users = [...data.users, ...newUsers].map((u) => ({
+  const users: User[] = data.users.map((u) => ({
     ...u,
     project: u.project ?? ('JS1' as const),
   }));
+  for (const sample of sampleUsers) {
+    const key = sample.email.toLowerCase();
+    const existing = usersByEmail.get(key);
+    if (!existing) {
+      users.push({ ...sample });
+      usersByEmail.set(key, sample);
+    } else {
+      const idx = users.findIndex((u) => u.id === existing.id);
+      if (idx >= 0) {
+        users[idx] = {
+          ...users[idx],
+          roleIds: Array.from(
+            new Set([...users[idx].roleIds, ...sample.roleIds]),
+          ),
+          project: users[idx].project ?? sample.project,
+        };
+      }
+    }
+  }
 
   let forms = catalog.forms;
   let workflows = catalog.workflows;
@@ -630,7 +703,15 @@ export function mergeSampleData(
   workflows = paired.workflows;
 
   const requestsPerForm =
-    options.requestsPerForm ?? defaultRequestsPerForm(DEFAULT_REQUESTS_PER_FORM);
+    options.requestsPerForm &&
+    Object.keys(options.requestsPerForm).length > 0
+      ? options.requestsPerForm
+      : defaultRequestsPerForm(DEFAULT_REQUESTS_PER_FORM);
+
+  const requestedTotal = Object.values(requestsPerForm).reduce(
+    (sum, n) => sum + (Number.isFinite(Number(n)) ? Math.max(0, Number(n)) : 0),
+    0,
+  );
 
   const { submissions: sampleSubs, notifications: sampleNotifs } =
     generateSampleSubmissions(
@@ -654,18 +735,25 @@ export function mergeSampleData(
     (n) => !sampleFormIds.has(n.formId),
   );
 
+  // Safety: never wipe existing sample requests if generation produced nothing
+  // while the user asked for a positive count.
+  const effectiveMode: SampleSeedMode =
+    mode === 'replace' && sampleSubs.length === 0 && requestedTotal > 0
+      ? 'append'
+      : mode;
+
   const submissionsCleared =
-    mode === 'replace' ? existingSampleSubs.length : 0;
+    effectiveMode === 'replace' ? existingSampleSubs.length : 0;
   const notificationsCleared =
-    mode === 'replace' ? existingSampleNotifs.length : 0;
+    effectiveMode === 'replace' ? existingSampleNotifs.length : 0;
 
   const submissions =
-    mode === 'replace'
+    effectiveMode === 'replace'
       ? [...otherSubs, ...sampleSubs]
       : [...otherSubs, ...existingSampleSubs, ...sampleSubs];
 
   let notifications = otherNotifs;
-  if (mode === 'append') {
+  if (effectiveMode === 'append') {
     notifications = [...otherNotifs, ...existingSampleNotifs];
   }
   if (includeNotifications) {
@@ -688,7 +776,7 @@ export function mergeSampleData(
       notificationsAdded: includeNotifications ? sampleNotifs.length : 0,
       submissionsCleared,
       notificationsCleared,
-      mode,
+      mode: effectiveMode,
     },
   };
 }
