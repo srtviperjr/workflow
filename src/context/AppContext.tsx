@@ -560,6 +560,9 @@ export function AppProvider({ children }: { children: ReactNode }) {
       let stats: SampleSeedStats = {
         submissionsAdded: 0,
         notificationsAdded: 0,
+        submissionsCleared: 0,
+        notificationsCleared: 0,
+        mode: 'replace',
       };
       update((d) => {
         const result = mergeSampleData(d, options);

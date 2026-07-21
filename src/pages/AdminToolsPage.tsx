@@ -13,8 +13,11 @@ import {
   DialogTitle,
   FormControl,
   FormControlLabel,
+  FormLabel,
   InputLabel,
   MenuItem,
+  Radio,
+  RadioGroup,
   Select,
   Stack,
   TextField,
@@ -29,6 +32,7 @@ import {
   SAMPLE_FORM_META,
   defaultRequestsPerForm,
   type RequestsPerForm,
+  type SampleSeedMode,
 } from '../data/sampleData';
 
 export function AdminToolsPage() {
@@ -47,6 +51,7 @@ export function AdminToolsPage() {
     defaultRequestsPerForm(DEFAULT_REQUESTS_PER_FORM),
   );
   const [includeNotifications, setIncludeNotifications] = useState(true);
+  const [seedMode, setSeedMode] = useState<SampleSeedMode>('replace');
 
   if (!isAdmin) {
     return <Typography>Admin access required.</Typography>;
@@ -84,12 +89,34 @@ export function AdminToolsPage() {
                   Create sample data
                 </Typography>
                 <Typography variant="body2" color="text.secondary" mb={2}>
-                  Replaces forms with Overtime, Vehicle Registration, Change
-                  Request, and Leave Request (manager-approval workflows), adds
-                  sample users, requests, and optionally in-app notifications
-                  for submission / approval / rejection. Open{' '}
-                  <strong>Notifications</strong> afterward to review them.
+                  Loads the sample form catalog (Overtime, Vehicle Registration,
+                  Change Request, Leave Request), sample users, requests, and
+                  optional in-app notifications. Choose whether to clear existing
+                  sample requests first or append more.
                 </Typography>
+
+                <FormControl component="fieldset" sx={{ mb: 2 }}>
+                  <FormLabel component="legend" sx={{ fontWeight: 700, mb: 0.5 }}>
+                    Existing sample data
+                  </FormLabel>
+                  <RadioGroup
+                    value={seedMode}
+                    onChange={(e) =>
+                      setSeedMode(e.target.value as SampleSeedMode)
+                    }
+                  >
+                    <FormControlLabel
+                      value="replace"
+                      control={<Radio size="small" />}
+                      label="Clear existing sample requests & notifications, then recreate"
+                    />
+                    <FormControlLabel
+                      value="append"
+                      control={<Radio size="small" />}
+                      label="Keep existing records and add more"
+                    />
+                  </RadioGroup>
+                </FormControl>
 
                 <Typography variant="subtitle2" fontWeight={700} mb={1}>
                   Requests per form
@@ -174,13 +201,26 @@ export function AdminToolsPage() {
                     const stats = seedSampleData({
                       requestsPerForm,
                       includeNotifications,
+                      mode: seedMode,
                     });
+                    const cleared =
+                      stats.mode === 'replace' &&
+                      (stats.submissionsCleared > 0 ||
+                        stats.notificationsCleared > 0)
+                        ? ` Cleared ${stats.submissionsCleared} request${
+                            stats.submissionsCleared === 1 ? '' : 's'
+                          } and ${stats.notificationsCleared} notification${
+                            stats.notificationsCleared === 1 ? '' : 's'
+                          }.`
+                        : '';
+                    const action =
+                      stats.mode === 'replace' ? 'Recreated' : 'Added';
                     setMessage(
-                      `Sample catalog loaded: ${stats.submissionsAdded} request${
+                      `${action} ${stats.submissionsAdded} request${
                         stats.submissionsAdded === 1 ? '' : 's'
-                      }, ${stats.notificationsAdded} notification${
+                      } and ${stats.notificationsAdded} notification${
                         stats.notificationsAdded === 1 ? '' : 's'
-                      }.`,
+                      }.${cleared}`,
                     );
                   }}
                 >
