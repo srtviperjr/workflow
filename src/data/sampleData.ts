@@ -47,6 +47,15 @@ export interface SampleSeedOptions {
    * then recreates them. `append` keeps existing records and adds more.
    */
   mode?: SampleSeedMode;
+  /**
+   * When true (default), create/update the demo sample users.
+   */
+  includeUsers?: boolean;
+  /**
+   * `replace` removes existing sample users then recreates them.
+   * `append` only adds sample users that are missing (by email).
+   */
+  userMode?: SampleSeedMode;
 }
 
 export interface SampleSeedStats {
@@ -54,7 +63,21 @@ export interface SampleSeedStats {
   notificationsAdded: number;
   submissionsCleared: number;
   notificationsCleared: number;
+  usersAdded: number;
+  usersCleared: number;
   mode: SampleSeedMode;
+  userMode: SampleSeedMode;
+}
+
+/** Emails used by the canned sample users (for replace/clear detection). */
+export function sampleUserEmails(): Set<string> {
+  return new Set(
+    generateSampleUsers().map((u) => u.email.toLowerCase()),
+  );
+}
+
+export function isSampleUserEmail(email: string): boolean {
+  return sampleUserEmails().has(email.toLowerCase());
 }
 
 function userName(u: User): string {
@@ -658,37 +681,92 @@ export function mergeSampleData(
   options: SampleSeedOptions = {},
 ): { data: AppData; stats: SampleSeedStats } {
   const includeNotifications = options.includeNotifications !== false;
+  const includeUsers = options.includeUsers !== false;
   const mode: SampleSeedMode = options.mode === 'append' ? 'append' : 'replace';
+  const userMode: SampleSeedMode =
+    options.userMode === 'append' ? 'append' : 'replace';
   const catalog = createSampleCatalog();
   const sampleUsers = generateSampleUsers();
+  const sampleEmails = new Set(sampleUsers.map((u) => u.email.toLowerCase()));
+  const sampleIds = new Set(sampleUsers.map((u) => u.id));
 
-  // Ensure sample users exist (by email). Additive role merge if already present.
-  const usersByEmail = new Map(
-    data.users.map((u) => [u.email.toLowerCase(), u] as const),
-  );
-  const users: User[] = data.users.map((u) => ({
+  let users: User[] = data.users.map((u) => ({
     ...u,
     project: u.project ?? ('JS1' as const),
   }));
-  for (const sample of sampleUsers) {
-    const key = sample.email.toLowerCase();
-    const existing = usersByEmail.get(key);
-    if (!existing) {
-      users.push({ ...sample });
-      usersByEmail.set(key, sample);
-    } else {
-      const idx = users.findIndex((u) => u.id === existing.id);
-      if (idx >= 0) {
-        users[idx] = {
-          ...users[idx],
-          roleIds: Array.from(
-            new Set([...users[idx].roleIds, ...sample.roleIds]),
-          ),
-          project: users[idx].project ?? sample.project,
-        };
+  let usersCleared = 0;
+  let usersAdded = 0;
+  let currentUserId = data.currentUserId;
+  let delegations = [...(data.delegations ?? [])];
+
+  // Remap old sample-user ids → new canonical ids when replacing
+  const idRemap = new Map<string, string>();
+
+  if (includeUsers) {
+    if (userMode === 'replace') {
+      const removed = users.filter(
+        (u) =>
+          sampleEmails.has(u.email.toLowerCase()) || sampleIds.has(u.id),
+      );
+      usersCleared = removed.length;
+      for (const old of removed) {
+        const match = sampleUsers.find(
+          (s) => s.email.toLowerCase() === old.email.toLowerCase(),
+        );
+        if (match) idRemap.set(old.id, match.id);
+      }
+      const removedIds = new Set(removed.map((u) => u.id));
+      users = users.filter((u) => !removedIds.has(u.id));
+      delegations = delegations.filter(
+        (d) => !removedIds.has(d.fromUserId) && !removedIds.has(d.toUserId),
+      );
+      if (currentUserId && removedIds.has(currentUserId)) {
+        currentUserId =
+          users.find((u) => u.roleIds.includes('role-admin'))?.id ??
+          users[0]?.id ??
+          null;
+      }
+    }
+
+    const usersByEmail = new Map(
+      users.map((u) => [u.email.toLowerCase(), u] as const),
+    );
+    for (const sample of sampleUsers) {
+      const key = sample.email.toLowerCase();
+      const existing = usersByEmail.get(key);
+      if (!existing) {
+        users.push({ ...sample });
+        usersByEmail.set(key, sample);
+        usersAdded += 1;
+      } else if (userMode === 'replace') {
+        // Re-insert canonical sample user (fixed id) after wipe
+        // (existing should not happen after replace wipe for sample emails)
+        const idx = users.findIndex((u) => u.id === existing.id);
+        if (idx >= 0) {
+          idRemap.set(users[idx].id, sample.id);
+          users[idx] = { ...sample };
+        }
+      } else {
+        // append: only ensure roles on existing match
+        const idx = users.findIndex((u) => u.id === existing.id);
+        if (idx >= 0) {
+          const before = users[idx].roleIds.length;
+          users[idx] = {
+            ...users[idx],
+            roleIds: Array.from(
+              new Set([...users[idx].roleIds, ...sample.roleIds]),
+            ),
+            project: users[idx].project ?? sample.project,
+          };
+          if (users[idx].roleIds.length > before) {
+            // treat role enrichment as an update, not a new user
+          }
+        }
       }
     }
   }
+
+  const remapUserId = (id: string): string => idRemap.get(id) ?? id;
 
   let forms = catalog.forms;
   let workflows = catalog.workflows;
@@ -698,9 +776,12 @@ export function mergeSampleData(
     users,
     workflows,
     forms,
+    currentUserId,
+    delegations,
   });
   forms = paired.forms;
   workflows = paired.workflows;
+  users = paired.users;
 
   const requestsPerForm =
     options.requestsPerForm &&
@@ -714,50 +795,80 @@ export function mergeSampleData(
   );
 
   const { submissions: sampleSubs, notifications: sampleNotifs } =
-    generateSampleSubmissions(
-      forms,
-      workflows,
-      users,
-      paired.roles,
-      requestsPerForm,
-      includeNotifications,
-    );
+    requestedTotal > 0
+      ? generateSampleSubmissions(
+          forms,
+          workflows,
+          users,
+          paired.roles,
+          requestsPerForm,
+          includeNotifications,
+        )
+      : { submissions: [], notifications: [] };
 
   const sampleFormIds = new Set(forms.map((f) => f.id));
-  const existingSampleSubs = data.submissions.filter((s) =>
+  // Remap submitter ids on existing data when sample users were replaced
+  const remapSubmission = <T extends { submittedBy: string; history: { userId: string }[] }>(
+    s: T,
+  ): T => ({
+    ...s,
+    submittedBy: remapUserId(s.submittedBy),
+    history: s.history.map((h) => ({ ...h, userId: remapUserId(h.userId) })),
+  });
+  const existingSubs = data.submissions.map(remapSubmission);
+  const existingNotifs = (data.notifications ?? []).map((n) => ({
+    ...n,
+    toUserIds: n.toUserIds.map(remapUserId),
+    triggeredByUserId: remapUserId(n.triggeredByUserId),
+  }));
+
+  const existingSampleSubs = existingSubs.filter((s) =>
     sampleFormIds.has(s.formId),
   );
-  const existingSampleNotifs = (data.notifications ?? []).filter((n) =>
+  const existingSampleNotifs = existingNotifs.filter((n) =>
     sampleFormIds.has(n.formId),
   );
-  const otherSubs = data.submissions.filter((s) => !sampleFormIds.has(s.formId));
-  const otherNotifs = (data.notifications ?? []).filter(
+  const otherSubs = existingSubs.filter((s) => !sampleFormIds.has(s.formId));
+  const otherNotifs = existingNotifs.filter(
     (n) => !sampleFormIds.has(n.formId),
   );
 
-  // Safety: never wipe existing sample requests if generation produced nothing
-  // while the user asked for a positive count.
-  const effectiveMode: SampleSeedMode =
-    mode === 'replace' && sampleSubs.length === 0 && requestedTotal > 0
+  // When request counts are all zero, leave existing requests/notifications alone
+  // (user-only seeding should not wipe the register).
+  const touchRequests = requestedTotal > 0;
+
+  const effectiveMode: SampleSeedMode = !touchRequests
+    ? 'append'
+    : mode === 'replace' && sampleSubs.length === 0 && requestedTotal > 0
       ? 'append'
       : mode;
 
   const submissionsCleared =
-    effectiveMode === 'replace' ? existingSampleSubs.length : 0;
+    touchRequests && effectiveMode === 'replace'
+      ? existingSampleSubs.length
+      : 0;
   const notificationsCleared =
-    effectiveMode === 'replace' ? existingSampleNotifs.length : 0;
+    touchRequests && effectiveMode === 'replace'
+      ? existingSampleNotifs.length
+      : 0;
 
-  const submissions =
-    effectiveMode === 'replace'
+  const submissions = !touchRequests
+    ? existingSubs
+    : effectiveMode === 'replace'
       ? [...otherSubs, ...sampleSubs]
       : [...otherSubs, ...existingSampleSubs, ...sampleSubs];
 
-  let notifications = otherNotifs;
-  if (effectiveMode === 'append') {
-    notifications = [...otherNotifs, ...existingSampleNotifs];
-  }
-  if (includeNotifications) {
-    notifications = [...notifications, ...sampleNotifs];
+  let notifications: typeof existingNotifs;
+  if (!touchRequests) {
+    notifications = existingNotifs;
+  } else {
+    notifications = otherNotifs;
+    if (effectiveMode === 'append') {
+      notifications = [...otherNotifs, ...existingSampleNotifs];
+    }
+    if (includeNotifications) {
+      notifications = [...notifications, ...sampleNotifs];
+    }
   }
 
   return {
@@ -767,16 +878,20 @@ export function mergeSampleData(
       workflows,
       forms,
       submissions,
-      delegations: data.delegations ?? [],
+      delegations,
       notifications,
       formRegisterViews: data.formRegisterViews ?? [],
+      currentUserId,
     },
     stats: {
       submissionsAdded: sampleSubs.length,
       notificationsAdded: includeNotifications ? sampleNotifs.length : 0,
       submissionsCleared,
       notificationsCleared,
+      usersAdded,
+      usersCleared,
       mode: effectiveMode,
+      userMode: includeUsers ? userMode : 'append',
     },
   };
 }
