@@ -16,7 +16,8 @@ import type {
   User,
   Workflow,
 } from '../types';
-import { createId } from '../data/defaults';
+import { createId, createDedicatedWorkflowDraft } from '../data/defaults';
+import { enforceFormWorkflowOneToOne } from '../data/formWorkflowLink';
 import { loadData, saveData } from '../data/storage';
 import {
   mergeSampleData,
@@ -177,16 +178,23 @@ export function AppProvider({ children }: { children: ReactNode }) {
       };
       update((d) => {
         let forms = d.forms;
+        let workflows = [...d.workflows, created];
         if (created.formId) {
-          forms = d.forms.map((f) =>
-            f.id === created.formId
-              ? { ...f, workflowId: created.id }
-              : f.workflowId === created.id
-                ? { ...f, workflowId: null }
-                : f,
+          // Exclusive: this form leaves any previous workflow; no other form keeps this one
+          forms = d.forms.map((f) => {
+            if (f.id === created.formId) return { ...f, workflowId: created.id };
+            if (f.workflowId === created.id) return { ...f, workflowId: null };
+            return f;
+          });
+          workflows = workflows.map((w) =>
+            w.id === created.id
+              ? w
+              : w.formId === created.formId
+                ? { ...w, formId: null }
+                : w,
           );
         }
-        return { ...d, workflows: [...d.workflows, created], forms };
+        return enforceFormWorkflowOneToOne({ ...d, workflows, forms });
       });
       return created;
     },
@@ -195,9 +203,9 @@ export function AppProvider({ children }: { children: ReactNode }) {
         const prev = d.workflows.find((w) => w.id === id);
         const nextFormId =
           patch.formId !== undefined ? patch.formId : prev?.formId ?? null;
-        const workflows = d.workflows.map((w) =>
+        let workflows = d.workflows.map((w) =>
           w.id === id
-            ? { ...w, ...patch, updatedAt: new Date().toISOString() }
+            ? { ...w, ...patch, formId: nextFormId, updatedAt: new Date().toISOString() }
             : w,
         );
         let forms = d.forms;
@@ -209,91 +217,218 @@ export function AppProvider({ children }: { children: ReactNode }) {
             }
             return f;
           });
+          // Previous workflow that owned this form (if any) becomes free
+          if (nextFormId) {
+            workflows = workflows.map((w) =>
+              w.id !== id && w.formId === nextFormId
+                ? { ...w, formId: null }
+                : w,
+            );
+          }
         }
-        return { ...d, workflows, forms };
+        return enforceFormWorkflowOneToOne({ ...d, workflows, forms });
       }),
     deleteWorkflow: (id) =>
-      update((d) => ({
-        ...d,
-        workflows: d.workflows.filter((w) => w.id !== id),
-        forms: d.forms.map((f) =>
+      update((d) => {
+        const linkedForm = d.forms.find((f) => f.workflowId === id);
+        let forms = d.forms.map((f) =>
           f.workflowId === id ? { ...f, workflowId: null } : f,
-        ),
-        delegations: d.delegations
-          .map((del) =>
-            del.scope === 'workflows'
-              ? {
-                  ...del,
-                  workflowIds: del.workflowIds.filter((wid) => wid !== id),
-                }
-              : del,
-          )
-          .filter(
-            (del) =>
-              del.scope === 'all' || del.workflowIds.length > 0,
-          ),
-      })),
+        );
+        let workflows = d.workflows.filter((w) => w.id !== id);
+        // Re-pair any form left without a workflow
+        if (linkedForm) {
+          const draft = createDedicatedWorkflowDraft(linkedForm.name);
+          const replacement: Workflow = {
+            ...draft,
+            id: createId('workflow'),
+            formId: linkedForm.id,
+            createdAt: new Date().toISOString(),
+            updatedAt: new Date().toISOString(),
+          };
+          workflows = [...workflows, replacement];
+          forms = forms.map((f) =>
+            f.id === linkedForm.id
+              ? { ...f, workflowId: replacement.id }
+              : f,
+          );
+        }
+        return enforceFormWorkflowOneToOne({
+          ...d,
+          workflows,
+          forms,
+          delegations: d.delegations
+            .map((del) =>
+              del.scope === 'workflows'
+                ? {
+                    ...del,
+                    workflowIds: del.workflowIds.filter((wid) => wid !== id),
+                  }
+                : del,
+            )
+            .filter(
+              (del) => del.scope === 'all' || del.workflowIds.length > 0,
+            ),
+        });
+      }),
 
     addForm: (form) => {
       const ts = new Date().toISOString();
+      const formId = createId('form');
+      const requestedWorkflowId = form.workflowId;
+      const shared =
+        Boolean(requestedWorkflowId) &&
+        data.forms.some((f) => f.workflowId === requestedWorkflowId);
+
+      let createdWorkflow: Workflow | null = null;
+      let workflowId = requestedWorkflowId;
+      if (!workflowId || shared) {
+        const draft = createDedicatedWorkflowDraft(form.name || 'New Form');
+        createdWorkflow = {
+          ...draft,
+          id: createId('workflow'),
+          formId,
+          createdAt: ts,
+          updatedAt: ts,
+        };
+        workflowId = createdWorkflow.id;
+      }
+
       const created: FormDefinition = {
         ...form,
-        id: createId('form'),
+        id: formId,
+        workflowId,
         createdAt: ts,
         updatedAt: ts,
       };
+
       update((d) => {
-        let workflows = d.workflows;
-        if (created.workflowId) {
+        let workflows = createdWorkflow
+          ? [...d.workflows, createdWorkflow]
+          : d.workflows.map((w) =>
+              w.id === workflowId
+                ? { ...w, formId }
+                : w.formId === formId
+                  ? { ...w, formId: null }
+                  : w,
+            );
+
+        if (!createdWorkflow && workflowId) {
           workflows = d.workflows.map((w) =>
-            w.id === created.workflowId
-              ? { ...w, formId: created.id }
-              : w.formId === created.id
+            w.id === workflowId
+              ? { ...w, formId }
+              : w.formId === formId
                 ? { ...w, formId: null }
                 : w,
           );
         }
-        return { ...d, forms: [...d.forms, created], workflows };
+
+        return enforceFormWorkflowOneToOne({
+          ...d,
+          forms: [...d.forms, created],
+          workflows,
+        });
       });
+
       return created;
     },
     updateForm: (id, patch) =>
       update((d) => {
         const prev = d.forms.find((f) => f.id === id);
-        const nextWorkflowId =
+        let nextWorkflowId =
           patch.workflowId !== undefined
             ? patch.workflowId
             : prev?.workflowId ?? null;
-        const forms = d.forms.map((f) =>
-          f.id === id
-            ? { ...f, ...patch, updatedAt: new Date().toISOString() }
-            : f,
-        );
-        let workflows = d.workflows;
-        if (patch.workflowId !== undefined) {
-          workflows = d.workflows.map((w) => {
-            if (w.id === nextWorkflowId) return { ...w, formId: id };
-            if (w.formId === id && w.id !== nextWorkflowId) {
-              return { ...w, formId: null };
-            }
-            return w;
-          });
+
+        // Reject attaching to a workflow already owned by another form —
+        // create a dedicated replacement instead of sharing
+        if (
+          nextWorkflowId &&
+          d.forms.some(
+            (f) => f.id !== id && f.workflowId === nextWorkflowId,
+          )
+        ) {
+          nextWorkflowId = null;
         }
-        return { ...d, forms, workflows };
+
+        let workflows = d.workflows;
+        if (!nextWorkflowId) {
+          const draft = createDedicatedWorkflowDraft(
+            patch.name ?? prev?.name ?? 'Form',
+          );
+          const created: Workflow = {
+            ...draft,
+            id: createId('workflow'),
+            formId: id,
+            createdAt: new Date().toISOString(),
+            updatedAt: new Date().toISOString(),
+          };
+          workflows = [...workflows, created];
+          nextWorkflowId = created.id;
+        }
+
+        const forms = d.forms.map((f) => {
+          if (f.id === id) {
+            return {
+              ...f,
+              ...patch,
+              workflowId: nextWorkflowId,
+              updatedAt: new Date().toISOString(),
+            };
+          }
+          // Clear any other form that somehow pointed at this workflow
+          if (f.workflowId === nextWorkflowId) {
+            return { ...f, workflowId: null };
+          }
+          return f;
+        });
+
+        workflows = workflows.map((w) => {
+          if (w.id === nextWorkflowId) return { ...w, formId: id };
+          if (w.formId === id && w.id !== nextWorkflowId) {
+            return { ...w, formId: null };
+          }
+          return w;
+        });
+
+        return enforceFormWorkflowOneToOne({ ...d, forms, workflows });
       }),
     deleteForm: (id) =>
-      update((d) => ({
-        ...d,
-        forms: d.forms.filter((f) => f.id !== id),
-        workflows: d.workflows.map((w) =>
-          w.formId === id ? { ...w, formId: null } : w,
-        ),
-        submissions: d.submissions.filter((s) => s.formId !== id),
-        roles: d.roles.map((r) => ({
-          ...r,
-          formIds: r.formIds.filter((fid) => fid !== id),
-        })),
-      })),
+      update((d) => {
+        const form = d.forms.find((f) => f.id === id);
+        const pairedWorkflowId = form?.workflowId;
+        return enforceFormWorkflowOneToOne({
+          ...d,
+          forms: d.forms.filter((f) => f.id !== id),
+          // Cascade-delete the dedicated workflow when exclusive
+          workflows: d.workflows.filter((w) => {
+            if (w.formId === id) return false;
+            if (pairedWorkflowId && w.id === pairedWorkflowId) return false;
+            return true;
+          }),
+          submissions: d.submissions.filter((s) => s.formId !== id),
+          roles: d.roles.map((r) => ({
+            ...r,
+            formIds: r.formIds.filter((fid) => fid !== id),
+          })),
+          delegations: pairedWorkflowId
+            ? d.delegations
+                .map((del) =>
+                  del.scope === 'workflows'
+                    ? {
+                        ...del,
+                        workflowIds: del.workflowIds.filter(
+                          (wid) => wid !== pairedWorkflowId,
+                        ),
+                      }
+                    : del,
+                )
+                .filter(
+                  (del) =>
+                    del.scope === 'all' || del.workflowIds.length > 0,
+                )
+            : d.delegations,
+        });
+      }),
 
     addSubmission: (sub) =>
       update((d) => ({ ...d, submissions: [...d.submissions, sub] })),

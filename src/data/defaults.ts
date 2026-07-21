@@ -222,3 +222,37 @@ export function createInitialData(): AppData {
 export function createId(prefix = 'id'): string {
   return `${prefix}-${uuidv4().slice(0, 8)}`;
 }
+
+/** Minimal start→end workflow used when pairing a new form 1:1. */
+export function createDedicatedWorkflowDraft(
+  formName = 'New Form',
+): Omit<Workflow, 'id' | 'createdAt' | 'updatedAt'> {
+  const startId = createId('node');
+  const endId = createId('node');
+  return {
+    name: `${formName} Workflow`,
+    description: 'Dedicated approval workflow for this form',
+    formId: null,
+    nodes: [
+      {
+        id: startId,
+        type: 'start',
+        position: { x: 250, y: 0 },
+        data: { label: 'Start' },
+      },
+      {
+        id: endId,
+        type: 'end',
+        position: { x: 250, y: 200 },
+        data: { label: 'Complete' },
+      },
+    ],
+    edges: [
+      {
+        id: createId('edge'),
+        source: startId,
+        target: endId,
+      },
+    ],
+  };
+}

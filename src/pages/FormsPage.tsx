@@ -23,6 +23,7 @@ export function FormsPage() {
   const navigate = useNavigate();
 
   const createForm = () => {
+    // addForm always creates a dedicated 1:1 workflow when none is provided
     const form = addForm({
       name: 'New Form',
       description: '',
@@ -35,7 +36,7 @@ export function FormsPage() {
           placeholder: 'Enter details…',
         },
       ],
-      workflowId: data.workflows[0]?.id ?? null,
+      workflowId: null,
     });
     navigate(`/forms/${form.id}/edit`);
   };
@@ -53,7 +54,7 @@ export function FormsPage() {
             Forms
           </Typography>
           <Typography color="text.secondary">
-            Submit requests or design new forms
+            Submit requests or design new forms — each form has its own workflow
           </Typography>
         </Box>
         {isAdmin && (
@@ -91,7 +92,9 @@ export function FormsPage() {
                   </Typography>
                   <Typography variant="caption" color="text.secondary">
                     {f.fields.length} field{f.fields.length !== 1 ? 's' : ''}
-                    {wf ? ` · Workflow: ${wf.name}` : ' · No workflow attached'}
+                    {wf
+                      ? ` · Workflow: ${wf.name}`
+                      : ' · Workflow missing (will be repaired)'}
                   </Typography>
                 </CardContent>
                 <CardActions>
@@ -119,7 +122,7 @@ export function FormsPage() {
                         onClick={() => {
                           if (
                             confirm(
-                              `Delete form "${f.name}" and its submissions?`,
+                              `Delete form "${f.name}", its dedicated workflow, and its submissions?`,
                             )
                           )
                             deleteForm(f.id);

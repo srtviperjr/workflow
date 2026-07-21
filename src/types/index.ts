@@ -108,7 +108,11 @@ export interface Workflow {
   id: string;
   name: string;
   description: string;
-  /** Primary form this workflow is designed for (field conditions / form roles) */
+  /**
+   * Exclusive form this workflow belongs to (1:1).
+   * A workflow may be temporarily unassigned (`null`), but two forms
+   * never share the same workflow.
+   */
   formId: string | null;
   nodes: WorkflowNode[];
   edges: WorkflowEdge[];
@@ -132,6 +136,7 @@ export interface FormDefinition {
   name: string;
   description: string;
   fields: FormField[];
+  /** Required exclusive workflow for this form (1:1 with Workflow.formId) */
   workflowId: string | null;
   createdAt: string;
   updatedAt: string;

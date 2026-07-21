@@ -7,6 +7,7 @@ import type {
   WorkflowEdge,
 } from '../types';
 import { createInitialData } from './defaults';
+import { enforceFormWorkflowOneToOne } from './formWorkflowLink';
 
 const STORAGE_KEY = 'jansen-workflows-data';
 
@@ -85,15 +86,18 @@ function normalizeData(data: AppData): AppData {
     return owner ? { ...f, workflowId: owner.id } : f;
   });
 
-  return {
+  const normalized: AppData = {
     ...data,
     roles: (data.roles ?? []).map(normalizeRole),
     workflows,
     forms: syncedForms,
     submissions: (data.submissions ?? []).map(normalizeSubmission),
     delegations: (data.delegations ?? []).map(normalizeDelegation),
-    version: Math.max(data.version ?? 1, 3),
+    version: Math.max(data.version ?? 1, 4),
   };
+
+  // Each form must own exactly one workflow (repairs shared / missing links)
+  return enforceFormWorkflowOneToOne(normalized);
 }
 
 export function loadData(): AppData {

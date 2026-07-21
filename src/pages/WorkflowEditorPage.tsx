@@ -148,21 +148,37 @@ export function WorkflowEditorPage() {
             }}
           >
             <MenuItem value="">
-              <em>None</em>
+              <em>None (unassigned)</em>
             </MenuItem>
-            {data.forms.map((f) => (
-              <MenuItem key={f.id} value={f.id}>
-                {f.name}
-              </MenuItem>
-            ))}
+            {data.forms.map((f) => {
+              const currentOwner = data.workflows.find(
+                (w) => w.id === f.workflowId && w.id !== workflow.id,
+              );
+              return (
+                <MenuItem key={f.id} value={f.id}>
+                  {f.name}
+                  {f.id === workflow.formId
+                    ? ' (current)'
+                    : currentOwner
+                      ? ` — moves from ${currentOwner.name}`
+                      : ''}
+                </MenuItem>
+              );
+            })}
           </Select>
         </FormControl>
       </Stack>
 
-      {!formId && (
+      {!formId ? (
         <Alert severity="info" sx={{ mb: 2 }}>
           Select a related form to enable field-based decision conditions and
-          form-scoped roles in the canvas.
+          form-scoped roles. Each form can only belong to one workflow — linking
+          here moves the form from any previous workflow.
+        </Alert>
+      ) : (
+        <Alert severity="info" sx={{ mb: 2 }}>
+          This workflow is dedicated to the selected form (1:1). Field conditions
+          and form-scoped roles use that form&apos;s definition.
         </Alert>
       )}
 
