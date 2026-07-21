@@ -102,15 +102,15 @@ Users belong to one of: BHP, Hatch, Bantrel, Fluor.
 | AD-2 | Reset requests for a single form. |
 | AD-3 | Reset all application data to defaults. |
 
-### 4.7 Email notifications
+### 4.7 In-app notifications
 
 | ID | Requirement |
 |----|-------------|
 | EN-1 | Workflows support a **notification** step type. |
-| EN-2 | Notification subject/body are templates with static text and `{{Field Label}}` / builtin tokens. |
+| EN-2 | Subject/body are templates with static text and `{{Field Label}}` / builtin tokens. |
 | EN-3 | Recipients are selected by role(s); form-scoped roles only apply on linked forms. |
-| EN-4 | Notifications run automatically when the workflow reaches the step (no manual actor). |
-| EN-5 | Outbound messages are stored locally and listed under Notifications (demo — no SMTP). |
+| EN-4 | Notifications are created automatically when the workflow reaches the step. |
+| EN-5 | Messages are **in-app only** (not emailed) and listed under **Notifications**. |
 
 ### 4.8 PDF export
 

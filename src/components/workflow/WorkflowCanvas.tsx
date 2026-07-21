@@ -37,7 +37,7 @@ import AddIcon from '@mui/icons-material/Add';
 import DecisionIcon from '@mui/icons-material/HelpOutline';
 import StopIcon from '@mui/icons-material/Stop';
 import AssignmentIcon from '@mui/icons-material/Assignment';
-import EmailOutlinedIcon from '@mui/icons-material/EmailOutlined';
+import NotificationsNoneIcon from '@mui/icons-material/NotificationsNone';
 import DeleteOutlineIcon from '@mui/icons-material/DeleteOutline';
 import {
   StartNode,
@@ -173,7 +173,7 @@ export function WorkflowCanvas({
       end: 'End',
       step: 'New Step',
       decision: 'Decision',
-      notification: 'Email Notification',
+      notification: 'Notification',
     };
     const defaultRole = roles[0]?.id;
     const newNode: Node = {
@@ -188,9 +188,9 @@ export function WorkflowCanvas({
         decisionMode: type === 'decision' ? 'manual' : undefined,
         allowFieldEdits: false,
         notifyRoleIds: type === 'notification' && defaultRole ? [defaultRole] : [],
-        emailSubject:
+        notifySubject:
           type === 'notification' ? 'Update on {{formName}}' : undefined,
-        emailBody:
+        notifyBody:
           type === 'notification'
             ? 'Hello,\n\nA request was updated.\n\nForm: {{formName}}\nRequest: {{requestId}}\n\nRegards'
             : undefined,
@@ -214,6 +214,8 @@ export function WorkflowCanvas({
     decisionMode?: 'manual' | 'conditional';
     allowFieldEdits?: boolean;
     notifyRoleIds?: string[];
+    notifySubject?: string;
+    notifyBody?: string;
     emailSubject?: string;
     emailBody?: string;
   };
@@ -389,7 +391,7 @@ export function WorkflowCanvas({
                   Decision
                 </Button>
                 <Button
-                  startIcon={<EmailOutlinedIcon />}
+                  startIcon={<NotificationsNoneIcon />}
                   sx={{ bgcolor: '#9c27b0', '&:hover': { bgcolor: '#7b1fa2' } }}
                   onClick={() => addNode('notification')}
                 >
@@ -500,9 +502,10 @@ export function WorkflowCanvas({
             {selectedNode.type === 'notification' && (
               <Stack spacing={1.5}>
                 <Typography variant="caption" color="text.secondary">
-                  Sent automatically when the workflow reaches this step.
-                  Recipients are users with the selected roles (form-scoped
-                  roles only apply on their linked forms).
+                  Creates an in-app notification when the workflow reaches this
+                  step. Recipients are users with the selected roles
+                  (form-scoped roles only apply on their linked forms). View
+                  them under Notifications.
                 </Typography>
                 <FormControl size="small" fullWidth disabled={readOnly}>
                   <InputLabel>Notify roles</InputLabel>
@@ -532,26 +535,38 @@ export function WorkflowCanvas({
                   </Select>
                 </FormControl>
                 <TextField
-                  label="Email subject"
+                  label="Subject"
                   size="small"
                   fullWidth
                   disabled={readOnly}
-                  value={selectedData.emailSubject ?? ''}
+                  value={
+                    selectedData.notifySubject ??
+                    selectedData.emailSubject ??
+                    ''
+                  }
                   onChange={(e) =>
-                    updateSelectedNode({ emailSubject: e.target.value })
+                    updateSelectedNode({
+                      notifySubject: e.target.value,
+                      emailSubject: undefined,
+                    })
                   }
                   helperText="Use {{tokens}} for dynamic values"
                 />
                 <TextField
-                  label="Email body"
+                  label="Message"
                   size="small"
                   fullWidth
                   multiline
                   minRows={5}
                   disabled={readOnly}
-                  value={selectedData.emailBody ?? ''}
+                  value={
+                    selectedData.notifyBody ?? selectedData.emailBody ?? ''
+                  }
                   onChange={(e) =>
-                    updateSelectedNode({ emailBody: e.target.value })
+                    updateSelectedNode({
+                      notifyBody: e.target.value,
+                      emailBody: undefined,
+                    })
                   }
                 />
                 <Box>
@@ -566,8 +581,13 @@ export function WorkflowCanvas({
                         label={t.label}
                         onClick={() => {
                           if (readOnly) return;
+                          const current =
+                            selectedData.notifyBody ??
+                            selectedData.emailBody ??
+                            '';
                           updateSelectedNode({
-                            emailBody: `${selectedData.emailBody ?? ''}${t.token}`,
+                            notifyBody: `${current}${t.token}`,
+                            emailBody: undefined,
                           });
                         }}
                         sx={{ cursor: readOnly ? 'default' : 'pointer' }}
@@ -582,8 +602,13 @@ export function WorkflowCanvas({
                         label={f.label}
                         onClick={() => {
                           if (readOnly) return;
+                          const current =
+                            selectedData.notifyBody ??
+                            selectedData.emailBody ??
+                            '';
                           updateSelectedNode({
-                            emailBody: `${selectedData.emailBody ?? ''}${fieldToken(f)}`,
+                            notifyBody: `${current}${fieldToken(f)}`,
+                            emailBody: undefined,
                           });
                         }}
                         sx={{ cursor: readOnly ? 'default' : 'pointer' }}

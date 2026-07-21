@@ -4,7 +4,7 @@ import PlayArrowIcon from '@mui/icons-material/PlayArrow';
 import StopIcon from '@mui/icons-material/Stop';
 import HelpOutlineIcon from '@mui/icons-material/HelpOutline';
 import AssignmentIcon from '@mui/icons-material/Assignment';
-import EmailOutlinedIcon from '@mui/icons-material/EmailOutlined';
+import NotificationsNoneIcon from '@mui/icons-material/NotificationsNone';
 
 interface NodeData {
   label: string;
@@ -198,7 +198,7 @@ export function NotificationNode({ data, selected }: NodeProps) {
       }}
     >
       <Handle type="target" position={Position.Top} style={{ background: '#9c27b0' }} />
-      <EmailOutlinedIcon sx={{ fontSize: 18, color: '#7b1fa2', mb: 0.25 }} />
+      <NotificationsNoneIcon sx={{ fontSize: 18, color: '#7b1fa2', mb: 0.25 }} />
       <Typography variant="body2" fontWeight={700} display="block">
         {d.label}
       </Typography>

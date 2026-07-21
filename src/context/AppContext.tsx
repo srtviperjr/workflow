@@ -10,7 +10,7 @@ import {
 import type {
   AppData,
   ApprovalDelegation,
-  EmailNotification,
+  AppNotification,
   FormDefinition,
   FormSubmission,
   Role,
@@ -55,7 +55,8 @@ interface AppContextValue {
   updateSubmission: (id: string, patch: Partial<FormSubmission>) => void;
   deleteSubmission: (id: string) => void;
   // Notifications
-  addNotifications: (items: EmailNotification[]) => void;
+  addNotifications: (items: AppNotification[]) => void;
+  markNotificationRead: (id: string, userId: string) => void;
   // Delegations
   addDelegation: (
     delegation: Omit<ApprovalDelegation, 'id' | 'createdAt'>,
@@ -458,6 +459,16 @@ export function AppProvider({ children }: { children: ReactNode }) {
         notifications: [...(d.notifications ?? []), ...items],
       }));
     },
+    markNotificationRead: (id, userId) =>
+      update((d) => ({
+        ...d,
+        notifications: (d.notifications ?? []).map((n) => {
+          if (n.id !== id) return n;
+          const readBy = new Set(n.readByUserIds ?? []);
+          readBy.add(userId);
+          return { ...n, readByUserIds: [...readBy] };
+        }),
+      })),
 
     addDelegation: (delegation) => {
       const actor = data.users.find((u) => u.id === data.currentUserId);

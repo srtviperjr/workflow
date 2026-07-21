@@ -24,7 +24,7 @@ import DescriptionIcon from '@mui/icons-material/Description';
 import GridOnIcon from '@mui/icons-material/GridOn';
 import AdminPanelSettingsIcon from '@mui/icons-material/AdminPanelSettings';
 import SwapHorizIcon from '@mui/icons-material/SwapHoriz';
-import EmailOutlinedIcon from '@mui/icons-material/EmailOutlined';
+import NotificationsNoneIcon from '@mui/icons-material/NotificationsNone';
 import { IdentitySwitcher } from './IdentitySwitcher';
 import { useApp } from '../context/AppContext';
 
@@ -38,7 +38,7 @@ const navItems = [
   {
     to: '/notifications',
     label: 'Notifications',
-    icon: <EmailOutlinedIcon />,
+    icon: <NotificationsNoneIcon />,
     adminOnly: false,
   },
   { to: '/workflows', label: 'Workflows', icon: <AccountTreeIcon />, adminOnly: true },

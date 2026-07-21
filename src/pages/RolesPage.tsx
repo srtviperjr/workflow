@@ -106,7 +106,7 @@ export function RolesPage() {
             Roles
           </Typography>
           <Typography color="text.secondary">
-            Define who can act on workflow steps and who receives email
+            Define who can act on workflow steps and who receives in-app
             notifications. Form-scoped roles are limited to the forms you select
             below — they will not appear for other forms.
           </Typography>

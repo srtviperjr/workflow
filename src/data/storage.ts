@@ -1,5 +1,6 @@
 import type {
   AppData,
+  AppNotification,
   ApprovalDelegation,
   FormSubmission,
   Role,
@@ -31,6 +32,28 @@ function normalizeDelegation(d: ApprovalDelegation): ApprovalDelegation {
         : 1,
     startDate: d.startDate ?? new Date().toISOString().slice(0, 10),
     endDate: d.endDate ?? d.startDate ?? new Date().toISOString().slice(0, 10),
+  };
+}
+
+function normalizeNotification(raw: AppNotification & { toEmails?: string[] }): AppNotification {
+  return {
+    id: raw.id,
+    submissionId: raw.submissionId,
+    formId: raw.formId,
+    workflowId: raw.workflowId ?? null,
+    nodeId: raw.nodeId,
+    nodeLabel: raw.nodeLabel ?? 'Notification',
+    toUserIds: Array.isArray(raw.toUserIds) ? raw.toUserIds : [],
+    toUserNames: Array.isArray(raw.toUserNames)
+      ? raw.toUserNames
+      : Array.isArray(raw.toEmails)
+        ? raw.toEmails
+        : [],
+    subject: raw.subject ?? '',
+    body: raw.body ?? '',
+    sentAt: raw.sentAt ?? new Date().toISOString(),
+    triggeredByUserId: raw.triggeredByUserId,
+    readByUserIds: Array.isArray(raw.readByUserIds) ? raw.readByUserIds : [],
   };
 }
 
@@ -93,7 +116,9 @@ function normalizeData(data: AppData): AppData {
     forms: syncedForms,
     submissions: (data.submissions ?? []).map(normalizeSubmission),
     delegations: (data.delegations ?? []).map(normalizeDelegation),
-    notifications: Array.isArray(data.notifications) ? data.notifications : [],
+    notifications: (Array.isArray(data.notifications) ? data.notifications : []).map(
+      (n) => normalizeNotification(n as AppNotification & { toEmails?: string[] }),
+    ),
     version: Math.max(data.version ?? 1, 5),
   };
 

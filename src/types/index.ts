@@ -52,13 +52,21 @@ export interface WorkflowNodeData {
   /** When true, the actor can edit form field values at this step */
   allowFieldEdits?: boolean;
   /**
-   * Notification node: roles whose members receive the email.
+   * Notification node: roles whose members receive the in-app notification.
    * Form-scoped roles only apply when the role is linked to this form.
    */
   notifyRoleIds?: string[];
-  /** Notification subject template; supports {{Field Label}} and {{formName}} */
+  /** Subject template; supports {{Field Label}} and {{formName}} */
+  notifySubject?: string;
+  /** Message body template; static text plus {{field}} tokens */
+  notifyBody?: string;
+  /**
+   * @deprecated Prefer notifySubject — kept for older saved workflows
+   */
   emailSubject?: string;
-  /** Notification body template; static text plus {{field}} tokens */
+  /**
+   * @deprecated Prefer notifyBody — kept for older saved workflows
+   */
   emailBody?: string;
 }
 
@@ -216,8 +224,8 @@ export interface ApprovalDelegation {
   createdAt: string;
 }
 
-/** Simulated outbound email produced by a workflow notification step */
-export interface EmailNotification {
+/** In-app notification produced by a workflow notification step (not email). */
+export interface AppNotification {
   id: string;
   submissionId: string;
   formId: string;
@@ -226,12 +234,14 @@ export interface EmailNotification {
   nodeLabel: string;
   /** Recipient user ids */
   toUserIds: string[];
-  /** Recipient email addresses */
-  toEmails: string[];
+  /** Display names for recipients at send time */
+  toUserNames: string[];
   subject: string;
   body: string;
   sentAt: string;
   triggeredByUserId: string;
+  /** True until the recipient opens/views it (admins see all) */
+  readByUserIds?: string[];
 }
 
 export interface AppData {
@@ -241,7 +251,7 @@ export interface AppData {
   forms: FormDefinition[];
   submissions: FormSubmission[];
   delegations: ApprovalDelegation[];
-  notifications: EmailNotification[];
+  notifications: AppNotification[];
   currentUserId: string | null;
   version: number;
 }

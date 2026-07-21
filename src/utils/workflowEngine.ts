@@ -2,7 +2,7 @@ import type {
   ApprovalDelegation,
   ConditionOp,
   EdgeCondition,
-  EmailNotification,
+  AppNotification,
   FormDefinition,
   FormSubmission,
   HistoryEntry,
@@ -59,10 +59,18 @@ export function fromFlowNodes(nodes: Node[]): WorkflowNode[] {
         notifyRoleIds: Array.isArray(data.notifyRoleIds)
           ? data.notifyRoleIds.filter((id): id is string => typeof id === 'string')
           : undefined,
-        emailSubject:
-          typeof data.emailSubject === 'string' ? data.emailSubject : undefined,
-        emailBody:
-          typeof data.emailBody === 'string' ? data.emailBody : undefined,
+        notifySubject:
+          typeof data.notifySubject === 'string'
+            ? data.notifySubject
+            : typeof data.emailSubject === 'string'
+              ? data.emailSubject
+              : undefined,
+        notifyBody:
+          typeof data.notifyBody === 'string'
+            ? data.notifyBody
+            : typeof data.emailBody === 'string'
+              ? data.emailBody
+              : undefined,
       },
     };
   });
@@ -259,7 +267,7 @@ function resolveMatchedEdgeLabel(
 
 export interface AdvanceResult {
   submission: FormSubmission;
-  notifications: EmailNotification[];
+  notifications: AppNotification[];
 }
 
 export interface AdvanceContext {
@@ -303,7 +311,7 @@ export function advanceSubmission(
     ),
   ];
 
-  const notifications: EmailNotification[] = [];
+  const notifications: AppNotification[] = [];
   let nextCandidates = getNextNodes(
     workflow,
     current.id,
@@ -338,26 +346,26 @@ export function advanceSubmission(
 
     if (next.type === 'notification') {
       if (ctx.form) {
-        const email = buildNotificationFromNode(next, {
+        const note = buildNotificationFromNode(next, {
           form: ctx.form,
           submission: { ...workingSubmission, history },
           users: ctx.users ?? [],
           roles: ctx.roles ?? [],
           triggeredBy: user,
         });
-        if (email) {
-          notifications.push(email);
+        if (note) {
+          notifications.push(note);
           const who =
-            email.toEmails.length > 0
-              ? email.toEmails.join(', ')
+            note.toUserNames.length > 0
+              ? note.toUserNames.join(', ')
               : 'no matching recipients';
           history.push(
             createHistoryEntry(
               next,
               user,
-              'Email notification',
+              'Notification sent',
               undefined,
-              `To: ${who} · ${email.subject}`,
+              `To: ${who} · ${note.subject}`,
             ),
           );
         }
@@ -366,7 +374,7 @@ export function advanceSubmission(
           createHistoryEntry(
             next,
             user,
-            'Email notification skipped',
+            'Notification skipped',
             undefined,
             'Form definition missing',
           ),
@@ -442,7 +450,7 @@ export function startSubmission(
     null;
 
   const history: HistoryEntry[] = [];
-  const notifications: EmailNotification[] = [];
+  const notifications: AppNotification[] = [];
   let currentNodeId: string | null = null;
   let status: FormSubmission['status'] = 'in_progress';
   const baselineData = { ...fieldData };
@@ -473,26 +481,26 @@ export function startSubmission(
 
       if (next.type === 'notification') {
         if (ctx.form) {
-          const email = buildNotificationFromNode(next, {
+          const note = buildNotificationFromNode(next, {
             form: ctx.form,
             submission: { ...draftSubmission, history },
             users: ctx.users ?? [],
             roles: ctx.roles ?? [],
             triggeredBy: user,
           });
-          if (email) {
-            notifications.push(email);
+          if (note) {
+            notifications.push(note);
             const who =
-              email.toEmails.length > 0
-                ? email.toEmails.join(', ')
+              note.toUserNames.length > 0
+                ? note.toUserNames.join(', ')
                 : 'no matching recipients';
             history.push(
               createHistoryEntry(
                 next,
                 user,
-                'Email notification',
+                'Notification sent',
                 undefined,
-                `To: ${who} · ${email.subject}`,
+                `To: ${who} · ${note.subject}`,
               ),
             );
           }

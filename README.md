@@ -10,7 +10,7 @@ See **[docs/REQUIREMENTS.md](./docs/REQUIREMENTS.md)** for the full product requ
 - **Identity switcher** — Top-right control to act as any user in the system.
 - **Visual workflow editor** — Flowchart canvas with steps, decision diamonds, and outcome-based routing (Approve / Reject).
 - **1:1 forms & workflows** — Each form owns exactly one dedicated workflow; forms never share a workflow.
-- **Email notifications** — Workflow “Notify” steps send templated emails (static text + form field tokens) to users in selected roles.
+- **In-app notifications** — Workflow “Notify” steps create templated messages (static text + form field tokens) for users in selected roles; view them under **Notifications**.
 - **Form-scoped roles** — Roles can be limited to specific forms for steps and notification recipients.
 - **PDF export** — Print icon on request detail downloads a PDF of the current form.
 - **Dynamic workflow history** — Every request tracks who acted and when; history columns follow the live workflow definition.

@@ -1,5 +1,5 @@
 import type {
-  EmailNotification,
+  AppNotification,
   FormDefinition,
   FormField,
   FormSubmission,
@@ -20,11 +20,26 @@ export const BUILTIN_TEMPLATE_TOKENS = [
   { token: '{{requestId}}', label: 'Request ID' },
   { token: '{{status}}', label: 'Status' },
   { token: '{{submitter}}', label: 'Submitter name' },
-  { token: '{{submitterEmail}}', label: 'Submitter email' },
 ] as const;
 
 export function fieldToken(field: FormField): string {
   return `{{${field.label}}}`;
+}
+
+export function notificationSubjectTemplate(node: WorkflowNode): string {
+  return (
+    node.data.notifySubject ||
+    node.data.emailSubject ||
+    `Update: request`
+  );
+}
+
+export function notificationBodyTemplate(node: WorkflowNode): string {
+  return (
+    node.data.notifyBody ||
+    node.data.emailBody ||
+    'A request was updated.\n\nForm: {{formName}}\nRequest: {{requestId}}'
+  );
 }
 
 /**
@@ -113,7 +128,7 @@ export function buildNotificationFromNode(
     roles: Role[];
     triggeredBy: User;
   },
-): EmailNotification | null {
+): AppNotification | null {
   const roleIds = node.data.notifyRoleIds ?? [];
   const recipients = resolveNotificationRecipients(
     roleIds,
@@ -121,28 +136,27 @@ export function buildNotificationFromNode(
     ctx.users,
     ctx.roles,
   );
-  const subject = renderNotificationTemplate(
-    node.data.emailSubject || `Update: ${ctx.submission.formName}`,
-    ctx,
-  );
-  const body = renderNotificationTemplate(
-    node.data.emailBody ||
-      'A request was updated.\n\nForm: {{formName}}\nRequest: {{requestId}}',
-    ctx,
-  );
+  const subjectTemplate =
+    node.data.notifySubject ||
+    node.data.emailSubject ||
+    `Update: ${ctx.submission.formName}`;
+  const bodyTemplate = notificationBodyTemplate(node);
+  const subject = renderNotificationTemplate(subjectTemplate, ctx);
+  const body = renderNotificationTemplate(bodyTemplate, ctx);
 
   return {
-    id: createId('email'),
+    id: createId('notif'),
     submissionId: ctx.submission.id,
     formId: ctx.form.id,
     workflowId: ctx.submission.workflowId,
     nodeId: node.id,
     nodeLabel: node.data.label || 'Notification',
     toUserIds: recipients.map((u) => u.id),
-    toEmails: recipients.map((u) => u.email),
+    toUserNames: recipients.map((u) => `${u.firstName} ${u.lastName}`),
     subject,
     body,
     sentAt: new Date().toISOString(),
     triggeredByUserId: ctx.triggeredBy.id,
+    readByUserIds: [],
   };
 }
