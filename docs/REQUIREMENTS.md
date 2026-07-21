@@ -115,7 +115,7 @@ Custom roles may be app-scoped or form-scoped. Roles can map to Azure AD / AD gr
 
 | ID | Requirement |
 |----|-------------|
-| AD-1 | Data Tools can seed sample users and requests with **Create additional** or **Clear & recreate** modes and counts. |
+| AD-1 | Data Tools can seed sample users and/or requests independently via checkboxes, each with **Create additional** or **Clear & recreate** modes and counts. |
 | AD-2 | Optional checkbox to seed matching in-app notifications with requests. |
 | AD-3 | Reset requests for a single form. |
 | AD-4 | Reset all application data to defaults. |

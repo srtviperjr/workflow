@@ -49,8 +49,10 @@ export function DataToolsPage() {
   const [formId, setFormId] = useState('');
   const [confirmFormReset, setConfirmFormReset] = useState(false);
 
+  const [includeUsers, setIncludeUsers] = useState(true);
   const [userMode, setUserMode] = useState<SampleSeedMode>('append');
   const [userCount, setUserCount] = useState(6);
+  const [includeRequests, setIncludeRequests] = useState(true);
   const [requestMode, setRequestMode] = useState<SampleSeedMode>('append');
   const [requestsPerFormCount, setRequestsPerFormCount] = useState(
     DEFAULT_REQUESTS_PER_FORM,
@@ -63,7 +65,9 @@ export function DataToolsPage() {
 
   const formCount = Math.max(data.forms.length, 4);
   const totalRequests = requestsPerFormCount * formCount;
-  const canGenerate = userCount > 0 || requestsPerFormCount > 0;
+  const willGenerateUsers = includeUsers && userCount > 0;
+  const willGenerateRequests = includeRequests && requestsPerFormCount > 0;
+  const canGenerate = willGenerateUsers || willGenerateRequests;
 
   return (
     <Box maxWidth={800}>
@@ -92,115 +96,188 @@ export function DataToolsPage() {
                   Sample data
                 </Typography>
                 <Typography variant="body2" color="text.secondary" mb={2}>
-                  Loads the sample form catalog if needed, then creates users
-                  and/or requests. Choose create additional or clear &amp;
-                  recreate for each, and how many to generate.
+                  Choose what to generate with the checkboxes below. Users and
+                  requests (workflow submissions) can be included independently.
                 </Typography>
 
-                <Stack
-                  direction={{ xs: 'column', sm: 'row' }}
-                  spacing={2}
-                  mb={2}
-                  alignItems={{ sm: 'flex-start' }}
+                <Box
+                  sx={{
+                    mb: 2,
+                    p: 2,
+                    borderRadius: 2,
+                    border: '1px solid',
+                    borderColor: includeUsers ? 'divider' : 'action.disabledBackground',
+                    bgcolor: includeUsers ? 'background.paper' : 'action.hover',
+                  }}
                 >
-                  <FormControl size="small" sx={{ minWidth: 200, flex: 1 }}>
-                    <InputLabel>Users</InputLabel>
-                    <Select
-                      label="Users"
-                      value={userMode}
-                      onChange={(e) =>
-                        setUserMode(e.target.value as SampleSeedMode)
-                      }
-                    >
-                      {MODE_OPTIONS.map((opt) => (
-                        <MenuItem key={opt.value} value={opt.value}>
-                          {opt.label}
-                        </MenuItem>
-                      ))}
-                    </Select>
-                  </FormControl>
-                  <TextField
-                    label="Number of users"
-                    type="number"
-                    size="small"
-                    value={userCount}
-                    onChange={(e) => {
-                      const n = Number(e.target.value);
-                      setUserCount(
-                        Number.isFinite(n)
-                          ? Math.max(0, Math.min(50, Math.floor(n)))
-                          : 0,
-                      );
-                    }}
-                    inputProps={{ min: 0, max: 50, step: 1 }}
-                    sx={{ width: { xs: '100%', sm: 160 } }}
-                    helperText="0 = skip users"
-                  />
-                </Stack>
-
-                <Stack
-                  direction={{ xs: 'column', sm: 'row' }}
-                  spacing={2}
-                  mb={2}
-                  alignItems={{ sm: 'flex-start' }}
-                >
-                  <FormControl size="small" sx={{ minWidth: 200, flex: 1 }}>
-                    <InputLabel>Requests</InputLabel>
-                    <Select
-                      label="Requests"
-                      value={requestMode}
-                      onChange={(e) =>
-                        setRequestMode(e.target.value as SampleSeedMode)
-                      }
-                    >
-                      {MODE_OPTIONS.map((opt) => (
-                        <MenuItem key={opt.value} value={opt.value}>
-                          {opt.label}
-                        </MenuItem>
-                      ))}
-                    </Select>
-                  </FormControl>
-                  <TextField
-                    label="Requests per form"
-                    type="number"
-                    size="small"
-                    value={requestsPerFormCount}
-                    onChange={(e) => {
-                      const n = Number(e.target.value);
-                      setRequestsPerFormCount(
-                        Number.isFinite(n)
-                          ? Math.max(0, Math.min(50, Math.floor(n)))
-                          : 0,
-                      );
-                    }}
-                    inputProps={{ min: 0, max: 50, step: 1 }}
-                    sx={{ width: { xs: '100%', sm: 160 } }}
-                    helperText={
-                      requestsPerFormCount > 0
-                        ? `≈ ${totalRequests} total across ${formCount} forms`
-                        : '0 = skip requests'
+                  <FormControlLabel
+                    sx={{ mb: 1, display: 'flex', alignItems: 'flex-start' }}
+                    control={
+                      <Checkbox
+                        checked={includeUsers}
+                        onChange={(e) => setIncludeUsers(e.target.checked)}
+                        sx={{ pt: 0.25 }}
+                      />
+                    }
+                    label={
+                      <Box>
+                        <Typography fontWeight={700}>Include users</Typography>
+                        <Typography variant="caption" color="text.secondary">
+                          Create or replace demo users for the identity switcher
+                        </Typography>
+                      </Box>
                     }
                   />
-                </Stack>
+                  <Stack
+                    direction={{ xs: 'column', sm: 'row' }}
+                    spacing={2}
+                    alignItems={{ sm: 'flex-start' }}
+                    pl={{ sm: 4 }}
+                  >
+                    <FormControl
+                      size="small"
+                      sx={{ minWidth: 200, flex: 1 }}
+                      disabled={!includeUsers}
+                    >
+                      <InputLabel>Users mode</InputLabel>
+                      <Select
+                        label="Users mode"
+                        value={userMode}
+                        onChange={(e) =>
+                          setUserMode(e.target.value as SampleSeedMode)
+                        }
+                      >
+                        {MODE_OPTIONS.map((opt) => (
+                          <MenuItem key={opt.value} value={opt.value}>
+                            {opt.label}
+                          </MenuItem>
+                        ))}
+                      </Select>
+                    </FormControl>
+                    <TextField
+                      label="Number of users"
+                      type="number"
+                      size="small"
+                      disabled={!includeUsers}
+                      value={userCount}
+                      onChange={(e) => {
+                        const n = Number(e.target.value);
+                        setUserCount(
+                          Number.isFinite(n)
+                            ? Math.max(0, Math.min(50, Math.floor(n)))
+                            : 0,
+                        );
+                      }}
+                      inputProps={{ min: 0, max: 50, step: 1 }}
+                      sx={{ width: { xs: '100%', sm: 160 } }}
+                    />
+                  </Stack>
+                </Box>
 
-                <FormControlLabel
-                  sx={{ mb: 2, display: 'flex' }}
-                  control={
-                    <Checkbox
-                      checked={includeNotifications}
-                      disabled={requestsPerFormCount === 0}
-                      onChange={(e) =>
-                        setIncludeNotifications(e.target.checked)
+                <Box
+                  sx={{
+                    mb: 2,
+                    p: 2,
+                    borderRadius: 2,
+                    border: '1px solid',
+                    borderColor: includeRequests
+                      ? 'divider'
+                      : 'action.disabledBackground',
+                    bgcolor: includeRequests
+                      ? 'background.paper'
+                      : 'action.hover',
+                  }}
+                >
+                  <FormControlLabel
+                    sx={{ mb: 1, display: 'flex', alignItems: 'flex-start' }}
+                    control={
+                      <Checkbox
+                        checked={includeRequests}
+                        onChange={(e) => setIncludeRequests(e.target.checked)}
+                        sx={{ pt: 0.25 }}
+                      />
+                    }
+                    label={
+                      <Box>
+                        <Typography fontWeight={700}>
+                          Include requests (workflows)
+                        </Typography>
+                        <Typography variant="caption" color="text.secondary">
+                          Seed sample form/workflow catalog submissions through
+                          approval flows
+                        </Typography>
+                      </Box>
+                    }
+                  />
+                  <Stack
+                    direction={{ xs: 'column', sm: 'row' }}
+                    spacing={2}
+                    mb={1}
+                    alignItems={{ sm: 'flex-start' }}
+                    pl={{ sm: 4 }}
+                  >
+                    <FormControl
+                      size="small"
+                      sx={{ minWidth: 200, flex: 1 }}
+                      disabled={!includeRequests}
+                    >
+                      <InputLabel>Requests mode</InputLabel>
+                      <Select
+                        label="Requests mode"
+                        value={requestMode}
+                        onChange={(e) =>
+                          setRequestMode(e.target.value as SampleSeedMode)
+                        }
+                      >
+                        {MODE_OPTIONS.map((opt) => (
+                          <MenuItem key={opt.value} value={opt.value}>
+                            {opt.label}
+                          </MenuItem>
+                        ))}
+                      </Select>
+                    </FormControl>
+                    <TextField
+                      label="Requests per form"
+                      type="number"
+                      size="small"
+                      disabled={!includeRequests}
+                      value={requestsPerFormCount}
+                      onChange={(e) => {
+                        const n = Number(e.target.value);
+                        setRequestsPerFormCount(
+                          Number.isFinite(n)
+                            ? Math.max(0, Math.min(50, Math.floor(n)))
+                            : 0,
+                        );
+                      }}
+                      inputProps={{ min: 0, max: 50, step: 1 }}
+                      sx={{ width: { xs: '100%', sm: 160 } }}
+                      helperText={
+                        includeRequests && requestsPerFormCount > 0
+                          ? `≈ ${totalRequests} total across ${formCount} forms`
+                          : ' '
                       }
                     />
-                  }
-                  label="Include in-app notifications with requests"
-                />
+                  </Stack>
+                  <FormControlLabel
+                    sx={{ display: 'flex', pl: { sm: 4 } }}
+                    control={
+                      <Checkbox
+                        checked={includeNotifications}
+                        disabled={!includeRequests}
+                        onChange={(e) =>
+                          setIncludeNotifications(e.target.checked)
+                        }
+                      />
+                    }
+                    label="Include in-app notifications with requests"
+                  />
+                </Box>
 
                 {!canGenerate && (
                   <Alert severity="warning" sx={{ mb: 2 }}>
-                    Set users and/or requests per form above zero to generate
-                    data.
+                    Check Include users and/or Include requests, and set a count
+                    above zero.
                   </Alert>
                 )}
 
@@ -210,26 +287,26 @@ export function DataToolsPage() {
                   disabled={!canGenerate}
                   onClick={() => {
                     const stats = seedSampleData({
-                      requestsPerForm:
-                        requestsPerFormCount > 0
-                          ? defaultRequestsPerForm(requestsPerFormCount)
-                          : defaultRequestsPerForm(0),
-                      includeNotifications:
-                        includeNotifications && requestsPerFormCount > 0,
-                      includeUsers: userCount > 0,
-                      userCount,
+                      includeUsers: willGenerateUsers,
+                      userCount: willGenerateUsers ? userCount : 0,
                       userMode,
+                      includeRequests: willGenerateRequests,
+                      requestsPerForm: willGenerateRequests
+                        ? defaultRequestsPerForm(requestsPerFormCount)
+                        : defaultRequestsPerForm(0),
+                      includeNotifications:
+                        willGenerateRequests && includeNotifications,
                       mode: requestMode,
                     });
                     const parts: string[] = [];
-                    if (userCount > 0) {
+                    if (willGenerateUsers) {
                       parts.push(
                         userMode === 'replace'
                           ? `Users: cleared ${stats.usersCleared}, created ${stats.usersAdded}`
                           : `Users: created ${stats.usersAdded}`,
                       );
                     }
-                    if (requestsPerFormCount > 0) {
+                    if (willGenerateRequests) {
                       parts.push(
                         requestMode === 'replace'
                           ? `Requests: cleared ${stats.submissionsCleared}, created ${stats.submissionsAdded} (+${stats.notificationsAdded} notifications)`

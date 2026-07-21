@@ -41,7 +41,7 @@ export interface SampleSeedOptions {
   requestsPerForm?: RequestsPerForm;
   /**
    * When true (default), seed in-app notifications for submission /
-   * approval / rejection paths.
+   * approval / rejection paths. Ignored when requests are not included.
    */
   includeNotifications?: boolean;
   /**
@@ -51,8 +51,15 @@ export interface SampleSeedOptions {
   mode?: SampleSeedMode;
   /**
    * When true, create sample users (honours userCount / userMode).
+   * Explicit `false` skips user generation even if userCount > 0.
    */
   includeUsers?: boolean;
+  /**
+   * When true, generate sample requests (honours requestsPerForm / mode).
+   * Explicit `false` skips request generation. Also controls whether the
+   * sample form/workflow catalog is applied.
+   */
+  includeRequests?: boolean;
   /**
    * `replace` removes existing sample users then recreates them.
    * `append` adds new sample users without removing existing ones.
@@ -876,16 +883,30 @@ export function mergeSampleData(
   data: AppData,
   options: SampleSeedOptions = {},
 ): { data: AppData; stats: SampleSeedStats } {
-  const includeNotifications = options.includeNotifications !== false;
   const userCount = Math.max(
     0,
     Math.min(50, Math.floor(options.userCount ?? 0)),
   );
-  const includeUsers = options.includeUsers === true && userCount > 0
-    ? true
-    : options.includeUsers === false
-      ? false
-      : userCount > 0;
+  const includeUsers =
+    options.includeUsers === false ? false : userCount > 0;
+
+  const requestsPerForm =
+    options.requestsPerForm &&
+    Object.keys(options.requestsPerForm).length > 0
+      ? options.requestsPerForm
+      : defaultRequestsPerForm(DEFAULT_REQUESTS_PER_FORM);
+
+  const requestedTotal = Object.values(requestsPerForm).reduce(
+    (sum, n) => sum + (Number.isFinite(Number(n)) ? Math.max(0, Number(n)) : 0),
+    0,
+  );
+
+  const includeRequests =
+    options.includeRequests === false ? false : requestedTotal > 0;
+
+  const includeNotifications =
+    includeRequests && options.includeNotifications !== false;
+
   const mode: SampleSeedMode = options.mode === 'append' ? 'append' : 'replace';
   const userMode: SampleSeedMode =
     options.userMode === 'append' ? 'append' : 'replace';
@@ -943,8 +964,10 @@ export function mergeSampleData(
 
   const remapUserId = (id: string): string => idRemap.get(id) ?? id;
 
-  let forms = catalog.forms;
-  let workflows = catalog.workflows;
+  // Only apply the sample form/workflow catalog when generating requests.
+  // User-only runs keep the current forms and workflows intact.
+  let forms = includeRequests ? catalog.forms : data.forms;
+  let workflows = includeRequests ? catalog.workflows : data.workflows;
 
   const paired = enforceFormWorkflowOneToOne({
     ...data,
@@ -958,19 +981,8 @@ export function mergeSampleData(
   workflows = paired.workflows;
   users = paired.users;
 
-  const requestsPerForm =
-    options.requestsPerForm &&
-    Object.keys(options.requestsPerForm).length > 0
-      ? options.requestsPerForm
-      : defaultRequestsPerForm(DEFAULT_REQUESTS_PER_FORM);
-
-  const requestedTotal = Object.values(requestsPerForm).reduce(
-    (sum, n) => sum + (Number.isFinite(Number(n)) ? Math.max(0, Number(n)) : 0),
-    0,
-  );
-
   const { submissions: sampleSubs, notifications: sampleNotifs } =
-    requestedTotal > 0
+    includeRequests && requestedTotal > 0
       ? generateSampleSubmissions(
           forms,
           workflows,
@@ -1008,9 +1020,9 @@ export function mergeSampleData(
     (n) => !sampleFormIds.has(n.formId),
   );
 
-  // When request counts are all zero, leave existing requests/notifications alone
+  // When requests are not included, leave existing requests/notifications alone
   // (user-only seeding should not wipe the register).
-  const touchRequests = requestedTotal > 0;
+  const touchRequests = includeRequests && requestedTotal > 0;
 
   const effectiveMode: SampleSeedMode = !touchRequests
     ? 'append'
