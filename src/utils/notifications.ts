@@ -136,6 +136,14 @@ export function buildNotificationFromNode(
     ctx.users,
     ctx.roles,
   );
+
+  if (node.data.notifySubmitter) {
+    const submitter = ctx.users.find((u) => u.id === ctx.submission.submittedBy);
+    if (submitter && !recipients.some((u) => u.id === submitter.id)) {
+      recipients.push(submitter);
+    }
+  }
+
   const subjectTemplate =
     node.data.notifySubject ||
     node.data.emailSubject ||

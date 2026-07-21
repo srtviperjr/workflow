@@ -15,12 +15,19 @@ import {
   MenuItem,
   Select,
   Stack,
+  TextField,
   Typography,
 } from '@mui/material';
 import DatasetIcon from '@mui/icons-material/Dataset';
 import RestartAltIcon from '@mui/icons-material/RestartAlt';
 import DeleteSweepIcon from '@mui/icons-material/DeleteSweep';
 import { useApp } from '../context/AppContext';
+import {
+  DEFAULT_REQUESTS_PER_FORM,
+  SAMPLE_FORM_META,
+  defaultRequestsPerForm,
+  type RequestsPerForm,
+} from '../data/sampleData';
 
 export function AdminToolsPage() {
   const {
@@ -34,10 +41,18 @@ export function AdminToolsPage() {
   const [confirmReset, setConfirmReset] = useState(false);
   const [formId, setFormId] = useState('');
   const [confirmFormReset, setConfirmFormReset] = useState(false);
+  const [requestsPerForm, setRequestsPerForm] = useState<RequestsPerForm>(() =>
+    defaultRequestsPerForm(DEFAULT_REQUESTS_PER_FORM),
+  );
 
   if (!isAdmin) {
     return <Typography>Admin access required.</Typography>;
   }
+
+  const totalRequests = SAMPLE_FORM_META.reduce(
+    (sum, f) => sum + (Number(requestsPerForm[f.id]) || 0),
+    0,
+  );
 
   return (
     <Box maxWidth={800}>
@@ -67,16 +82,84 @@ export function AdminToolsPage() {
                 </Typography>
                 <Typography variant="body2" color="text.secondary" mb={2}>
                   Replaces forms with Overtime, Vehicle Registration, Change
-                  Request, and Leave Request (manager-approval workflows), adds
-                  sample users across companies/projects, and sample submissions.
+                  Request, and Leave Request (manager-approval workflows with
+                  notifications on submission, approval, and rejection), adds
+                  sample users across companies/projects, and sample
+                  submissions plus in-app notifications.
                 </Typography>
+
+                <Typography variant="subtitle2" fontWeight={700} mb={1}>
+                  Requests per form
+                </Typography>
+                <Stack
+                  direction={{ xs: 'column', sm: 'row' }}
+                  spacing={1.5}
+                  flexWrap="wrap"
+                  useFlexGap
+                  mb={2}
+                >
+                  {SAMPLE_FORM_META.map((form) => (
+                    <TextField
+                      key={form.id}
+                      label={form.name}
+                      type="number"
+                      size="small"
+                      value={requestsPerForm[form.id] ?? 0}
+                      onChange={(e) => {
+                        const raw = Number(e.target.value);
+                        const next = Number.isFinite(raw)
+                          ? Math.max(0, Math.min(50, Math.floor(raw)))
+                          : 0;
+                        setRequestsPerForm((prev) => ({
+                          ...prev,
+                          [form.id]: next,
+                        }));
+                      }}
+                      inputProps={{ min: 0, max: 50, step: 1 }}
+                      sx={{ width: { xs: '100%', sm: 180 } }}
+                    />
+                  ))}
+                </Stack>
+                <Stack direction="row" spacing={1} alignItems="center" mb={2}>
+                  <Button
+                    size="small"
+                    onClick={() =>
+                      setRequestsPerForm(defaultRequestsPerForm(2))
+                    }
+                  >
+                    Set all to 2
+                  </Button>
+                  <Button
+                    size="small"
+                    onClick={() =>
+                      setRequestsPerForm(defaultRequestsPerForm(5))
+                    }
+                  >
+                    Set all to 5
+                  </Button>
+                  <Button
+                    size="small"
+                    onClick={() =>
+                      setRequestsPerForm(defaultRequestsPerForm(0))
+                    }
+                  >
+                    Clear counts
+                  </Button>
+                  <Typography variant="caption" color="text.secondary">
+                    {totalRequests} total request
+                    {totalRequests === 1 ? '' : 's'}
+                  </Typography>
+                </Stack>
+
                 <Button
                   variant="contained"
                   startIcon={<DatasetIcon />}
                   onClick={() => {
-                    seedSampleData();
+                    seedSampleData({ requestsPerForm });
                     setMessage(
-                      'Sample catalog, users, and requests loaded.',
+                      `Sample catalog loaded with ${totalRequests} request${
+                        totalRequests === 1 ? '' : 's'
+                      } and matching notifications.`,
                     );
                   }}
                 >
@@ -144,8 +227,8 @@ export function AdminToolsPage() {
                 </Typography>
                 <Typography variant="body2" color="text.secondary" mb={2}>
                   Clears local storage and restores default roles, the system
-                  admin user, the Standard Approval workflow, and Simple Request
-                  form. All custom data will be lost.
+                  admin user, sample forms, and manager-approval workflows.
+                  All custom data will be lost.
                 </Typography>
                 <Button
                   variant="contained"

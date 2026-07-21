@@ -12,7 +12,7 @@ See **[docs/REQUIREMENTS.md](./docs/REQUIREMENTS.md)** for the full product requ
 - **1:1 forms & workflows** — Each form owns exactly one dedicated workflow; forms never share a workflow.
 - **Sample forms** — Overtime Request, Vehicle Registration, Change Request, and Leave Request, each with a manager-approval workflow.
 - **Submission visibility** — Per-form boundary: only own submissions, within company, or within project.
-- **In-app notifications** — Workflow “Notify” steps create templated messages for selected roles; view under **Notifications**.
+- **In-app notifications** — Workflow “Notify” steps create templated messages for selected roles (and optionally the submitter) on submission, approval, or rejection; view under **Notifications**.
 - **Form-scoped roles** — Roles can be limited to specific forms for steps and notification recipients.
 - **PDF export** — Print icon on request detail downloads a PDF of the current form.
 - **Dynamic workflow history** — Every request tracks who acted and when; history columns follow the live workflow definition.
@@ -39,4 +39,4 @@ Open the URL shown in the terminal (typically `http://localhost:5173`).
 
 ## Default login
 
-The app boots as **System Admin** (`admin@jansen.local`) with Admin + Requestor roles. Use **Admin Tools → Generate Sample Data** to add demo users and requests, then switch identity via the top-right selector.
+The app boots as **System Admin** (`admin@jansen.local`) with Admin + Requestor roles. Use **Admin Tools → Generate Sample Data** (choose how many requests per form) to add demo users, requests, and notifications, then switch identity via the top-right selector.

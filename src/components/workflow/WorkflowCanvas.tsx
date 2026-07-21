@@ -188,6 +188,7 @@ export function WorkflowCanvas({
         decisionMode: type === 'decision' ? 'manual' : undefined,
         allowFieldEdits: false,
         notifyRoleIds: type === 'notification' && defaultRole ? [defaultRole] : [],
+        notifySubmitter: type === 'notification' ? false : undefined,
         notifySubject:
           type === 'notification' ? 'Update on {{formName}}' : undefined,
         notifyBody:
@@ -214,6 +215,7 @@ export function WorkflowCanvas({
     decisionMode?: 'manual' | 'conditional';
     allowFieldEdits?: boolean;
     notifyRoleIds?: string[];
+    notifySubmitter?: boolean;
     notifySubject?: string;
     notifyBody?: string;
     emailSubject?: string;
@@ -504,8 +506,9 @@ export function WorkflowCanvas({
                 <Typography variant="caption" color="text.secondary">
                   Creates an in-app notification when the workflow reaches this
                   step. Recipients are users with the selected roles
-                  (form-scoped roles only apply on their linked forms). View
-                  them under Notifications.
+                  (form-scoped roles only apply on their linked forms), and
+                  optionally the request submitter. View them under
+                  Notifications.
                 </Typography>
                 <FormControl size="small" fullWidth disabled={readOnly}>
                   <InputLabel>Notify roles</InputLabel>
@@ -534,6 +537,20 @@ export function WorkflowCanvas({
                     ))}
                   </Select>
                 </FormControl>
+                <FormControlLabel
+                  control={
+                    <Checkbox
+                      checked={Boolean(selectedData.notifySubmitter)}
+                      disabled={readOnly}
+                      onChange={(e) =>
+                        updateSelectedNode({
+                          notifySubmitter: e.target.checked,
+                        })
+                      }
+                    />
+                  }
+                  label="Also notify the request submitter"
+                />
                 <TextField
                   label="Subject"
                   size="small"

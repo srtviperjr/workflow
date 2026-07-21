@@ -62,6 +62,11 @@ export interface WorkflowNodeData {
    * Form-scoped roles only apply when the role is linked to this form.
    */
   notifyRoleIds?: string[];
+  /**
+   * When true, the request submitter always receives the notification
+   * (in addition to any selected roles).
+   */
+  notifySubmitter?: boolean;
   /** Subject template; supports {{Field Label}} and {{formName}} */
   notifySubject?: string;
   /** Message body template; static text plus {{field}} tokens */

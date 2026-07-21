@@ -24,6 +24,7 @@ import {
   mergeSampleData,
   resetAllData,
   resetByForm,
+  type SampleSeedOptions,
 } from '../data/sampleData';
 
 interface AppContextValue {
@@ -67,7 +68,7 @@ interface AppContextValue {
   updateDelegation: (id: string, patch: Partial<ApprovalDelegation>) => void;
   deleteDelegation: (id: string) => void;
   // Admin tools
-  seedSampleData: () => void;
+  seedSampleData: (options?: SampleSeedOptions) => void;
   resetEverything: () => void;
   resetFormData: (formId: string) => void;
   getUserById: (id: string) => User | undefined;
@@ -544,7 +545,7 @@ export function AppProvider({ children }: { children: ReactNode }) {
         };
       }),
 
-    seedSampleData: () => update((d) => mergeSampleData(d)),
+    seedSampleData: (options) => update((d) => mergeSampleData(d, options)),
     resetEverything: () => {
       const fresh = resetAllData();
       setData(fresh);

@@ -67,7 +67,7 @@ Users belong to one of: BHP, Hatch, Bantrel, Fluor.
 | ID | Requirement |
 |----|-------------|
 | WE-1 | Admins edit workflows on a visual canvas (React Flow). |
-| WE-2 | Node types: start, step, decision, end. |
+| WE-2 | Node types: start, step, decision, notification, end. |
 | WE-3 | Steps/decisions assign a role; optional field-edit permission on the step. |
 | WE-4 | Decision routing: manual outcomes and/or form-field conditions. |
 | WE-5 | Related form enables field-based conditions and form-scoped roles. |
@@ -98,7 +98,7 @@ Users belong to one of: BHP, Hatch, Bantrel, Fluor.
 
 | ID | Requirement |
 |----|-------------|
-| AD-1 | Seed sample users and submissions. |
+| AD-1 | Seed sample users and submissions; choose how many requests to generate per form. |
 | AD-2 | Reset requests for a single form. |
 | AD-3 | Reset all application data to defaults. |
 
@@ -108,9 +108,10 @@ Users belong to one of: BHP, Hatch, Bantrel, Fluor.
 |----|-------------|
 | EN-1 | Workflows support a **notification** step type. |
 | EN-2 | Subject/body are templates with static text and `{{Field Label}}` / builtin tokens. |
-| EN-3 | Recipients are selected by role(s); form-scoped roles only apply on linked forms. |
+| EN-3 | Recipients are selected by role(s) and/or the request submitter; form-scoped roles only apply on linked forms. |
 | EN-4 | Notifications are created automatically when the workflow reaches the step. |
 | EN-5 | Messages are **in-app only** (not emailed) and listed under **Notifications**. |
+| EN-6 | Sample manager-approval workflows notify managers on submission and the submitter on approval or rejection. |
 
 ### 4.8 PDF export
 
