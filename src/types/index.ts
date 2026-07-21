@@ -174,11 +174,16 @@ export interface FormSubmission {
 /** All workflows → one delegate, or specific workflows (possibly different delegates) */
 export type DelegationScope = 'all' | 'workflows';
 
+/**
+ * Temporary grant of the delegator's approval permissions to another user.
+ * Additive only: the delegate keeps their own roles and gains the
+ * delegator's roles for covered workflows while the dates are active.
+ */
 export interface ApprovalDelegation {
   id: string;
   /** User whose approval authority is being delegated */
   fromUserId: string;
-  /** User who may act on the delegator's behalf */
+  /** User who receives the delegator's permissions (in addition to their own) */
   toUserId: string;
   scope: DelegationScope;
   /** When scope is 'workflows', these workflows are covered */

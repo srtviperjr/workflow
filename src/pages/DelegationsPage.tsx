@@ -26,13 +26,13 @@ import {
 } from '@mui/material';
 import AddIcon from '@mui/icons-material/Add';
 import DeleteIcon from '@mui/icons-material/Delete';
-import DeleteOutlineIcon from '@mui/icons-material/DeleteOutline';
 import { useApp } from '../context/AppContext';
 import type { ApprovalDelegation, DelegationScope } from '../types';
 import {
   endDateFromDuration,
   isDelegationActive,
   toDateOnly,
+  workflowsAccessibleToUser,
 } from '../utils/workflowEngine';
 
 interface WorkflowMapping {
@@ -56,9 +56,7 @@ export function DelegationsPage() {
   const [fromUserId, setFromUserId] = useState('');
   const [scope, setScope] = useState<DelegationScope>('all');
   const [toUserId, setToUserId] = useState('');
-  const [mappings, setMappings] = useState<WorkflowMapping[]>([
-    { workflowId: '', toUserId: '' },
-  ]);
+  const [mappings, setMappings] = useState<WorkflowMapping[]>([]);
   const [startDate, setStartDate] = useState(toDateOnly());
   const [durationDays, setDurationDays] = useState(7);
 
@@ -70,6 +68,16 @@ export function DelegationsPage() {
   const workflowName = (id: string) =>
     data.workflows.find((w) => w.id === id)?.name ?? id;
 
+  const fromUser = useMemo(
+    () => data.users.find((u) => u.id === fromUserId) ?? null,
+    [data.users, fromUserId],
+  );
+
+  const accessibleWorkflows = useMemo(() => {
+    if (!fromUser) return [];
+    return workflowsAccessibleToUser(fromUser, data.workflows, data.roles);
+  }, [fromUser, data.workflows, data.roles]);
+
   const visibleDelegations = useMemo(() => {
     if (!currentUser) return [];
     if (isAdmin) return data.delegations ?? [];
@@ -78,6 +86,20 @@ export function DelegationsPage() {
         d.fromUserId === currentUser.id || d.toUserId === currentUser.id,
     );
   }, [currentUser, isAdmin, data.delegations]);
+
+  const buildMappingsForUser = (
+    userId: string,
+    prefill?: Record<string, string>,
+  ): WorkflowMapping[] => {
+    const user = data.users.find((u) => u.id === userId);
+    if (!user) return [];
+    return workflowsAccessibleToUser(user, data.workflows, data.roles).map(
+      (wf) => ({
+        workflowId: wf.id,
+        toUserId: prefill?.[wf.id] ?? '',
+      }),
+    );
+  };
 
   if (!currentUser) {
     return <Typography>Select a user identity to manage delegations.</Typography>;
@@ -88,7 +110,7 @@ export function DelegationsPage() {
     setFromUserId(currentUser.id);
     setScope('all');
     setToUserId('');
-    setMappings([{ workflowId: data.workflows[0]?.id ?? '', toUserId: '' }]);
+    setMappings(buildMappingsForUser(currentUser.id));
     setStartDate(toDateOnly());
     setDurationDays(7);
     setOpen(true);
@@ -99,14 +121,15 @@ export function DelegationsPage() {
     setFromUserId(d.fromUserId);
     setScope(d.scope);
     setToUserId(d.toUserId);
-    setMappings(
-      d.scope === 'workflows' && d.workflowIds.length > 0
-        ? d.workflowIds.map((workflowId) => ({
-            workflowId,
-            toUserId: d.toUserId,
-          }))
-        : [{ workflowId: data.workflows[0]?.id ?? '', toUserId: d.toUserId }],
-    );
+    if (d.scope === 'workflows') {
+      const prefill: Record<string, string> = {};
+      for (const wid of d.workflowIds) {
+        prefill[wid] = d.toUserId;
+      }
+      setMappings(buildMappingsForUser(d.fromUserId, prefill));
+    } else {
+      setMappings(buildMappingsForUser(d.fromUserId));
+    }
     setStartDate(d.startDate);
     setDurationDays(d.durationDays || 7);
     setOpen(true);
@@ -116,6 +139,16 @@ export function DelegationsPage() {
 
   const delegateOptions = data.users.filter((u) => u.id !== fromUserId);
 
+  const setMappingDelegate = (workflowId: string, nextToUserId: string) => {
+    setMappings((ms) =>
+      ms.map((row) =>
+        row.workflowId === workflowId
+          ? { ...row, toUserId: nextToUserId }
+          : row,
+      ),
+    );
+  };
+
   const save = () => {
     if (!fromUserId || durationDays < 1) return;
     const payloadBase = {
@@ -123,6 +156,21 @@ export function DelegationsPage() {
       startDate,
       endDate,
       durationDays: Math.max(1, Math.floor(durationDays)),
+    };
+
+    const groupByDelegate = (rows: WorkflowMapping[]) => {
+      const byDelegate = new Map<string, string[]>();
+      for (const m of rows) {
+        const list = byDelegate.get(m.toUserId) ?? [];
+        list.push(m.workflowId);
+        byDelegate.set(m.toUserId, list);
+      }
+      return [...byDelegate.entries()].map(([uid, workflowIds]) => ({
+        ...payloadBase,
+        toUserId: uid,
+        scope: 'workflows' as const,
+        workflowIds,
+      }));
     };
 
     if (editing) {
@@ -135,14 +183,12 @@ export function DelegationsPage() {
           workflowIds: [],
         });
       } else {
-        const first = mappings.find((m) => m.workflowId && m.toUserId);
-        if (!first) return;
-        updateDelegation(editing.id, {
-          ...payloadBase,
-          toUserId: first.toUserId,
-          scope: 'workflows',
-          workflowIds: [first.workflowId],
-        });
+        const selected = mappings.filter((m) => m.workflowId && m.toUserId);
+        if (selected.length === 0) return;
+        const grouped = groupByDelegate(selected);
+        const [first, ...rest] = grouped;
+        updateDelegation(editing.id, first);
+        if (rest.length > 0) addDelegations(rest);
       }
       setOpen(false);
       return;
@@ -157,16 +203,9 @@ export function DelegationsPage() {
         workflowIds: [],
       });
     } else {
-      const valid = mappings.filter((m) => m.workflowId && m.toUserId);
-      if (valid.length === 0) return;
-      addDelegations(
-        valid.map((m) => ({
-          ...payloadBase,
-          toUserId: m.toUserId,
-          scope: 'workflows' as const,
-          workflowIds: [m.workflowId],
-        })),
-      );
+      const selected = mappings.filter((m) => m.workflowId && m.toUserId);
+      if (selected.length === 0) return;
+      addDelegations(groupByDelegate(selected));
     }
     setOpen(false);
   };
@@ -187,8 +226,9 @@ export function DelegationsPage() {
             Delegations
           </Typography>
           <Typography color="text.secondary">
-            Delegate your approvals to another user for a set number of days —
-            for all workflows or a different person per workflow
+            Grant your approval permissions to another user for a set number of
+            days. Their existing permissions are kept — yours are added for the
+            duration only.
           </Typography>
         </Box>
         <Button variant="contained" startIcon={<AddIcon />} onClick={openCreate}>
@@ -281,7 +321,7 @@ export function DelegationsPage() {
         </Table>
       </TableContainer>
 
-      <Dialog open={open} onClose={() => setOpen(false)} maxWidth="sm" fullWidth>
+      <Dialog open={open} onClose={() => setOpen(false)} maxWidth="md" fullWidth>
         <DialogTitle>
           {editing ? 'Edit Delegation' : 'New Delegation'}
         </DialogTitle>
@@ -294,11 +334,10 @@ export function DelegationsPage() {
                   label="Delegating user"
                   value={fromUserId}
                   onChange={(e) => {
-                    setFromUserId(e.target.value);
+                    const next = e.target.value;
+                    setFromUserId(next);
                     setToUserId('');
-                    setMappings((ms) =>
-                      ms.map((m) => ({ ...m, toUserId: '' })),
-                    );
+                    setMappings(buildMappingsForUser(next));
                   }}
                 >
                   {data.users.map((u) => (
@@ -315,7 +354,13 @@ export function DelegationsPage() {
               <Select
                 label="Coverage"
                 value={scope}
-                onChange={(e) => setScope(e.target.value as DelegationScope)}
+                onChange={(e) => {
+                  const next = e.target.value as DelegationScope;
+                  setScope(next);
+                  if (next === 'workflows' && fromUserId) {
+                    setMappings(buildMappingsForUser(fromUserId));
+                  }
+                }}
                 disabled={Boolean(editing)}
               >
                 <MenuItem value="all">All workflows (one delegate)</MenuItem>
@@ -342,100 +387,81 @@ export function DelegationsPage() {
               </FormControl>
             ) : (
               <Box>
-                <Typography variant="subtitle2" fontWeight={700} mb={1}>
+                <Typography variant="subtitle2" fontWeight={700} mb={0.5}>
                   Workflow delegates
                 </Typography>
-                <Stack spacing={1.5}>
-                  {mappings.map((m, index) => (
-                    <Paper key={index} variant="outlined" sx={{ p: 1.5 }}>
-                      <Stack spacing={1.5}>
-                        <Stack direction="row" spacing={1} alignItems="center">
-                          <FormControl size="small" fullWidth>
-                            <InputLabel>Workflow</InputLabel>
+                <Typography variant="body2" color="text.secondary" mb={1.5}>
+                  All workflows you can act on are listed. Choose a delegate for
+                  each one you want to cover (leave blank to skip).
+                </Typography>
+                {accessibleWorkflows.length === 0 ? (
+                  <Alert severity="warning">
+                    This user has no workflows they can act on, so there is
+                    nothing to delegate.
+                  </Alert>
+                ) : (
+                  <Stack spacing={1}>
+                    {mappings.map((m) => {
+                      const wf = data.workflows.find(
+                        (w) => w.id === m.workflowId,
+                      );
+                      return (
+                        <Stack
+                          key={m.workflowId}
+                          direction={{ xs: 'column', sm: 'row' }}
+                          spacing={1.5}
+                          alignItems={{ sm: 'center' }}
+                          sx={{
+                            py: 1,
+                            px: 1.5,
+                            borderRadius: 1,
+                            bgcolor: 'action.hover',
+                          }}
+                        >
+                          <Box sx={{ flex: 1, minWidth: 0 }}>
+                            <Typography fontWeight={600} noWrap>
+                              {wf?.name ?? m.workflowId}
+                            </Typography>
+                            {wf?.description && (
+                              <Typography
+                                variant="caption"
+                                color="text.secondary"
+                                noWrap
+                                display="block"
+                              >
+                                {wf.description}
+                              </Typography>
+                            )}
+                          </Box>
+                          <FormControl
+                            size="small"
+                            sx={{ minWidth: { xs: '100%', sm: 240 } }}
+                          >
+                            <InputLabel>Delegate to</InputLabel>
                             <Select
-                              label="Workflow"
-                              value={m.workflowId}
+                              label="Delegate to"
+                              value={m.toUserId}
                               onChange={(e) =>
-                                setMappings((ms) =>
-                                  ms.map((row, i) =>
-                                    i === index
-                                      ? { ...row, workflowId: e.target.value }
-                                      : row,
-                                  ),
+                                setMappingDelegate(
+                                  m.workflowId,
+                                  e.target.value,
                                 )
                               }
                             >
-                              {data.workflows.map((w) => (
-                                <MenuItem key={w.id} value={w.id}>
-                                  {w.name}
+                              <MenuItem value="">
+                                <em>None</em>
+                              </MenuItem>
+                              {delegateOptions.map((u) => (
+                                <MenuItem key={u.id} value={u.id}>
+                                  {u.firstName} {u.lastName}
                                 </MenuItem>
                               ))}
                             </Select>
                           </FormControl>
-                          {!editing && mappings.length > 1 && (
-                            <IconButton
-                              size="small"
-                              color="error"
-                              onClick={() =>
-                                setMappings((ms) =>
-                                  ms.filter((_, i) => i !== index),
-                                )
-                              }
-                            >
-                              <DeleteOutlineIcon fontSize="small" />
-                            </IconButton>
-                          )}
                         </Stack>
-                        <FormControl size="small" fullWidth>
-                          <InputLabel>Delegate to</InputLabel>
-                          <Select
-                            label="Delegate to"
-                            value={m.toUserId}
-                            onChange={(e) =>
-                              setMappings((ms) =>
-                                ms.map((row, i) =>
-                                  i === index
-                                    ? { ...row, toUserId: e.target.value }
-                                    : row,
-                                ),
-                              )
-                            }
-                          >
-                            {delegateOptions.map((u) => (
-                              <MenuItem key={u.id} value={u.id}>
-                                {u.firstName} {u.lastName}
-                              </MenuItem>
-                            ))}
-                          </Select>
-                        </FormControl>
-                      </Stack>
-                    </Paper>
-                  ))}
-                </Stack>
-                {!editing && (
-                  <Button
-                    size="small"
-                    startIcon={<AddIcon />}
-                    sx={{ mt: 1 }}
-                    onClick={() =>
-                      setMappings((ms) => [
-                        ...ms,
-                        {
-                          workflowId: data.workflows[0]?.id ?? '',
-                          toUserId: '',
-                        },
-                      ])
-                    }
-                    disabled={data.workflows.length === 0}
-                  >
-                    Add workflow
-                  </Button>
-                )}
-                {editing && (
-                  <Alert severity="info" sx={{ mt: 1 }}>
-                    Editing updates this single workflow mapping. Create a new
-                    delegation to add more workflows with different people.
-                  </Alert>
+                      );
+                    })}
+                  </Stack>
                 )}
               </Box>
             )}
@@ -461,6 +487,13 @@ export function DelegationsPage() {
                 helperText={`Ends ${endDate} (inclusive)`}
               />
             </Stack>
+
+            <Alert severity="info">
+              During the active dates, each selected delegate gains your
+              approval permissions for the covered workflows in addition to
+              their own. Nothing is removed from them when the delegation ends
+              or while it is active.
+            </Alert>
           </Stack>
         </DialogContent>
         <DialogActions>

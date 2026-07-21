@@ -499,21 +499,66 @@ export function getActiveDelegationsForActor(
   );
 }
 
+/**
+ * Additive role set for a user: their own roles plus any active
+ * delegators' roles that cover the given workflow. Never removes roles.
+ */
+export function getEffectiveRoleIds(
+  user: User,
+  workflowId: string | null | undefined,
+  delegations: ApprovalDelegation[],
+  users: User[],
+  asOf: string = toDateOnly(),
+): string[] {
+  const roleIds = new Set(user.roleIds);
+  const active = getActiveDelegationsForActor(
+    user.id,
+    workflowId,
+    delegations,
+    asOf,
+  );
+  for (const d of active) {
+    const fromUser = users.find((u) => u.id === d.fromUserId);
+    if (!fromUser) continue;
+    for (const roleId of fromUser.roleIds) {
+      roleIds.add(roleId);
+    }
+  }
+  return [...roleIds];
+}
+
 function userHasNodeAccess(
   user: User,
   node: WorkflowNode,
   roles: Role[],
   formId?: string | null,
+  roleIds: string[] = user.roleIds,
 ): boolean {
-  if (user.roleIds.includes('role-admin')) return true;
+  if (roleIds.includes('role-admin')) return true;
   if (node.type === 'decision' && node.data.decisionMode === 'conditional') {
     return false;
   }
   if (!node.data.roleId) return true;
-  if (!user.roleIds.includes(node.data.roleId)) return false;
+  if (!roleIds.includes(node.data.roleId)) return false;
   const role = roles.find((r) => r.id === node.data.roleId);
   if (!role) return true;
   return roleAppliesToForm(role, formId);
+}
+
+/** Workflows where the user can act on at least one step/decision (own roles). */
+export function workflowsAccessibleToUser(
+  user: User,
+  workflows: Workflow[],
+  roles: Role[],
+): Workflow[] {
+  if (user.roleIds.includes('role-admin')) return [...workflows];
+  return workflows.filter((wf) =>
+    wf.nodes.some(
+      (node) =>
+        (node.type === 'step' || node.type === 'decision') &&
+        userHasNodeAccess(user, node, roles, wf.formId),
+    ),
+  );
 }
 
 export interface ActPermissionContext {
@@ -529,22 +574,13 @@ export function canUserActOnNode(
   formId?: string | null,
   ctx: ActPermissionContext = {},
 ): boolean {
-  if (userHasNodeAccess(user, node, roles, formId)) return true;
-
-  const delegations = ctx.delegations ?? [];
-  const users = ctx.users ?? [];
-  const active = getActiveDelegationsForActor(
-    user.id,
+  const effectiveRoleIds = getEffectiveRoleIds(
+    user,
     ctx.workflowId,
-    delegations,
+    ctx.delegations ?? [],
+    ctx.users ?? [],
   );
-  for (const d of active) {
-    const fromUser = users.find((u) => u.id === d.fromUserId);
-    if (fromUser && userHasNodeAccess(fromUser, node, roles, formId)) {
-      return true;
-    }
-  }
-  return false;
+  return userHasNodeAccess(user, node, roles, formId, effectiveRoleIds);
 }
 
 /** Delegator whose authority the actor is using for this node, if any */
@@ -555,6 +591,7 @@ export function getDelegationSource(
   formId: string | null | undefined,
   ctx: ActPermissionContext,
 ): User | null {
+  // Own permissions take precedence — delegation is additive only
   if (userHasNodeAccess(actor, node, roles, formId)) return null;
   const users = ctx.users ?? [];
   const active = getActiveDelegationsForActor(
