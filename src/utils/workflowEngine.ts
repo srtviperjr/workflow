@@ -59,6 +59,7 @@ export function fromFlowNodes(nodes: Node[]): WorkflowNode[] {
         notifyRoleIds: Array.isArray(data.notifyRoleIds)
           ? data.notifyRoleIds.filter((id): id is string => typeof id === 'string')
           : undefined,
+        notifySubmitter: Boolean(data.notifySubmitter),
         notifySubject:
           typeof data.notifySubject === 'string'
             ? data.notifySubject

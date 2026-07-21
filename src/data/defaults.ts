@@ -64,7 +64,7 @@ export function createDefaultAdmin(): User {
   };
 }
 
-/** Basic Requestor → Manager approve/reject workflow, paired to a form. */
+/** Basic Requestor → Manager approve/reject workflow with notify steps. */
 export function createManagerApprovalWorkflow(
   opts: {
     id: string;
@@ -75,7 +75,10 @@ export function createManagerApprovalWorkflow(
 ): Workflow {
   const startId = `${opts.id}-start`;
   const submitId = `${opts.id}-submit`;
+  const notifySubmitId = `${opts.id}-notify-submit`;
   const mgrId = `${opts.id}-mgr`;
+  const notifyOkId = `${opts.id}-notify-ok`;
+  const notifyNoId = `${opts.id}-notify-no`;
   const endOk = `${opts.id}-end-ok`;
   const endNo = `${opts.id}-end-no`;
   const ts = now();
@@ -85,7 +88,7 @@ export function createManagerApprovalWorkflow(
     name: opts.name,
     description:
       opts.description ??
-      'Requestor submits → Manager approves or rejects',
+      'Requestor submits → notify managers → Manager approves or rejects → notify submitter',
     formId: opts.formId,
     nodes: [
       {
@@ -105,9 +108,22 @@ export function createManagerApprovalWorkflow(
         },
       },
       {
+        id: notifySubmitId,
+        type: 'notification',
+        position: { x: 280, y: 220 },
+        data: {
+          label: 'Notify on submission',
+          notifyRoleIds: ['role-manager'],
+          notifySubmitter: false,
+          notifySubject: 'New {{formName}} from {{submitter}}',
+          notifyBody:
+            'A new request needs review.\n\nForm: {{formName}}\nRequest: {{requestId}}\nSubmitted by: {{submitter}}\n\nPlease open the request register to approve or reject.',
+        },
+      },
+      {
         id: mgrId,
         type: 'decision',
-        position: { x: 280, y: 260 },
+        position: { x: 280, y: 360 },
         data: {
           label: 'Manager Review',
           roleId: 'role-manager',
@@ -116,35 +132,64 @@ export function createManagerApprovalWorkflow(
         },
       },
       {
+        id: notifyOkId,
+        type: 'notification',
+        position: { x: 80, y: 500 },
+        data: {
+          label: 'Notify on approval',
+          notifyRoleIds: [],
+          notifySubmitter: true,
+          notifySubject: '{{formName}} approved',
+          notifyBody:
+            'Your request was approved.\n\nForm: {{formName}}\nRequest: {{requestId}}\nStatus: {{status}}',
+        },
+      },
+      {
+        id: notifyNoId,
+        type: 'notification',
+        position: { x: 480, y: 500 },
+        data: {
+          label: 'Notify on rejection',
+          notifyRoleIds: [],
+          notifySubmitter: true,
+          notifySubject: '{{formName}} rejected',
+          notifyBody:
+            'Your request was rejected.\n\nForm: {{formName}}\nRequest: {{requestId}}\nStatus: {{status}}',
+        },
+      },
+      {
         id: endOk,
         type: 'end',
-        position: { x: 120, y: 420 },
+        position: { x: 80, y: 640 },
         data: { label: 'Approved' },
       },
       {
         id: endNo,
         type: 'end',
-        position: { x: 440, y: 420 },
+        position: { x: 480, y: 640 },
         data: { label: 'Rejected' },
       },
     ],
     edges: [
       { id: `${opts.id}-e1`, source: startId, target: submitId },
-      { id: `${opts.id}-e2`, source: submitId, target: mgrId },
+      { id: `${opts.id}-e2`, source: submitId, target: notifySubmitId },
+      { id: `${opts.id}-e3`, source: notifySubmitId, target: mgrId },
       {
-        id: `${opts.id}-e3`,
+        id: `${opts.id}-e4`,
         source: mgrId,
-        target: endOk,
+        target: notifyOkId,
         label: 'Approve',
         sourceHandle: 'approve',
       },
       {
-        id: `${opts.id}-e4`,
+        id: `${opts.id}-e5`,
         source: mgrId,
-        target: endNo,
+        target: notifyNoId,
         label: 'Reject',
         sourceHandle: 'reject',
       },
+      { id: `${opts.id}-e6`, source: notifyOkId, target: endOk },
+      { id: `${opts.id}-e7`, source: notifyNoId, target: endNo },
     ],
     createdAt: ts,
     updatedAt: ts,
@@ -386,8 +431,9 @@ export function createInitialData(): AppData {
     submissions: [],
     delegations: [],
     notifications: [],
+    formRegisterViews: [],
     currentUserId: admin.id,
-    version: 6,
+    version: 7,
   };
 }
 

@@ -1,11 +1,14 @@
 import { v4 as uuidv4 } from 'uuid';
 import type {
   AppData,
+  AppNotification,
   FormDefinition,
   FormSubmission,
   HistoryEntry,
+  Role,
   User,
   Workflow,
+  WorkflowNode,
 } from '../types';
 import {
   createId,
@@ -13,8 +16,26 @@ import {
   createSampleCatalog,
 } from './defaults';
 import { enforceFormWorkflowOneToOne } from './formWorkflowLink';
+import { buildNotificationFromNode } from '../utils/notifications';
 
 const now = () => new Date().toISOString();
+
+/** Default requests created for each sample form when not overridden. */
+export const DEFAULT_REQUESTS_PER_FORM = 2;
+
+export const SAMPLE_FORM_META = [
+  { id: 'form-overtime', name: 'Overtime Request' },
+  { id: 'form-vehicle', name: 'Vehicle Registration' },
+  { id: 'form-change', name: 'Change Request' },
+  { id: 'form-leave', name: 'Leave Request' },
+] as const;
+
+export type RequestsPerForm = Record<string, number>;
+
+export interface SampleSeedOptions {
+  /** Number of sample requests to generate for each form id. */
+  requestsPerForm?: RequestsPerForm;
+}
 
 function userName(u: User): string {
   return `${u.firstName} ${u.lastName}`;
@@ -118,42 +139,178 @@ function hoursAgoIso(hours: number): string {
   return d.toISOString();
 }
 
+function findNotifyNode(
+  workflow: Workflow,
+  match: (n: WorkflowNode) => boolean,
+): WorkflowNode | undefined {
+  return workflow.nodes.find((n) => n.type === 'notification' && match(n));
+}
+
+function sampleFieldData(
+  form: FormDefinition,
+  index: number,
+): Record<string, string | number> {
+  switch (form.id) {
+    case 'form-overtime':
+      return {
+        'ot-date': `2026-07-${String(18 + (index % 10)).padStart(2, '0')}`,
+        'ot-hours': 2 + (index % 6),
+        'ot-shift': ['Day', 'Night', 'Weekend'][index % 3],
+        'ot-reason': [
+          'Concrete pour continuation',
+          'Commissioning support',
+          'Shutdown coverage',
+          'Crane window extension',
+        ][index % 4],
+      };
+    case 'form-vehicle':
+      return {
+        'vh-make': ['Toyota', 'Ford', 'Chevrolet', 'Ram'][index % 4],
+        'vh-model': ['Hilux', 'F-150', 'Silverado', '1500'][index % 4],
+        'vh-plate': `SASK-${1000 + index}`,
+        'vh-expiry': `2027-${String((index % 12) + 1).padStart(2, '0')}-15`,
+        'vh-purpose': [
+          'Site logistics',
+          'Survey crew transport',
+          'Emergency response standby',
+          'Material haul between pads',
+        ][index % 4],
+      };
+    case 'form-change':
+      return {
+        'cr-title': [
+          'Update permit checklist',
+          'Revise visitor induction',
+          'Adjust lockout tags',
+          'New toolbox talk template',
+        ][index % 4],
+        'cr-description': [
+          'Add electrical isolation step to daily permit form',
+          'Shorten safety video segment for contractors',
+          'Clarify group lockout sequence',
+          'Standardize weekly safety briefing notes',
+        ][index % 4],
+        'cr-priority': ['Low', 'Medium', 'High', 'Critical'][index % 4],
+        'cr-impact': ['Low', 'Medium', 'High'][index % 3],
+      };
+    case 'form-leave':
+      return {
+        'lv-type': ['Annual', 'Sick', 'Personal', 'Other'][index % 4],
+        'lv-start': `2026-08-${String(1 + (index % 20)).padStart(2, '0')}`,
+        'lv-end': `2026-08-${String(2 + (index % 20)).padStart(2, '0')}`,
+        'lv-notes': index % 2 === 0 ? 'Family travel' : '',
+      };
+    default: {
+      const data: Record<string, string | number> = {};
+      for (const field of form.fields) {
+        if (field.type === 'number') data[field.id] = index + 1;
+        else if (field.type === 'select' && field.options?.length)
+          data[field.id] = field.options[index % field.options.length];
+        else if (field.type === 'date')
+          data[field.id] = `2026-07-${String(10 + (index % 15)).padStart(2, '0')}`;
+        else data[field.id] = `Sample ${field.label} ${index + 1}`;
+      }
+      return data;
+    }
+  }
+}
+
+function recordNotification(
+  node: WorkflowNode | undefined,
+  form: FormDefinition,
+  submission: FormSubmission,
+  users: User[],
+  roles: Role[],
+  triggeredBy: User,
+  hoursAgo: number,
+  out: AppNotification[],
+  history: HistoryEntry[],
+) {
+  if (!node) return;
+  const notif = buildNotificationFromNode(node, {
+    form,
+    submission,
+    users,
+    roles,
+    triggeredBy,
+  });
+  if (!notif) return;
+  const sent = new Date();
+  sent.setHours(sent.getHours() - hoursAgo);
+  notif.sentAt = sent.toISOString();
+  out.push(notif);
+  history.push(
+    makeHistory(
+      node.id,
+      node.data.label,
+      'notification',
+      triggeredBy,
+      'Notification sent',
+      undefined,
+      hoursAgo,
+    ),
+  );
+}
+
 export function generateSampleSubmissions(
   forms: FormDefinition[],
   workflows: Workflow[],
   users: User[],
-): FormSubmission[] {
+  roles: Role[],
+  requestsPerForm: RequestsPerForm = {},
+): { submissions: FormSubmission[]; notifications: AppNotification[] } {
   const byId = Object.fromEntries(forms.map((f) => [f.id, f]));
-  const overtime = byId['form-overtime'];
-  const vehicle = byId['form-vehicle'];
-  const change = byId['form-change'];
-  const leave = byId['form-leave'];
+  const submitters = [
+    users.find((u) => u.id === 'user-alex'),
+    users.find((u) => u.id === 'user-morgan'),
+    users.find((u) => u.id === 'user-casey'),
+    users.find((u) => u.id === 'user-taylor'),
+  ].filter((u): u is User => Boolean(u));
+  const managers = [
+    users.find((u) => u.id === 'user-jordan'),
+    users.find((u) => u.id === 'user-taylor'),
+  ].filter((u): u is User => Boolean(u));
 
-  const alex = users.find((u) => u.id === 'user-alex') ?? users[0];
-  const morgan = users.find((u) => u.id === 'user-morgan') ?? users[0];
-  const casey = users.find((u) => u.id === 'user-casey') ?? users[0];
-  const jordan = users.find((u) => u.id === 'user-jordan') ?? users[0];
-  const taylor = users.find((u) => u.id === 'user-taylor') ?? users[0];
+  const fallbackUser = users[0];
+  if (!fallbackUser || submitters.length === 0 || managers.length === 0) {
+    return { submissions: [], notifications: [] };
+  }
 
   const submissions: FormSubmission[] = [];
+  const notifications: AppNotification[] = [];
+  const kinds: Array<'pending' | 'approved' | 'rejected'> = [
+    'pending',
+    'approved',
+    'rejected',
+  ];
 
-  const pushMgrFlow = (
-    form: FormDefinition | undefined,
-    submitter: User,
-    manager: User,
-    data: Record<string, string | number>,
-    kind: 'pending' | 'approved' | 'rejected',
-    hours: number,
-  ) => {
-    if (!form) return;
+  const formIds =
+    Object.keys(requestsPerForm).length > 0
+      ? Object.keys(requestsPerForm)
+      : SAMPLE_FORM_META.map((f) => f.id);
+
+  for (const formId of formIds) {
+    const form = byId[formId];
+    const count = Math.max(0, Math.floor(requestsPerForm[formId] ?? 0));
+    if (!form || count === 0) continue;
+
     const workflow =
       workflows.find((w) => w.id === form.workflowId) ??
       workflows.find((w) => w.formId === form.id);
-    if (!workflow) return;
+    if (!workflow) continue;
 
     const submitNode = workflow.nodes.find((n) => n.type === 'step');
     const mgrNode = workflow.nodes.find(
       (n) => n.type === 'decision' && n.data.roleId === 'role-manager',
+    );
+    const notifySubmit = findNotifyNode(workflow, (n) =>
+      n.data.label.toLowerCase().includes('submission'),
+    );
+    const notifyOk = findNotifyNode(workflow, (n) =>
+      n.data.label.toLowerCase().includes('approval'),
+    );
+    const notifyNo = findNotifyNode(workflow, (n) =>
+      n.data.label.toLowerCase().includes('rejection'),
     );
     const endOk = workflow.nodes.find(
       (n) => n.type === 'end' && n.data.label.toLowerCase().includes('approv'),
@@ -161,218 +318,167 @@ export function generateSampleSubmissions(
     const endNo = workflow.nodes.find(
       (n) => n.type === 'end' && n.data.label.toLowerCase().includes('reject'),
     );
-    if (!submitNode || !mgrNode) return;
+    if (!submitNode || !mgrNode) continue;
 
-    const history: HistoryEntry[] = [
-      makeHistory(
-        submitNode.id,
-        submitNode.data.label,
-        'step',
+    for (let i = 0; i < count; i++) {
+      const submitter = submitters[i % submitters.length] ?? fallbackUser;
+      const manager = managers[i % managers.length] ?? fallbackUser;
+      const kind = kinds[i % kinds.length];
+      const hours = 4 + i * 6;
+      const data = sampleFieldData(form, i);
+
+      const history: HistoryEntry[] = [
+        makeHistory(
+          submitNode.id,
+          submitNode.data.label,
+          'step',
+          submitter,
+          'Submitted',
+          undefined,
+          hours,
+        ),
+      ];
+
+      let status: FormSubmission['status'] = 'in_progress';
+      let currentNodeId: string | null = mgrNode.id;
+
+      const draft: FormSubmission = {
+        id: createId('sub'),
+        formId: form.id,
+        formName: form.name,
+        data,
+        baselineData: { ...data },
+        submittedBy: submitter.id,
+        submittedAt: hoursAgoIso(hours),
+        currentNodeId,
+        status,
+        history,
+        workflowId: workflow.id,
+      };
+
+      // Submission notification (managers)
+      recordNotification(
+        notifySubmit,
+        form,
+        { ...draft, status: 'in_progress' },
+        users,
+        roles,
         submitter,
-        'Submitted',
-        undefined,
         hours,
-      ),
-    ];
-
-    let status: FormSubmission['status'] = 'in_progress';
-    let currentNodeId: string | null = mgrNode.id;
-
-    if (kind === 'approved' && endOk) {
-      history.push(
-        makeHistory(
-          mgrNode.id,
-          mgrNode.data.label,
-          'decision',
-          manager,
-          'Approved',
-          'Approve',
-          hours - 2,
-        ),
-        makeHistory(
-          endOk.id,
-          endOk.data.label,
-          'end',
-          manager,
-          'Reached end',
-          'Approve',
-          hours - 2,
-        ),
+        notifications,
+        history,
       );
-      status = 'completed';
-      currentNodeId = endOk.id;
-    } else if (kind === 'rejected' && endNo) {
-      history.push(
-        makeHistory(
-          mgrNode.id,
-          mgrNode.data.label,
-          'decision',
+
+      if (kind === 'approved' && endOk) {
+        history.push(
+          makeHistory(
+            mgrNode.id,
+            mgrNode.data.label,
+            'decision',
+            manager,
+            'Approved',
+            'Approve',
+            Math.max(0, hours - 2),
+          ),
+        );
+        recordNotification(
+          notifyOk,
+          form,
+          { ...draft, status: 'completed', history },
+          users,
+          roles,
           manager,
-          'Rejected',
-          'Reject',
-          hours - 1,
-          'Insufficient justification',
-        ),
-        makeHistory(
-          endNo.id,
-          endNo.data.label,
-          'end',
+          Math.max(0, hours - 2),
+          notifications,
+          history,
+        );
+        history.push(
+          makeHistory(
+            endOk.id,
+            endOk.data.label,
+            'end',
+            manager,
+            'Reached end',
+            'Approve',
+            Math.max(0, hours - 2),
+          ),
+        );
+        status = 'completed';
+        currentNodeId = endOk.id;
+      } else if (kind === 'rejected' && endNo) {
+        history.push(
+          makeHistory(
+            mgrNode.id,
+            mgrNode.data.label,
+            'decision',
+            manager,
+            'Rejected',
+            'Reject',
+            Math.max(0, hours - 1),
+            'Insufficient justification',
+          ),
+        );
+        recordNotification(
+          notifyNo,
+          form,
+          { ...draft, status: 'rejected', history },
+          users,
+          roles,
           manager,
-          'Reached end',
-          'Reject',
-          hours - 1,
-        ),
-      );
-      status = 'rejected';
-      currentNodeId = endNo.id;
+          Math.max(0, hours - 1),
+          notifications,
+          history,
+        );
+        history.push(
+          makeHistory(
+            endNo.id,
+            endNo.data.label,
+            'end',
+            manager,
+            'Reached end',
+            'Reject',
+            Math.max(0, hours - 1),
+          ),
+        );
+        status = 'rejected';
+        currentNodeId = endNo.id;
+      }
+
+      submissions.push({
+        ...draft,
+        status,
+        currentNodeId,
+        history,
+      });
     }
+  }
 
-    submissions.push({
-      id: createId('sub'),
-      formId: form.id,
-      formName: form.name,
-      data,
-      baselineData: { ...data },
-      submittedBy: submitter.id,
-      submittedAt: hoursAgoIso(hours),
-      currentNodeId,
-      status,
-      history,
-      workflowId: workflow.id,
-    });
-  };
-
-  // Overtime — company visibility (BHP peers can see each other's)
-  pushMgrFlow(
-    overtime,
-    alex,
-    jordan,
-    {
-      'ot-date': '2026-07-25',
-      'ot-hours': 4,
-      'ot-shift': 'Night',
-      'ot-reason': 'Concrete pour continuation through night shift',
-    },
-    'pending',
-    8,
-  );
-  pushMgrFlow(
-    overtime,
-    casey,
-    jordan,
-    {
-      'ot-date': '2026-07-22',
-      'ot-hours': 3,
-      'ot-shift': 'Day',
-      'ot-reason': 'Commissioning support',
-    },
-    'approved',
-    48,
-  );
-
-  // Vehicle — project visibility (JS1 peers)
-  pushMgrFlow(
-    vehicle,
-    alex,
-    jordan,
-    {
-      'vh-make': 'Toyota',
-      'vh-model': 'Hilux',
-      'vh-plate': 'SASK-4421',
-      'vh-expiry': '2027-03-01',
-      'vh-purpose': 'Site logistics between laydown and shaft area',
-    },
-    'pending',
-    12,
-  );
-  pushMgrFlow(
-    vehicle,
-    morgan,
-    taylor,
-    {
-      'vh-make': 'Ford',
-      'vh-model': 'F-150',
-      'vh-plate': 'OD-9910',
-      'vh-expiry': '2026-11-15',
-      'vh-purpose': 'JS2 survey crew transport',
-    },
-    'approved',
-    72,
-  );
-
-  // Change request — own visibility only
-  pushMgrFlow(
-    change,
-    alex,
-    jordan,
-    {
-      'cr-title': 'Update permit checklist',
-      'cr-description': 'Add electrical isolation step to daily permit form',
-      'cr-priority': 'High',
-      'cr-impact': 'Medium',
-    },
-    'pending',
-    5,
-  );
-  pushMgrFlow(
-    change,
-    morgan,
-    taylor,
-    {
-      'cr-title': 'Revise visitor induction',
-      'cr-description': 'Shorten safety video segment for contractors',
-      'cr-priority': 'Low',
-      'cr-impact': 'Low',
-    },
-    'rejected',
-    96,
-  );
-
-  // Leave — company visibility
-  pushMgrFlow(
-    leave,
-    casey,
-    jordan,
-    {
-      'lv-type': 'Annual',
-      'lv-start': '2026-08-10',
-      'lv-end': '2026-08-14',
-      'lv-notes': 'Family travel',
-    },
-    'pending',
-    3,
-  );
-  pushMgrFlow(
-    leave,
-    alex,
-    jordan,
-    {
-      'lv-type': 'Sick',
-      'lv-start': '2026-07-18',
-      'lv-end': '2026-07-18',
-      'lv-notes': '',
-    },
-    'approved',
-    60,
-  );
-
-  return submissions;
+  return { submissions, notifications };
 }
 
-export function mergeSampleData(data: AppData): AppData {
+export function defaultRequestsPerForm(
+  count = DEFAULT_REQUESTS_PER_FORM,
+): RequestsPerForm {
+  return Object.fromEntries(
+    SAMPLE_FORM_META.map((f) => [f.id, count]),
+  );
+}
+
+export function mergeSampleData(
+  data: AppData,
+  options: SampleSeedOptions = {},
+): AppData {
   const catalog = createSampleCatalog();
   const sampleUsers = generateSampleUsers();
   const existingEmails = new Set(data.users.map((u) => u.email.toLowerCase()));
   const newUsers = sampleUsers.filter(
     (u) => !existingEmails.has(u.email.toLowerCase()),
   );
-  // Re-link fixed sample user ids when regenerating over empty extras
   const users = [...data.users, ...newUsers].map((u) => ({
     ...u,
     project: u.project ?? ('JS1' as const),
   }));
 
-  // Replace forms/workflows with the sample catalog (removes legacy Simple Request)
   let forms = catalog.forms;
   let workflows = catalog.workflows;
 
@@ -385,12 +491,28 @@ export function mergeSampleData(data: AppData): AppData {
   forms = paired.forms;
   workflows = paired.workflows;
 
-  const sampleSubs = generateSampleSubmissions(forms, workflows, users);
-  // Drop submissions for forms that no longer exist, then add samples
+  const requestsPerForm =
+    options.requestsPerForm ?? defaultRequestsPerForm(DEFAULT_REQUESTS_PER_FORM);
+
+  const { submissions: sampleSubs, notifications: sampleNotifs } =
+    generateSampleSubmissions(
+      forms,
+      workflows,
+      users,
+      paired.roles,
+      requestsPerForm,
+    );
+
   const kept = data.submissions.filter((s) =>
     forms.some((f) => f.id === s.formId),
   );
   const submissions = [...kept, ...sampleSubs];
+  const notifications = [
+    ...(data.notifications ?? []).filter((n) =>
+      forms.some((f) => f.id === n.formId),
+    ),
+    ...sampleNotifs,
+  ];
 
   return {
     ...paired,
@@ -399,7 +521,8 @@ export function mergeSampleData(data: AppData): AppData {
     forms,
     submissions,
     delegations: data.delegations ?? [],
-    notifications: data.notifications ?? [],
+    notifications,
+    formRegisterViews: data.formRegisterViews ?? [],
   };
 }
 

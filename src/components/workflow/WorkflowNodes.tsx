@@ -184,8 +184,17 @@ export function DecisionNode({ data, selected }: NodeProps) {
 }
 
 export function NotificationNode({ data, selected }: NodeProps) {
-  const d = data as NodeData & { notifyRoleIds?: string[] };
+  const d = data as NodeData & {
+    notifyRoleIds?: string[];
+    notifySubmitter?: boolean;
+  };
   const roleCount = Array.isArray(d.notifyRoleIds) ? d.notifyRoleIds.length : 0;
+  const parts: string[] = [];
+  if (roleCount > 0) {
+    parts.push(`${roleCount} role${roleCount === 1 ? '' : 's'}`);
+  }
+  if (d.notifySubmitter) parts.push('submitter');
+  const recipientLabel = parts.length > 0 ? parts.join(' + ') : 'No recipients';
   return (
     <Box
       sx={{
@@ -203,9 +212,7 @@ export function NotificationNode({ data, selected }: NodeProps) {
         {d.label}
       </Typography>
       <Typography variant="caption" color="text.secondary" display="block">
-        {roleCount > 0
-          ? `${roleCount} role${roleCount === 1 ? '' : 's'}`
-          : 'No recipients'}
+        {recipientLabel}
       </Typography>
       <Handle type="source" position={Position.Bottom} style={{ background: '#9c27b0' }} />
     </Box>

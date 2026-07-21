@@ -13,6 +13,7 @@ import type {
   AppNotification,
   FormDefinition,
   FormSubmission,
+  RegisterColumnConfig,
   Role,
   User,
   Workflow,
@@ -24,6 +25,7 @@ import {
   mergeSampleData,
   resetAllData,
   resetByForm,
+  type SampleSeedOptions,
 } from '../data/sampleData';
 
 interface AppContextValue {
@@ -67,9 +69,14 @@ interface AppContextValue {
   updateDelegation: (id: string, patch: Partial<ApprovalDelegation>) => void;
   deleteDelegation: (id: string) => void;
   // Admin tools
-  seedSampleData: () => void;
+  seedSampleData: (options?: SampleSeedOptions) => void;
   resetEverything: () => void;
   resetFormData: (formId: string) => void;
+  // Register column layouts (per user + form)
+  setFormRegisterView: (
+    formId: string,
+    columns: RegisterColumnConfig[],
+  ) => void;
   getUserById: (id: string) => User | undefined;
   getRoleById: (id: string) => Role | undefined;
   getWorkflowById: (id: string) => Workflow | undefined;
@@ -412,6 +419,10 @@ export function AppProvider({ children }: { children: ReactNode }) {
             return true;
           }),
           submissions: d.submissions.filter((s) => s.formId !== id),
+          notifications: (d.notifications ?? []).filter((n) => n.formId !== id),
+          formRegisterViews: (d.formRegisterViews ?? []).filter(
+            (v) => v.formId !== id,
+          ),
           roles: d.roles.map((r) => ({
             ...r,
             formIds: r.formIds.filter((fid) => fid !== id),
@@ -544,12 +555,26 @@ export function AppProvider({ children }: { children: ReactNode }) {
         };
       }),
 
-    seedSampleData: () => update((d) => mergeSampleData(d)),
+    seedSampleData: (options) => update((d) => mergeSampleData(d, options)),
     resetEverything: () => {
       const fresh = resetAllData();
       setData(fresh);
     },
     resetFormData: (formId) => update((d) => resetByForm(d, formId)),
+
+    setFormRegisterView: (formId, columns) =>
+      update((d) => {
+        const userId = d.currentUserId;
+        if (!userId) return d;
+        const views = [...(d.formRegisterViews ?? [])];
+        const idx = views.findIndex(
+          (v) => v.formId === formId && v.userId === userId,
+        );
+        const next = { formId, userId, columns };
+        if (idx >= 0) views[idx] = next;
+        else views.push(next);
+        return { ...d, formRegisterViews: views };
+      }),
 
     getUserById: (id) => data.users.find((u) => u.id === id),
     getRoleById: (id) => data.roles.find((r) => r.id === id),

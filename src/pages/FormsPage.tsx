@@ -15,6 +15,7 @@ import AddIcon from '@mui/icons-material/Add';
 import EditIcon from '@mui/icons-material/Edit';
 import DeleteIcon from '@mui/icons-material/Delete';
 import SendIcon from '@mui/icons-material/Send';
+import GridOnIcon from '@mui/icons-material/GridOn';
 import { useApp } from '../context/AppContext';
 import { createId } from '../data/defaults';
 import { FORM_VISIBILITY_LABELS } from '../types';
@@ -107,6 +108,14 @@ export function FormsPage() {
                     to={`/forms/${f.id}/submit`}
                   >
                     Submit
+                  </Button>
+                  <Button
+                    size="small"
+                    startIcon={<GridOnIcon />}
+                    component={RouterLink}
+                    to={`/register/form/${f.id}`}
+                  >
+                    Register
                   </Button>
                   {isAdmin && (
                     <>
