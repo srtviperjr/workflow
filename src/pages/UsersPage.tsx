@@ -37,7 +37,7 @@ const emptyForm = {
   lastName: '',
   email: '',
   company: 'BHP' as Company,
-  project: 'Jansen' as Project,
+  project: 'JS1' as Project,
   roleIds: [] as string[],
 };
 
@@ -64,7 +64,7 @@ export function UsersPage() {
       lastName: u.lastName,
       email: u.email,
       company: u.company,
-      project: u.project ?? 'Jansen',
+      project: u.project ?? 'JS1',
       roleIds: [...u.roleIds],
     });
     setOpen(true);

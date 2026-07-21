@@ -58,7 +58,7 @@ export function createDefaultAdmin(): User {
     lastName: 'Admin',
     email: 'admin@jansen.local',
     company: 'BHP',
-    project: 'Jansen',
+    project: 'JS1',
     roleIds: ['role-admin', 'role-requestor'],
     createdAt: now(),
   };

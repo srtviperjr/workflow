@@ -29,7 +29,7 @@ export function generateSampleUsers(): User[] {
       lastName: 'Chen',
       email: 'alex.chen@bhp.com',
       company: 'BHP',
-      project: 'Jansen',
+      project: 'JS1',
       roleIds: ['role-requestor'],
       createdAt: ts,
     },
@@ -39,7 +39,7 @@ export function generateSampleUsers(): User[] {
       lastName: 'Lee',
       email: 'morgan.lee@bhp.com',
       company: 'BHP',
-      project: 'Olympic Dam',
+      project: 'JS2',
       roleIds: ['role-requestor'],
       createdAt: ts,
     },
@@ -49,7 +49,7 @@ export function generateSampleUsers(): User[] {
       lastName: 'Patel',
       email: 'jordan.patel@hatch.com',
       company: 'Hatch',
-      project: 'Jansen',
+      project: 'JS1',
       roleIds: ['role-manager'],
       createdAt: ts,
     },
@@ -59,7 +59,7 @@ export function generateSampleUsers(): User[] {
       lastName: 'Brooks',
       email: 'taylor.brooks@fluor.com',
       company: 'Fluor',
-      project: 'Spence',
+      project: 'Operations',
       roleIds: ['role-requestor', 'role-manager'],
       createdAt: ts,
     },
@@ -69,7 +69,7 @@ export function generateSampleUsers(): User[] {
       lastName: 'Rivera',
       email: 'sam.rivera@bantrel.com',
       company: 'Bantrel',
-      project: 'Corporate',
+      project: 'Operations',
       roleIds: ['role-project-director', 'role-requestor'],
       createdAt: ts,
     },
@@ -79,7 +79,7 @@ export function generateSampleUsers(): User[] {
       lastName: 'Nguyen',
       email: 'casey.nguyen@bhp.com',
       company: 'BHP',
-      project: 'Jansen',
+      project: 'JS1',
       roleIds: ['role-requestor'],
       createdAt: ts,
     },
@@ -270,7 +270,7 @@ export function generateSampleSubmissions(
     48,
   );
 
-  // Vehicle — project visibility (Jansen peers)
+  // Vehicle — project visibility (JS1 peers)
   pushMgrFlow(
     vehicle,
     alex,
@@ -294,7 +294,7 @@ export function generateSampleSubmissions(
       'vh-model': 'F-150',
       'vh-plate': 'OD-9910',
       'vh-expiry': '2026-11-15',
-      'vh-purpose': 'Olympic Dam survey crew transport',
+      'vh-purpose': 'JS2 survey crew transport',
     },
     'approved',
     72,
@@ -369,7 +369,7 @@ export function mergeSampleData(data: AppData): AppData {
   // Re-link fixed sample user ids when regenerating over empty extras
   const users = [...data.users, ...newUsers].map((u) => ({
     ...u,
-    project: u.project ?? ('Jansen' as const),
+    project: u.project ?? ('JS1' as const),
   }));
 
   // Replace forms/workflows with the sample catalog (removes legacy Simple Request)

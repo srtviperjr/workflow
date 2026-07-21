@@ -2,12 +2,7 @@ export const COMPANIES = ['BHP', 'Hatch', 'Bantrel', 'Fluor'] as const;
 export type Company = (typeof COMPANIES)[number];
 
 /** Projects used for form submission visibility ("within project") */
-export const PROJECTS = [
-  'Jansen',
-  'Olympic Dam',
-  'Spence',
-  'Corporate',
-] as const;
+export const PROJECTS = ['JS1', 'JS2', 'Operations'] as const;
 export type Project = (typeof PROJECTS)[number];
 
 export const SYSTEM_ROLE_NAMES = [

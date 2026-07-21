@@ -109,7 +109,7 @@ export function AppProvider({ children }: { children: ReactNode }) {
     addUser: (user) => {
       const created: User = {
         ...user,
-        project: user.project ?? 'Jansen',
+        project: user.project ?? 'JS1',
         id: createId('user'),
         createdAt: new Date().toISOString(),
       };

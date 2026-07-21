@@ -67,7 +67,17 @@ function normalizeProject(value: unknown): Project {
   if (typeof value === 'string' && (PROJECTS as readonly string[]).includes(value)) {
     return value as Project;
   }
-  return 'Jansen';
+  // Migrate legacy project names from earlier sample data
+  const legacy: Record<string, Project> = {
+    Jansen: 'JS1',
+    'Olympic Dam': 'JS2',
+    Spence: 'Operations',
+    Corporate: 'Operations',
+  };
+  if (typeof value === 'string' && value in legacy) {
+    return legacy[value];
+  }
+  return 'JS1';
 }
 
 function normalizeVisibility(value: unknown): FormVisibility {
