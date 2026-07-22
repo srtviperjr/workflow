@@ -1,4 +1,4 @@
-# Jansen Workflows — Recreation Prompt (v0.4)
+# Jansen Workflows — Recreation Prompt (v0.5)
 
 Copy everything below the line into a coding agent (or use as a product brief) to recreate this application.
 
@@ -10,7 +10,9 @@ Build **Jansen Workflows** — a frontend-only React + TypeScript (Vite) approva
 
 ### Product summary
 
-Admins design forms and exclusive 1:1 workflows on a visual canvas. Users submit requests from a **Requests** catalog, advance approvals by role, view registers, receive in-app notifications, and optionally attach small files. Demo users switch identity via an AppBar picker. Display version **v0.4** in the AppBar and sidebar.
+Admins design forms and exclusive 1:1 workflows on a visual canvas. Users submit requests from a **Requests** catalog, advance approvals by role, view registers, receive in-app notifications, and optionally attach small files. Demo users switch identity via an AppBar picker. Display version **v0.5** in the AppBar and sidebar.
+
+Keep **view** and **approve** access consistent: never show a request (or a notification deep-link) that the user cannot open, and never show Approve/Reject unless they can act on the current step.
 
 ### Tech stack
 
@@ -53,35 +55,42 @@ Boot as **System Admin** `admin@jansen.local` with Admin + Requestor roles (comp
 
 ### Navigation & pages
 
-**Everyone:** Dashboard (pending for current identity), Requests (submit catalog), Request Register (overall), Delegations  
+**Everyone:** Dashboard (pending the identity can see **and** act on), Requests (submit catalog), Request Register (overall), Delegations  
 
 **Administration (admin only, nested):** Forms, Workflows, Users, Roles, **Data Tools** (last). Non-admins hitting `/forms` redirect to `/requests`. `/admin` → `/data-tools`.
 
-**AppBar:** notification bell → Notifications page; identity switcher; version `v0.4`.
+**AppBar:** notification bell → Notifications page; identity switcher; version `v0.5`.
 
-Also implement: form builder with live preview; form submit; request detail (act/approve/reject, edit fields when allowed, PDF print, attachment download); overall register with header filters; per-form register with customizable columns; workflow list + canvas editor; users/roles CRUD; Data Tools.
+Also implement: form builder with live preview; form submit; request detail (act/approve/reject only when allowed, edit fields when allowed, PDF print, attachment download); overall register with header filters; per-form register with customizable columns; workflow list + canvas editor; users/roles CRUD; Data Tools.
 
 ### Data Tools
 
-Admin page to seed demo data:
+Admin page to seed demo data with independent sections:
 
-- Users: mode **Create additional** | **Clear & recreate**, count 0–50  
-- Requests: same modes, requests-per-form 0–50 (default 2)  
-- Optional “include notifications”  
+- Checkbox **Include users** + mode **Create additional** | **Clear & recreate** + count 0–50  
+- Checkbox **Include requests (workflows)** + same modes + requests-per-form 0–50 (default 2) + optional notifications  
+- User-only runs must not replace forms/workflows; request runs apply the sample catalog  
+- Sample generator: **random submitters/managers**, weighted open/approved/rejected; **open items within last ~7 days**; completed/rejected can be older; field dates coherent with submission age  
 - Reset requests for one form; reset everything to defaults  
+
+### Visibility & history rules
+
+- A request is viewable if: admin, submitter, can act on current step, previously acted (history), received a notification for it, or matches form company/project visibility  
+- Registers / dashboard awaiting-action / notification deep-links use the same view check  
+- Approve/Reject UI only when `canAct`  
+- **Workflow History** (and PDF): omit `notification` steps; show reject-branch nodes only if the request was rejected  
 
 ### UX / engine rules
 
-- Visibility: own / company / project; admins see all; users who can act always see the request  
 - Delegation expands who can act without removing anyone’s existing roles  
-- When workflow hits a notification node, create in-app messages and continue  
+- When workflow hits a notification node, create in-app messages and continue (but do not list those steps in history UI)  
 - File clear/replace on submit and editable steps; reject oversized files with a clear error  
 
 ### Deliverables
 
 - Working Vite app matching the above  
 - `docs/REQUIREMENTS.md`, `docs/USER_GUIDE.md` with screenshots, and this recreate prompt  
-- `AGENTS.md` noting frontend-only / localStorage / ports  
+- `AGENTS.md` noting frontend-only / localStorage / ports; on version bumps update REQUIREMENTS, USER_GUIDE, and this prompt  
 - Screenshot script using puppeteer-core against the running dev server  
 
 ### Out of scope
@@ -92,10 +101,10 @@ Real auth/SSO, server sync, email delivery, multi-file or >512 KB attachments, n
 
 1. Two new forms ⇒ two distinct workflows; cannot steal another form’s workflow  
 2. Change Request shows Attachment; upload ≤512 KB works; detail downloads by name  
-3. Seed Data Tools creates users/requests/notifications; identity switcher changes pending work  
-4. Manager approve/reject produces submitter notifications  
-5. PDF and registers show attachment filenames, not base64  
+3. Data Tools users-only vs requests-only via checkboxes; seeded open requests are recent with varied submitters  
+4. Manager approve/reject produces submitter notifications; history has no Notify rows  
+5. Unrelated requestor cannot open others’ `own`-visibility requests; notification link hidden when not viewable  
 
 ---
 
-*Generated for Jansen Workflows v0.4.*
+*Generated for Jansen Workflows v0.5.*

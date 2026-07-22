@@ -2,7 +2,7 @@
 
 A local-storage React application for designing approval workflows, building forms, and tracking requests end-to-end.
 
-**Version:** 0.4
+**Version:** 0.5
 
 | Doc | Description |
 |-----|-------------|
@@ -18,14 +18,15 @@ A local-storage React application for designing approval workflows, building for
 - **1:1 forms & workflows** — Each form owns exactly one dedicated workflow; forms never share a workflow.
 - **Sample forms** — Overtime, Vehicle Registration, Change Request (with optional file attachment), and Leave Request.
 - **File attachments** — Optional form field type; files stored locally (max 512 KB); shown by filename in registers/PDF.
-- **Submission visibility** — Per-form boundary: only own submissions, within company, or within project.
-- **In-app notifications** — Workflow Notify steps; open from the AppBar bell.
+- **Submission visibility** — Per-form boundary plus consistent rules for actors, history, and notification recipients.
+- **In-app notifications** — Workflow Notify steps; open from the AppBar bell (deep-links only when accessible).
+- **Workflow History** — Hides Notify steps; shows reject path only when used.
 - **Form-scoped roles** — Roles can be limited to specific forms.
 - **PDF export** — Print icon on request detail.
 - **Requests** — Everyone submits from **Requests**; admins design forms under Administration → Forms.
 - **Delegations** — Temporarily grant approval permissions (additive).
 - **Registers** — Overall register plus per-form registers with customizable columns and header filters.
-- **Data Tools** — Seed sample users/requests (create additional or clear & recreate), reset by form, or reset all.
+- **Data Tools** — Independently include users and/or requests; create additional or clear & recreate; randomized recent open samples.
 
 ## Quick start
 
