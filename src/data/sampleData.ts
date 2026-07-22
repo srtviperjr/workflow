@@ -6,6 +6,7 @@ import type {
   FormFieldData,
   FormSubmission,
   HistoryEntry,
+  NotificationTemplate,
   Role,
   User,
   Workflow,
@@ -385,7 +386,16 @@ function synthesizeNotification(opts: {
   triggeredBy: User;
   kind: 'submit' | 'ok' | 'no';
   hoursAgo: number;
+  templates?: NotificationTemplate[];
 }): AppNotification {
+  const templateId = opts.templates?.find(
+    (t) =>
+      t.formId === opts.form.id &&
+      ((opts.kind === 'submit' && t.name.toLowerCase().includes('submission')) ||
+        (opts.kind === 'ok' && t.name.toLowerCase().includes('approval')) ||
+        (opts.kind === 'no' && t.name.toLowerCase().includes('rejection'))),
+  )?.id;
+
   const subject =
     opts.kind === 'submit'
       ? `New ${opts.form.name} from {{submitter}}`
@@ -410,10 +420,15 @@ function synthesizeNotification(opts: {
           : opts.kind === 'ok'
             ? 'Notify on approval'
             : 'Notify on rejection',
+      ...(templateId ? { notificationTemplateId: templateId } : {}),
       notifyRoleIds: opts.kind === 'submit' ? ['role-manager', 'role-admin'] : [],
       notifySubmitter: opts.kind !== 'submit',
-      notifySubject: subject,
-      notifyBody: body,
+      ...(!templateId
+        ? {
+            notifySubject: subject,
+            notifyBody: body,
+          }
+        : {}),
     },
   };
 
@@ -424,6 +439,7 @@ function synthesizeNotification(opts: {
       users: opts.users,
       roles: opts.roles,
       triggeredBy: opts.triggeredBy,
+      templates: opts.templates,
     }) ?? {
       id: createId('notif'),
       submissionId: opts.submission.id,
@@ -548,6 +564,7 @@ function recordNotification(
   kind: 'submit' | 'ok' | 'no',
   out: AppNotification[],
   history: HistoryEntry[],
+  templates?: NotificationTemplate[],
 ) {
   let notif: AppNotification | null = null;
   if (node) {
@@ -557,6 +574,7 @@ function recordNotification(
       users,
       roles,
       triggeredBy,
+      templates,
     });
     if (notif) {
       const sent = new Date();
@@ -573,6 +591,7 @@ function recordNotification(
       triggeredBy,
       kind,
       hoursAgo,
+      templates,
     });
   }
 
@@ -610,6 +629,7 @@ export function generateSampleSubmissions(
   roles: Role[],
   requestsPerForm: RequestsPerForm = {},
   includeNotifications = true,
+  templates: NotificationTemplate[] = [],
 ): { submissions: FormSubmission[]; notifications: AppNotification[] } {
   const byId = Object.fromEntries(forms.map((f) => [f.id, f]));
 
@@ -771,6 +791,7 @@ export function generateSampleSubmissions(
           'submit',
           notifications,
           history,
+          templates,
         );
       }
 
@@ -800,6 +821,7 @@ export function generateSampleSubmissions(
             'ok',
             notifications,
             history,
+            templates,
           );
         }
         history.push(
@@ -842,6 +864,7 @@ export function generateSampleSubmissions(
             'no',
             notifications,
             history,
+            templates,
           );
         }
         history.push(
@@ -968,18 +991,23 @@ export function mergeSampleData(
   // User-only runs keep the current forms and workflows intact.
   let forms = includeRequests ? catalog.forms : data.forms;
   let workflows = includeRequests ? catalog.workflows : data.workflows;
+  let notificationTemplates = includeRequests
+    ? catalog.notificationTemplates
+    : (data.notificationTemplates ?? []);
 
   const paired = enforceFormWorkflowOneToOne({
     ...data,
     users,
     workflows,
     forms,
+    notificationTemplates,
     currentUserId,
     delegations,
   });
   forms = paired.forms;
   workflows = paired.workflows;
   users = paired.users;
+  notificationTemplates = paired.notificationTemplates ?? notificationTemplates;
 
   const { submissions: sampleSubs, notifications: sampleNotifs } =
     includeRequests && requestedTotal > 0
@@ -990,6 +1018,7 @@ export function mergeSampleData(
           paired.roles,
           requestsPerForm,
           includeNotifications,
+          notificationTemplates,
         )
       : { submissions: [], notifications: [] };
 
@@ -1067,6 +1096,7 @@ export function mergeSampleData(
       submissions,
       delegations,
       notifications,
+      notificationTemplates,
       formRegisterViews: data.formRegisterViews ?? [],
       currentUserId,
     },

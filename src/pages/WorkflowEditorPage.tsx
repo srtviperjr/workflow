@@ -193,6 +193,9 @@ export function WorkflowEditorPage() {
         }}
         roles={availableRoles}
         formFields={linkedForm?.fields ?? []}
+        notificationTemplates={(data.notificationTemplates ?? []).filter(
+          (t) => formId && t.formId === formId,
+        )}
         onChange={onCanvasChange}
       />
     </Box>

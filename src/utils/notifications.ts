@@ -3,6 +3,7 @@ import type {
   FormDefinition,
   FormField,
   FormSubmission,
+  NotificationTemplate,
   Role,
   User,
   WorkflowNode,
@@ -120,6 +121,46 @@ export function resolveNotificationRecipients(
   return recipients;
 }
 
+export function findNotificationTemplate(
+  node: WorkflowNode,
+  templates: NotificationTemplate[] | undefined,
+  formId: string,
+): NotificationTemplate | undefined {
+  const id = node.data.notificationTemplateId;
+  if (!id || !templates?.length) return undefined;
+  return templates.find((t) => t.id === id && t.formId === formId);
+}
+
+/** Resolve subject/body from template (preferred) or legacy inline node fields.
+ * Recipients always come from the workflow node.
+ */
+export function resolveNotifyContent(
+  node: WorkflowNode,
+  ctx: {
+    form: FormDefinition;
+    templates?: NotificationTemplate[];
+  },
+): {
+  roleIds: string[];
+  notifySubmitter: boolean;
+  subjectTemplate: string;
+  bodyTemplate: string;
+  nodeLabel: string;
+} {
+  const tpl = findNotificationTemplate(node, ctx.templates, ctx.form.id);
+  return {
+    roleIds: node.data.notifyRoleIds ?? [],
+    notifySubmitter: Boolean(node.data.notifySubmitter),
+    subjectTemplate: tpl
+      ? tpl.subject || `Update: ${ctx.form.name}`
+      : node.data.notifySubject ||
+        node.data.emailSubject ||
+        `Update: ${ctx.form.name}`,
+    bodyTemplate: tpl ? tpl.bodyHtml : notificationBodyTemplate(node),
+    nodeLabel: node.data.label || tpl?.name || 'Notification',
+  };
+}
+
 export function buildNotificationFromNode(
   node: WorkflowNode,
   ctx: {
@@ -128,30 +169,30 @@ export function buildNotificationFromNode(
     users: User[];
     roles: Role[];
     triggeredBy: User;
+    templates?: NotificationTemplate[];
   },
 ): AppNotification | null {
-  const roleIds = node.data.notifyRoleIds ?? [];
+  const resolved = resolveNotifyContent(node, {
+    form: ctx.form,
+    templates: ctx.templates,
+  });
+
   const recipients = resolveNotificationRecipients(
-    roleIds,
+    resolved.roleIds,
     ctx.form.id,
     ctx.users,
     ctx.roles,
   );
 
-  if (node.data.notifySubmitter) {
+  if (resolved.notifySubmitter) {
     const submitter = ctx.users.find((u) => u.id === ctx.submission.submittedBy);
     if (submitter && !recipients.some((u) => u.id === submitter.id)) {
       recipients.push(submitter);
     }
   }
 
-  const subjectTemplate =
-    node.data.notifySubject ||
-    node.data.emailSubject ||
-    `Update: ${ctx.submission.formName}`;
-  const bodyTemplate = notificationBodyTemplate(node);
-  const subject = renderNotificationTemplate(subjectTemplate, ctx);
-  const body = renderNotificationTemplate(bodyTemplate, ctx);
+  const subject = renderNotificationTemplate(resolved.subjectTemplate, ctx);
+  const body = renderNotificationTemplate(resolved.bodyTemplate, ctx);
 
   return {
     id: createId('notif'),
@@ -159,7 +200,7 @@ export function buildNotificationFromNode(
     formId: ctx.form.id,
     workflowId: ctx.submission.workflowId,
     nodeId: node.id,
-    nodeLabel: node.data.label || 'Notification',
+    nodeLabel: resolved.nodeLabel,
     toUserIds: recipients.map((u) => u.id),
     toUserNames: recipients.map((u) => `${u.firstName} ${u.lastName}`),
     subject,

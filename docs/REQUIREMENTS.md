@@ -1,4 +1,4 @@
-# Jansen Workflows — Product Requirements (v0.5)
+# Jansen Workflows — Product Requirements (v0.6)
 
 ## 1. Purpose
 
@@ -15,6 +15,7 @@ Jansen Workflows is a browser-based approval workflow application for designing 
 | G5 | Demonstrate multi-company / multi-role scenarios via an identity switcher |
 | G6 | Support optional file attachments on forms (stored locally) |
 | G7 | Keep list/detail/notification access consistent with who may approve |
+| G8 | Let admins design reusable notification templates per form |
 
 ## 3. Users & access
 
@@ -25,7 +26,7 @@ Jansen Workflows is a browser-based approval workflow application for designing 
 | **Requestor** | Submit forms; act on steps assigned to Requestor |
 | **Manager** | Act on Manager decision/step nodes |
 | **Project Director** | Act on Project Director nodes |
-| **Admin** | Full access: users, roles, forms, workflows, Data Tools, all approvals |
+| **Admin** | Full access: users, roles, forms, notifications, workflows, Data Tools, all approvals |
 
 Custom roles may be app-scoped or form-scoped. Roles can map to Azure AD / AD group names for future SSO.
 
@@ -45,8 +46,10 @@ Custom roles may be app-scoped or form-scoped. Roles can map to Azure AD / AD gr
 | Audience | Items |
 |----------|--------|
 | Everyone | Dashboard, Requests, Request Register, Delegations |
-| Admin only | Forms, Workflows, Users, Roles, Data Tools (under Administration) |
-| App bar | Notification bell, identity switcher, version badge (`v0.5`) |
+| Admin only | Forms, **Notifications**, Workflows, Users, Roles, Data Tools (under Administration, in that order) |
+| App bar | Notification bell (inbox), identity switcher, version badge (`v0.6`) |
+
+Inbox (bell → `/notifications`) is separate from Administration → Notifications (template design at `/notification-templates`).
 
 ## 4. Functional requirements
 
@@ -85,7 +88,8 @@ Custom roles may be app-scoped or form-scoped. Roles can map to Azure AD / AD gr
 | WE-3 | Steps/decisions assign a role; optional field-edit permission on the step. |
 | WE-4 | Decision routing: manual outcomes and/or form-field conditions. |
 | WE-5 | Related form enables field-based conditions and form-scoped roles. |
-| WE-6 | Notification nodes support role recipients and/or notify submitter, with templated subject/body. |
+| WE-6 | Notification nodes pick a **form-dedicated notification template** (subject/body) and configure **recipients** (roles and/or notify submitter) on the node. |
+| WE-7 | Templates from other forms cannot be selected on a workflow (no cross-form templates). |
 
 ### 4.4 Requests & register
 
@@ -126,25 +130,31 @@ Custom roles may be app-scoped or form-scoped. Roles can map to Azure AD / AD gr
 | AD-6 | User-only seed runs must not overwrite existing forms/workflows; request seed applies the sample form/workflow catalog. |
 | AD-7 | Sample requests use **random submitters/managers**, mixed statuses, **open items dated within the last week**, and older completed/rejected ages; form field dates align with submission age. |
 
-### 4.7 In-app notifications
+### 4.7 Notification templates & in-app messages
 
 | ID | Requirement |
 |----|-------------|
-| EN-1 | Workflows support a **notification** step type. |
-| EN-2 | Subject/body are templates with static text and `{{Field Label}}` / builtin tokens. |
-| EN-3 | Recipients are selected by role(s) and/or the request submitter; form-scoped roles only apply on linked forms. |
-| EN-4 | Notifications are created automatically when the workflow reaches the step. |
-| EN-5 | Messages are **in-app only** (not emailed); open from the AppBar bell or Notifications page. |
-| EN-6 | Sample manager-approval workflows notify managers/admin on submission and the submitter on approval or rejection. |
-| EN-7 | Notification deep-links to a request are only offered when the viewer can open that request. |
+| EN-1 | Admins design **notification templates** under Administration → Notifications (rich-text body via TipTap). |
+| EN-2 | Each template is dedicated to exactly one form (form assignment required). |
+| EN-3 | Templates define name, description, subject, and HTML body with `{{Field Label}}` / builtin tokens (`formName`, `requestId`, `status`, `submitter`). |
+| EN-4 | Workflows support a **notification** step type that selects a template for the linked form. |
+| EN-5 | Recipients (roles and/or the request submitter) are configured on the **workflow Notify node**, not on the template. |
+| EN-6 | Form-scoped roles only apply on their linked forms when resolving recipients. |
+| EN-7 | Notifications are created automatically when the workflow reaches the step. |
+| EN-8 | Messages are **in-app only** (not emailed); open from the AppBar bell or the inbox Notifications page. |
+| EN-9 | Sample manager-approval workflows ship with submit / approve / reject templates and matching Notify nodes. |
+| EN-10 | Notification deep-links to a request are only offered when the viewer can open that request. |
+| EN-11 | Deleting a form cascade-deletes its templates; deleting a template clears Notify-node references. |
 
 ### 4.8 PDF export
 
 | ID | Requirement |
 |----|-------------|
 | PD-1 | Request detail provides a Print icon that downloads a PDF of the current form values and history. |
-| PD-2 | File field values appear as filenames in the PDF. |
-| PD-3 | Notification history rows are omitted from the PDF. |
+| PD-2 | PDF includes a branded top banner (app theme / orange gradient) with form title and request id. |
+| PD-3 | Form fields render as labeled cards (form-like layout), not a plain text dump. |
+| PD-4 | File field values appear as filenames in the PDF. |
+| PD-5 | Notification / End history rows are omitted from the PDF (user actions only). |
 
 ### 4.9 Submission visibility
 
@@ -174,7 +184,15 @@ Custom roles may be app-scoped or form-scoped. Roles can map to Azure AD / AD gr
 - Multiple files per field or attachments larger than 512 KB
 - Mobile-first native apps
 
-## 7. What’s new in v0.5
+## 7. What’s new in v0.6
+
+- **Administration → Notifications** — form-dedicated rich-text templates (subject/body + field tokens)
+- Workflow Notify nodes pick a template **and** configure recipients (roles / submitter)
+- Admin nav order: Forms → Notifications → Workflows → …
+- Request PDF: branded orange banner and form-like field cards
+- TipTap rich-text editor for template bodies
+
+## 7a. What’s new in v0.5
 
 - Data Tools **Include users** / **Include requests** checkboxes
 - Randomized sample submitters, timestamps (open ≤ 1 week; completed older)
@@ -238,10 +256,10 @@ npm run screenshots
 4. Delete form removes its workflow; other forms unchanged.
 5. Delete a linked workflow leaves the form with a newly created dedicated workflow.
 
-## 11. Acceptance criteria (v0.5)
+## 11. Acceptance criteria (v0.6)
 
-1. Data Tools can run users-only or requests-only via checkboxes.
-2. Seeded open requests are dated within the last week; submitters vary.
-3. Request detail Workflow History has no Notify rows; unused Rejected ends stay hidden.
-4. Manager can open a pending request they can approve; unrelated requestor does not see `own`-visibility others’ requests in registers.
-5. Notification “Open request” is unavailable when the viewer cannot access the submission.
+1. Admin can create a notification template assigned to one form with rich-text body and tokens.
+2. Workflow Notify node for that form lists only that form’s templates; recipients are set on the node.
+3. Administration sidebar lists Notifications before Workflows; version badge shows `v0.6`.
+4. PDF download shows a branded banner and form-like field cards; history omits Notify rows.
+5. Prior v0.5 criteria still hold (seed checkboxes, history filtering, visibility consistency).

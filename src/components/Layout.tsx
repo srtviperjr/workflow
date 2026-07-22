@@ -26,6 +26,7 @@ import GridOnIcon from '@mui/icons-material/GridOn';
 import AdminPanelSettingsIcon from '@mui/icons-material/AdminPanelSettings';
 import SwapHorizIcon from '@mui/icons-material/SwapHoriz';
 import PostAddIcon from '@mui/icons-material/PostAdd';
+import NotificationsActiveIcon from '@mui/icons-material/NotificationsActive';
 import ExpandLess from '@mui/icons-material/ExpandLess';
 import ExpandMore from '@mui/icons-material/ExpandMore';
 import { IdentitySwitcher } from './IdentitySwitcher';
@@ -35,7 +36,7 @@ import { useApp } from '../context/AppContext';
 const DRAWER_WIDTH = 260;
 
 /** App display version — shown in the AppBar and sidebar. */
-export const APP_VERSION = '0.5';
+export const APP_VERSION = '0.6';
 
 const primaryNav = [
   { to: '/', label: 'Dashboard', icon: <DashboardIcon /> },
@@ -46,6 +47,11 @@ const primaryNav = [
 
 const adminNav = [
   { to: '/forms', label: 'Forms', icon: <DescriptionIcon /> },
+  {
+    to: '/notification-templates',
+    label: 'Notifications',
+    icon: <NotificationsActiveIcon />,
+  },
   { to: '/workflows', label: 'Workflows', icon: <AccountTreeIcon /> },
   { to: '/users', label: 'Users', icon: <PeopleIcon /> },
   { to: '/roles', label: 'Roles', icon: <BadgeIcon /> },

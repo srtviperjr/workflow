@@ -84,16 +84,18 @@ export function NotificationsPage() {
         <Typography variant="h4" fontWeight={700}>
           Notifications
         </Typography>
-        <Typography color="text.secondary">
-          In-app messages created by workflow Notify steps. These are not sent
-          as email — open them here to review.
+          <Typography color="text.secondary">
+          In-app messages created by workflow Notify steps. Design templates
+          under Administration → Notifications. Messages are not sent as email
+          — open them here to review.
         </Typography>
       </Stack>
 
       {rows.length === 0 ? (
         <Alert severity="info">
           No notifications yet. Add a <strong>Notify</strong> step in a workflow
-          to create messages for selected roles when requests reach that step.
+          (and assign a notification template) to create messages when requests
+          reach that step.
         </Alert>
       ) : (
         <TableContainer component={Paper} elevation={1}>
@@ -226,10 +228,19 @@ export function NotificationsPage() {
               </Typography>
               <Typography
                 variant="body1"
-                sx={{ whiteSpace: 'pre-wrap', lineHeight: 1.6 }}
-              >
-                {selected.body}
-              </Typography>
+                component="div"
+                sx={{
+                  lineHeight: 1.6,
+                  whiteSpace: /<[a-z][\s\S]*>/i.test(selected.body)
+                    ? 'normal'
+                    : 'pre-wrap',
+                  '& p': { m: 0, mb: 1 },
+                  '& ul, & ol': { pl: 2.5, m: 0, mb: 1 },
+                }}
+                {...(/<[a-z][\s\S]*>/i.test(selected.body)
+                  ? { dangerouslySetInnerHTML: { __html: selected.body } }
+                  : { children: selected.body })}
+              />
               {canOpenRequest(selected.submissionId) ? (
                 <Button
                   component={RouterLink}

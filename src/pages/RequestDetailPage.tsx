@@ -170,6 +170,7 @@ export function RequestDetailPage() {
         form: form ?? null,
         users: data.users,
         roles: data.roles,
+        notificationTemplates: data.notificationTemplates ?? [],
       },
     );
     updateSubmission(submission.id, updated);
