@@ -69,6 +69,7 @@ Field-aware column filters:
 - **Select-like** (status, form name, current step from workflow labels, form select fields) — **multi-select** checkboxes
 - **Text** — partial contains search; height aligned with selects
 - Clear × per filter and **Clear filters (N)** for all
+- **Sticky columns** — `RegisterColumnConfig.sticky`; default pin Request # + Submitter; customize dialog pin control; sticky cols compacted to the left
 
 ### Delegations & in-progress handoff
 
