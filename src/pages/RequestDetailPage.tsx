@@ -322,7 +322,7 @@ export function RequestDetailPage() {
             sx={{
               p: 2,
               mb: 2,
-              bgcolor: 'rgba(20,145,155,0.06)',
+              bgcolor: 'rgba(226,82,0,0.06)',
               borderColor: 'primary.light',
             }}
           >

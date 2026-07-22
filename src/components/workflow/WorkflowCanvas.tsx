@@ -368,15 +368,15 @@ export function WorkflowCanvas({
             markerEnd: { type: MarkerType.ArrowClosed },
           }}
         >
-          <Background gap={16} color="#c5d6d7" />
+          <Background gap={16} color="#e8ddd4" />
           <Controls />
           <MiniMap
             nodeColor={(n) => {
-              if (n.type === 'decision') return '#c45c26';
+              if (n.type === 'decision') return '#E25200';
               if (n.type === 'end') return '#2e7d4f';
-              if (n.type === 'start') return '#0d7377';
-              if (n.type === 'notification') return '#9c27b0';
-              return '#14919b';
+              if (n.type === 'start') return '#B34200';
+              if (n.type === 'notification') return '#6B6B6B';
+              return '#F06A1A';
             }}
           />
           {!readOnly && (
@@ -394,7 +394,7 @@ export function WorkflowCanvas({
                 </Button>
                 <Button
                   startIcon={<NotificationsNoneIcon />}
-                  sx={{ bgcolor: '#9c27b0', '&:hover': { bgcolor: '#7b1fa2' } }}
+                  color="secondary"
                   onClick={() => addNode('notification')}
                 >
                   Notify

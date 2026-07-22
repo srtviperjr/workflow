@@ -285,7 +285,7 @@ export function FormBuilderPage() {
                     selectedFieldId === f.id ? 'primary.main' : 'divider',
                   bgcolor:
                     selectedFieldId === f.id
-                      ? 'rgba(13,115,119,0.06)'
+                      ? 'rgba(226,82,0,0.06)'
                       : 'transparent',
                 }}
                 onClick={() => setSelectedFieldId(f.id)}

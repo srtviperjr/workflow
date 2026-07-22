@@ -117,7 +117,7 @@ export function NotificationsPage() {
                     onClick={() => openNotification(n)}
                     sx={{
                       cursor: 'pointer',
-                      bgcolor: unread ? 'rgba(13,115,119,0.06)' : undefined,
+                      bgcolor: unread ? 'rgba(226,82,0,0.06)' : undefined,
                     }}
                   >
                     <TableCell>

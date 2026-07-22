@@ -20,7 +20,7 @@ A local-storage React application for designing approval workflows, building for
 - **File attachments** — Optional form field type; files stored locally (max 512 KB); shown by filename in registers/PDF.
 - **Submission visibility** — Per-form boundary plus consistent rules for actors, history, and notification recipients.
 - **In-app notifications** — Workflow Notify steps; open from the AppBar bell (deep-links only when accessible).
-- **Workflow History** — Hides Notify steps; shows reject path only when used.
+- **Workflow History** — Shows only user actions (submission steps and decisions).
 - **Form-scoped roles** — Roles can be limited to specific forms.
 - **PDF export** — Print icon on request detail.
 - **Requests** — Everyone submits from **Requests**; admins design forms under Administration → Forms.

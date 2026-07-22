@@ -78,7 +78,8 @@ Admin page to seed demo data with independent sections:
 - A request is viewable if: admin, submitter, can act on current step, previously acted (history), received a notification for it, or matches form company/project visibility  
 - Registers / dashboard awaiting-action / notification deep-links use the same view check  
 - Approve/Reject UI only when `canAct`  
-- **Workflow History** (and PDF): omit `notification` steps; show reject-branch nodes only if the request was rejected  
+- **Workflow History** (and PDF): only `step` and `decision` rows (user actions — not Notify/End)  
+
 
 ### UX / engine rules
 
@@ -102,7 +103,8 @@ Real auth/SSO, server sync, email delivery, multi-file or >512 KB attachments, n
 1. Two new forms ⇒ two distinct workflows; cannot steal another form’s workflow  
 2. Change Request shows Attachment; upload ≤512 KB works; detail downloads by name  
 3. Data Tools users-only vs requests-only via checkboxes; seeded open requests are recent with varied submitters  
-4. Manager approve/reject produces submitter notifications; history has no Notify rows  
+4. Manager approve/reject produces submitter notifications; history shows only step/decision actions  
+
 5. Unrelated requestor cannot open others’ `own`-visibility requests; notification link hidden when not viewable  
 
 ---

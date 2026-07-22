@@ -159,7 +159,7 @@ export function FormRegisterPage() {
           overflowX: 'auto',
           '& .MuiTableCell-head': {
             fontWeight: 700,
-            bgcolor: 'rgba(13,115,119,0.08)',
+            bgcolor: 'rgba(226,82,0,0.08)',
             whiteSpace: 'nowrap',
             verticalAlign: 'bottom',
           },
@@ -207,7 +207,7 @@ export function FormRegisterPage() {
                   sx={{
                     textDecoration: 'none',
                     cursor: 'pointer',
-                    '&:hover': { bgcolor: 'rgba(13,115,119,0.04)' },
+                    '&:hover': { bgcolor: 'rgba(226,82,0,0.04)' },
                   }}
                 >
                   {visibleColumns.map((col) => (

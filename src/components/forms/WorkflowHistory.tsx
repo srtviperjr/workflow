@@ -44,7 +44,7 @@ export function WorkflowHistory({ submission, workflow }: Props) {
           Workflow History
         </Typography>
         <Typography variant="caption" sx={{ opacity: 0.85 }}>
-          Notification steps are hidden; rejection steps appear only when used
+          Shows submissions and decisions — actions people took
         </Typography>
       </Box>
       <TableContainer>
@@ -65,7 +65,7 @@ export function WorkflowHistory({ submission, workflow }: Props) {
                 key={row.stepId}
                 sx={{
                   bgcolor: row.current
-                    ? 'rgba(20,145,155,0.08)'
+                    ? 'rgba(226,82,0,0.08)'
                     : row.entry
                       ? 'transparent'
                       : 'rgba(0,0,0,0.02)',

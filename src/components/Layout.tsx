@@ -73,7 +73,7 @@ export function Layout() {
     borderRadius: 2,
     mb: 0.5,
     '&.Mui-selected': {
-      bgcolor: 'rgba(13,115,119,0.12)',
+      bgcolor: 'rgba(226,82,0,0.12)',
       color: 'primary.dark',
       '& .MuiListItemIcon-root': { color: 'primary.main' },
     },
@@ -188,7 +188,7 @@ export function Layout() {
         display: 'flex',
         minHeight: '100vh',
         background:
-          'radial-gradient(ellipse at top left, rgba(20,145,155,0.12), transparent 50%), radial-gradient(ellipse at bottom right, rgba(196,92,38,0.08), transparent 45%), #f0f4f5',
+          'radial-gradient(ellipse at top left, rgba(226,82,0,0.10), transparent 50%), radial-gradient(ellipse at bottom right, rgba(43,43,43,0.06), transparent 45%), #F4F2F0',
       }}
     >
       <AppBar

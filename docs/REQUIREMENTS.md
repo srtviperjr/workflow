@@ -100,8 +100,8 @@ Custom roles may be app-scoped or form-scoped. Roles can map to Azure AD / AD gr
 | RQ-7 | Registers support filtering from column headers. |
 | RQ-8 | Dashboard shows pending items the current identity can both see and act on. |
 | RQ-9 | Form design (`/forms`) is admin-only; non-admins are redirected to Requests. |
-| RQ-10 | **Workflow History** omits notification steps; reject-branch steps appear only when the request was rejected. |
-| RQ-11 | PDF history likewise omits notification entries. |
+| RQ-10 | **Workflow History** shows only user actions: submission **step** and **decision** rows (not Notify / End / other system nodes). |
+| RQ-11 | PDF history likewise includes only step and decision entries. |
 
 ### 4.5 Delegations
 
