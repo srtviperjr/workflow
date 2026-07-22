@@ -3,6 +3,7 @@ import type {
   AppData,
   FormDefinition,
   FormVisibility,
+  IntegrationSettings,
   NotificationTemplate,
   Role,
   User,
@@ -10,6 +11,55 @@ import type {
 } from '../types';
 
 const now = () => new Date().toISOString();
+
+/** Empty / disabled production integration settings. */
+export function createDefaultIntegrations(): IntegrationSettings {
+  return {
+    azureAd: {
+      enabled: false,
+      tenantId: '',
+      clientId: '',
+      clientSecret: '',
+      redirectUri: '',
+      authorityHost: 'login.microsoftonline.com',
+      scopes: 'openid profile email User.Read',
+      allowedDomain: '',
+      ssoEnabled: true,
+      syncUsersEnabled: false,
+      groupClaim: 'groups',
+    },
+    azureSql: {
+      enabled: false,
+      server: '',
+      port: 1433,
+      database: '',
+      authMethod: 'sql',
+      username: '',
+      password: '',
+      encrypt: true,
+      trustServerCertificate: false,
+      connectionTimeoutSeconds: 30,
+      connectionStringOverride: '',
+    },
+    email: {
+      enabled: false,
+      provider: 'smtp',
+      smtpHost: '',
+      smtpPort: 587,
+      smtpEncryption: 'starttls',
+      smtpUsername: '',
+      smtpPassword: '',
+      graphTenantId: '',
+      graphClientId: '',
+      graphClientSecret: '',
+      graphSenderUserId: '',
+      fromAddress: '',
+      fromDisplayName: 'Jansen Workflows',
+      replyToAddress: '',
+    },
+    updatedAt: null,
+  };
+}
 
 /** Stable template ids for sample form notification catalog */
 export function sampleNotifyTemplateId(
@@ -496,8 +546,9 @@ export function createInitialData(): AppData {
     notifications: [],
     notificationTemplates,
     formRegisterViews: [],
+    integrations: createDefaultIntegrations(),
     currentUserId: admin.id,
-    version: 8,
+    version: 9,
   };
 }
 

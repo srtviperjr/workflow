@@ -184,6 +184,10 @@ try {
   await new Promise((r) => setTimeout(r, 500));
   await shot(page, '15-roles');
 
+  await page.goto(`${BASE}/integrations`, { waitUntil: 'networkidle0' });
+  await new Promise((r) => setTimeout(r, 500));
+  await shot(page, '18-integrations');
+
   console.log('done');
 } finally {
   await browser.close();

@@ -345,6 +345,83 @@ export interface FormRegisterViewConfig {
   columns: RegisterColumnConfig[];
 }
 
+/** Azure AD (Entra ID) for SSO and directory identity management. */
+export interface AzureAdIntegrationSettings {
+  enabled: boolean;
+  /** Directory (tenant) ID */
+  tenantId: string;
+  /** Application (client) ID */
+  clientId: string;
+  /** Client secret (stored locally until a secure backend is wired) */
+  clientSecret: string;
+  /** OAuth redirect URI registered in the app registration */
+  redirectUri: string;
+  /** Authority host, e.g. login.microsoftonline.com */
+  authorityHost: string;
+  /** Space-separated OAuth scopes */
+  scopes: string;
+  /** Optional email domain restriction (e.g. contoso.com) */
+  allowedDomain: string;
+  /** Use Azure AD as the sign-in / SSO provider */
+  ssoEnabled: boolean;
+  /** Sync / map directory users and groups into the app */
+  syncUsersEnabled: boolean;
+  /** Optional claim name used to map AD groups to roles (e.g. groups) */
+  groupClaim: string;
+}
+
+export type AzureSqlAuthMethod = 'sql' | 'azureAd' | 'managedIdentity';
+
+/** Azure SQL Database connection settings for a production back-end. */
+export interface AzureSqlIntegrationSettings {
+  enabled: boolean;
+  /** Server FQDN, e.g. myserver.database.windows.net */
+  server: string;
+  port: number;
+  database: string;
+  authMethod: AzureSqlAuthMethod;
+  username: string;
+  password: string;
+  encrypt: boolean;
+  trustServerCertificate: boolean;
+  connectionTimeoutSeconds: number;
+  /** When set, used instead of the field-built connection string */
+  connectionStringOverride: string;
+}
+
+export type EmailProvider = 'smtp' | 'microsoftGraph';
+export type SmtpEncryption = 'none' | 'starttls' | 'ssl';
+
+/** Outbound email for workflow / system notifications in production. */
+export interface EmailIntegrationSettings {
+  enabled: boolean;
+  provider: EmailProvider;
+  // SMTP
+  smtpHost: string;
+  smtpPort: number;
+  smtpEncryption: SmtpEncryption;
+  smtpUsername: string;
+  smtpPassword: string;
+  // Microsoft Graph sendMail
+  graphTenantId: string;
+  graphClientId: string;
+  graphClientSecret: string;
+  /** Mailbox / user id to send as */
+  graphSenderUserId: string;
+  // Common
+  fromAddress: string;
+  fromDisplayName: string;
+  replyToAddress: string;
+}
+
+/** Admin-configured production integrations (stored with app data). */
+export interface IntegrationSettings {
+  azureAd: AzureAdIntegrationSettings;
+  azureSql: AzureSqlIntegrationSettings;
+  email: EmailIntegrationSettings;
+  updatedAt: string | null;
+}
+
 export interface AppData {
   users: User[];
   roles: Role[];
@@ -357,6 +434,8 @@ export interface AppData {
   notificationTemplates: NotificationTemplate[];
   /** Saved per-form register column layouts */
   formRegisterViews: FormRegisterViewConfig[];
+  /** Production integration settings (Azure AD, Azure SQL, email) */
+  integrations: IntegrationSettings;
   currentUserId: string | null;
   version: number;
 }

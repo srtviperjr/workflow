@@ -2,19 +2,26 @@ import type {
   AppData,
   AppNotification,
   ApprovalDelegation,
+  AzureAdIntegrationSettings,
+  AzureSqlAuthMethod,
+  AzureSqlIntegrationSettings,
+  EmailIntegrationSettings,
+  EmailProvider,
   FormDefinition,
   FormRegisterViewConfig,
   FormSubmission,
   FormVisibility,
+  IntegrationSettings,
   NotificationTemplate,
   Project,
   Role,
+  SmtpEncryption,
   Workflow,
   WorkflowEdge,
   WorkflowNode,
 } from '../types';
 import { PROJECTS } from '../types';
-import { createId, createInitialData } from './defaults';
+import { createId, createInitialData, createDefaultIntegrations } from './defaults';
 import { enforceFormWorkflowOneToOne } from './formWorkflowLink';
 
 const STORAGE_KEY = 'jansen-workflows-data';
@@ -339,6 +346,136 @@ function normalizeFormRegisterView(
   };
 }
 
+function normalizeAzureAd(
+  raw: Partial<AzureAdIntegrationSettings> | undefined,
+  defaults: AzureAdIntegrationSettings,
+): AzureAdIntegrationSettings {
+  return {
+    enabled: Boolean(raw?.enabled),
+    tenantId: typeof raw?.tenantId === 'string' ? raw.tenantId : defaults.tenantId,
+    clientId: typeof raw?.clientId === 'string' ? raw.clientId : defaults.clientId,
+    clientSecret:
+      typeof raw?.clientSecret === 'string' ? raw.clientSecret : defaults.clientSecret,
+    redirectUri:
+      typeof raw?.redirectUri === 'string' ? raw.redirectUri : defaults.redirectUri,
+    authorityHost:
+      typeof raw?.authorityHost === 'string' && raw.authorityHost.trim()
+        ? raw.authorityHost
+        : defaults.authorityHost,
+    scopes:
+      typeof raw?.scopes === 'string' && raw.scopes.trim()
+        ? raw.scopes
+        : defaults.scopes,
+    allowedDomain:
+      typeof raw?.allowedDomain === 'string' ? raw.allowedDomain : defaults.allowedDomain,
+    ssoEnabled: raw?.ssoEnabled !== undefined ? Boolean(raw.ssoEnabled) : defaults.ssoEnabled,
+    syncUsersEnabled: Boolean(raw?.syncUsersEnabled),
+    groupClaim:
+      typeof raw?.groupClaim === 'string' && raw.groupClaim.trim()
+        ? raw.groupClaim
+        : defaults.groupClaim,
+  };
+}
+
+const SQL_AUTH: AzureSqlAuthMethod[] = ['sql', 'azureAd', 'managedIdentity'];
+
+function normalizeAzureSql(
+  raw: Partial<AzureSqlIntegrationSettings> | undefined,
+  defaults: AzureSqlIntegrationSettings,
+): AzureSqlIntegrationSettings {
+  const authMethod = SQL_AUTH.includes(raw?.authMethod as AzureSqlAuthMethod)
+    ? (raw!.authMethod as AzureSqlAuthMethod)
+    : defaults.authMethod;
+  const port =
+    typeof raw?.port === 'number' && raw.port > 0 ? Math.floor(raw.port) : defaults.port;
+  const timeout =
+    typeof raw?.connectionTimeoutSeconds === 'number' &&
+    raw.connectionTimeoutSeconds > 0
+      ? Math.floor(raw.connectionTimeoutSeconds)
+      : defaults.connectionTimeoutSeconds;
+  return {
+    enabled: Boolean(raw?.enabled),
+    server: typeof raw?.server === 'string' ? raw.server : defaults.server,
+    port,
+    database: typeof raw?.database === 'string' ? raw.database : defaults.database,
+    authMethod,
+    username: typeof raw?.username === 'string' ? raw.username : defaults.username,
+    password: typeof raw?.password === 'string' ? raw.password : defaults.password,
+    encrypt: raw?.encrypt !== undefined ? Boolean(raw.encrypt) : defaults.encrypt,
+    trustServerCertificate: Boolean(raw?.trustServerCertificate),
+    connectionTimeoutSeconds: timeout,
+    connectionStringOverride:
+      typeof raw?.connectionStringOverride === 'string'
+        ? raw.connectionStringOverride
+        : defaults.connectionStringOverride,
+  };
+}
+
+const EMAIL_PROVIDERS: EmailProvider[] = ['smtp', 'microsoftGraph'];
+const SMTP_ENC: SmtpEncryption[] = ['none', 'starttls', 'ssl'];
+
+function normalizeEmail(
+  raw: Partial<EmailIntegrationSettings> | undefined,
+  defaults: EmailIntegrationSettings,
+): EmailIntegrationSettings {
+  const provider = EMAIL_PROVIDERS.includes(raw?.provider as EmailProvider)
+    ? (raw!.provider as EmailProvider)
+    : defaults.provider;
+  const smtpEncryption = SMTP_ENC.includes(raw?.smtpEncryption as SmtpEncryption)
+    ? (raw!.smtpEncryption as SmtpEncryption)
+    : defaults.smtpEncryption;
+  const smtpPort =
+    typeof raw?.smtpPort === 'number' && raw.smtpPort > 0
+      ? Math.floor(raw.smtpPort)
+      : defaults.smtpPort;
+  return {
+    enabled: Boolean(raw?.enabled),
+    provider,
+    smtpHost: typeof raw?.smtpHost === 'string' ? raw.smtpHost : defaults.smtpHost,
+    smtpPort,
+    smtpEncryption,
+    smtpUsername:
+      typeof raw?.smtpUsername === 'string' ? raw.smtpUsername : defaults.smtpUsername,
+    smtpPassword:
+      typeof raw?.smtpPassword === 'string' ? raw.smtpPassword : defaults.smtpPassword,
+    graphTenantId:
+      typeof raw?.graphTenantId === 'string' ? raw.graphTenantId : defaults.graphTenantId,
+    graphClientId:
+      typeof raw?.graphClientId === 'string' ? raw.graphClientId : defaults.graphClientId,
+    graphClientSecret:
+      typeof raw?.graphClientSecret === 'string'
+        ? raw.graphClientSecret
+        : defaults.graphClientSecret,
+    graphSenderUserId:
+      typeof raw?.graphSenderUserId === 'string'
+        ? raw.graphSenderUserId
+        : defaults.graphSenderUserId,
+    fromAddress:
+      typeof raw?.fromAddress === 'string' ? raw.fromAddress : defaults.fromAddress,
+    fromDisplayName:
+      typeof raw?.fromDisplayName === 'string'
+        ? raw.fromDisplayName
+        : defaults.fromDisplayName,
+    replyToAddress:
+      typeof raw?.replyToAddress === 'string'
+        ? raw.replyToAddress
+        : defaults.replyToAddress,
+  };
+}
+
+export function normalizeIntegrations(
+  raw: Partial<IntegrationSettings> | undefined,
+): IntegrationSettings {
+  const defaults = createDefaultIntegrations();
+  if (!raw || typeof raw !== 'object') return defaults;
+  return {
+    azureAd: normalizeAzureAd(raw.azureAd, defaults.azureAd),
+    azureSql: normalizeAzureSql(raw.azureSql, defaults.azureSql),
+    email: normalizeEmail(raw.email, defaults.email),
+    updatedAt: typeof raw.updatedAt === 'string' ? raw.updatedAt : null,
+  };
+}
+
 function normalizeData(data: AppData): AppData {
   const rawForms = (data.forms ?? []).map(normalizeForm);
   let workflows = (data.workflows ?? []).map((w) =>
@@ -398,7 +535,10 @@ function normalizeData(data: AppData): AppData {
     ),
     notificationTemplates,
     formRegisterViews,
-    version: Math.max(data.version ?? 1, 8),
+    integrations: normalizeIntegrations(
+      (data as AppData & { integrations?: IntegrationSettings }).integrations,
+    ),
+    version: Math.max(data.version ?? 1, 9),
   };
 
   // Each form must own exactly one workflow (repairs shared / missing links)

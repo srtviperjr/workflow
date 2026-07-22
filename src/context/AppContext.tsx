@@ -13,13 +13,14 @@ import type {
   AppNotification,
   FormDefinition,
   FormSubmission,
+  IntegrationSettings,
   NotificationTemplate,
   RegisterColumnConfig,
   Role,
   User,
   Workflow,
 } from '../types';
-import { createId, createDedicatedWorkflowDraft } from '../data/defaults';
+import { createId, createDedicatedWorkflowDraft, createDefaultIntegrations } from '../data/defaults';
 import { enforceFormWorkflowOneToOne } from '../data/formWorkflowLink';
 import { loadData, saveData } from '../data/storage';
 import {
@@ -93,6 +94,8 @@ interface AppContextValue {
     formId: string,
     columns: RegisterColumnConfig[],
   ) => void;
+  // Production integrations (Azure AD, Azure SQL, email)
+  updateIntegrations: (patch: Partial<IntegrationSettings>) => void;
   getUserById: (id: string) => User | undefined;
   getRoleById: (id: string) => Role | undefined;
   getWorkflowById: (id: string) => Workflow | undefined;
@@ -703,8 +706,11 @@ export function AppProvider({ children }: { children: ReactNode }) {
       return stats;
     },
     resetEverything: () => {
-      const fresh = resetAllData();
-      setData(fresh);
+      // Preserve production integration settings across demo data resets
+      setData((prev) => ({
+        ...resetAllData(),
+        integrations: prev.integrations ?? createDefaultIntegrations(),
+      }));
     },
     resetFormData: (formId) => update((d) => resetByForm(d, formId)),
 
@@ -720,6 +726,28 @@ export function AppProvider({ children }: { children: ReactNode }) {
         if (idx >= 0) views[idx] = next;
         else views.push(next);
         return { ...d, formRegisterViews: views };
+      }),
+
+    updateIntegrations: (patch) =>
+      update((d) => {
+        const current = d.integrations ?? createDefaultIntegrations();
+        return {
+          ...d,
+          integrations: {
+            ...current,
+            ...patch,
+            azureAd: patch.azureAd
+              ? { ...current.azureAd, ...patch.azureAd }
+              : current.azureAd,
+            azureSql: patch.azureSql
+              ? { ...current.azureSql, ...patch.azureSql }
+              : current.azureSql,
+            email: patch.email
+              ? { ...current.email, ...patch.email }
+              : current.email,
+            updatedAt: new Date().toISOString(),
+          },
+        };
       }),
 
     getUserById: (id) => data.users.find((u) => u.id === id),

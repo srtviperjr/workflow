@@ -134,6 +134,18 @@ Create users (company + project) and assign roles. Roles may be app-wide or limi
 
 ![Roles](./screenshots/15-roles.png)
 
+### Integrations
+
+Under **Administration → Integrations**, configure production connections:
+
+1. **Azure Active Directory** — tenant/client IDs, secret, redirect URI, scopes, SSO and directory sync  
+2. **Azure SQL Database** — server, database, authentication, connection options  
+3. **Email server** — SMTP or Microsoft Graph, plus from / reply-to defaults  
+
+Settings are saved in the app (and kept when you reset demo data). In this browser-only build they prepare production wiring; they do not open live network connections yet.
+
+![Integrations](./screenshots/18-integrations.png)
+
 ### Data Tools
 
 Seed demo data with independent checkboxes:

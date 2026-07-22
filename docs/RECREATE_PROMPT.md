@@ -37,6 +37,7 @@ Keep **view** and **approve** access consistent: never show a request (or a noti
 - **Notifications** (inbox): in-app only (recipients, subject, rendered body/HTML, read state) — including workflow notifies and delegation handoffs
 - **Delegations**: from/to user, date range, scope all-workflows or per-workflow; additive permissions; `notifyDelegateOnStart`, `startHandoffNotifiedAt`, `endHandoffNotifiedAt`
 - **formRegisterViews**: per-user per-form column visibility/order
+- **integrations**: Azure AD (SSO/identity), Azure SQL (back-end), and email (SMTP or Microsoft Graph) settings configured by admins; survive demo data resets
 
 Enforce **strict 1:1 form↔workflow**. Migrate older data on load (Change Request attachment field; inline notify → templates; template recipients → notify nodes; delegation handoff fields).
 
@@ -54,11 +55,11 @@ Boot as **System Admin** `admin@jansen.local` (Admin + Requestor, BHP / JS1). No
 
 **Everyone:** Dashboard (tagline + pending the identity can see **and** act on), Requests, Request Register, Delegations  
 
-**Administration (admin only, this order):** Forms, **Notifications** (templates), Workflows, Users, Roles, **Data Tools** (last). `/admin` → `/data-tools`.
+**Administration (admin only, this order):** Forms, **Notifications** (templates), Workflows, Users, Roles, **Integrations**, **Data Tools** (last). `/admin` → `/data-tools`.
 
 **AppBar:** bell → inbox `/notifications`; identity switcher; version `v0.7`.
 
-Also: form builder; notification template editor; form submit; request detail (act only when allowed, branded PDF); overall + per-form registers; workflow canvas; users/roles CRUD; Data Tools.
+Also: form builder; notification template editor; form submit; request detail (act only when allowed, branded PDF); overall + per-form registers; workflow canvas; users/roles CRUD; Integrations (Azure AD / Azure SQL / email); Data Tools.
 
 ### Register filters
 
@@ -79,6 +80,16 @@ Field-aware column filters:
 ### Data Tools
 
 Independent **Include users** / **Include requests** with create-additional or clear-recreate modes; optional notifications with requests; randomized recent open samples; reset one form / reset all.
+
+### Integrations (production readiness)
+
+Admin page with three independently saved sections (stored in `AppData.integrations`, survive demo resets):
+
+1. **Azure AD / Entra ID** — tenant/client/secret, redirect URI, authority, scopes, domain, SSO + directory sync, group claim  
+2. **Azure SQL** — server/port/database, auth method, credentials, encrypt/trust, timeout, optional connection-string override + preview  
+3. **Email** — SMTP or Microsoft Graph, plus from/reply-to defaults  
+
+UI documents that these are configuration for a future back-end (not live in the browser-only build).
 
 ### Visibility & history
 
