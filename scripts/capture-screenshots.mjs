@@ -165,6 +165,17 @@ try {
   await new Promise((r) => setTimeout(r, 500));
   await shot(page, '13-notifications');
 
+  await page.goto(`${BASE}/notification-templates`, { waitUntil: 'networkidle0' });
+  await new Promise((r) => setTimeout(r, 500));
+  await shot(page, '16-notification-templates');
+
+  const tplEditHref = await firstHref(page, '\\/notification-templates\\/.+\\/edit');
+  if (tplEditHref) {
+    await page.goto(`${BASE}${tplEditHref}`, { waitUntil: 'networkidle0' });
+    await new Promise((r) => setTimeout(r, 700));
+    await shot(page, '17-notification-template-editor');
+  }
+
   await page.goto(`${BASE}/users`, { waitUntil: 'networkidle0' });
   await new Promise((r) => setTimeout(r, 500));
   await shot(page, '14-users');

@@ -1,4 +1,4 @@
-# Jansen Workflows — Recreation Prompt (v0.6)
+# Jansen Workflows — Recreation Prompt (v0.7)
 
 Copy everything below the line into a coding agent (or use as a product brief) to recreate this application.
 
@@ -10,7 +10,7 @@ Build **Jansen Workflows** — a frontend-only React + TypeScript (Vite) approva
 
 ### Product summary
 
-Admins design forms and exclusive 1:1 workflows on a visual canvas. Notification **message templates** are administered separately (per form, rich text). Workflow Notify nodes pick a template and choose recipients. Users submit requests from a **Requests** catalog, advance approvals by role, view registers, receive in-app notifications, and optionally attach small files. Demo users switch identity via an AppBar picker. Display version **v0.6** in the AppBar and sidebar.
+Admins design forms and exclusive 1:1 workflows on a visual canvas. Notification **message templates** are administered separately (per form, rich text). Workflow Notify nodes pick a template and choose recipients. Users submit requests from a **Requests** catalog, advance approvals by role, view registers with field-aware filters, receive in-app notifications, and optionally attach small files. Delegations can hand off in-progress work at start/end. Demo users switch identity via an AppBar picker. Display version **v0.7** in the AppBar and sidebar. Dashboard hero tagline: **Project workflow management system.**
 
 Keep **view** and **approve** access consistent: never show a request (or a notification deep-link) that the user cannot open, and never show Approve/Reject unless they can act on the current step.
 
@@ -32,13 +32,13 @@ Keep **view** and **approve** access consistent: never show a request (or a noti
 - **Forms**: name, description, fields, exclusive `workflowId`, visibility `own|company|project`
 - **Form fields**: types `text|textarea|number|select|date|file`; label, required, placeholder/help, select options. File values are `{ name, mimeType, size, dataUrl }` with max **512 KB**; UI/registers/PDF/notifications show **filename only**
 - **Notification templates**: `id`, `name`, `formId` (exclusive), `description`, `subject`, `bodyHtml`, timestamps. Subject/body support `{{formName}}`, `{{requestId}}`, `{{status}}`, `{{submitter}}`, and `{{Field Label}}`
-- **Workflows**: nodes `start|step|decision|notification|end`; edges with manual outcomes or AND-combined field conditions (`eq|neq|gt|gte|lt|lte|contains|empty|not_empty|changed|unchanged`). Steps/decisions have role assignment; steps may allow editing form fields; **notification nodes** store `notificationTemplateId` plus `notifyRoleIds` and `notifySubmitter` (recipients on the node; content from the template). No cross-form templates
-- **Submissions**: form data + baselineData, status `draft|in_progress|completed|rejected`, current node, history (actor, action, outcome, comment, timestamp; label when acting as delegate)
-- **Notifications** (inbox messages): in-app only (recipients, subject, rendered body/HTML, read state)
-- **Delegations**: from/to user, date range, scope all-workflows or per-workflow; permissions are **additive**
+- **Workflows**: nodes `start|step|decision|notification|end`; edges with manual outcomes or AND-combined field conditions. Steps/decisions have role assignment; steps may allow editing form fields; **notification nodes** store `notificationTemplateId` plus `notifyRoleIds` and `notifySubmitter` (recipients on the node; content from the template). No cross-form templates
+- **Submissions**: form data + baselineData, status `draft|in_progress|completed|rejected`, current node, history
+- **Notifications** (inbox): in-app only (recipients, subject, rendered body/HTML, read state) — including workflow notifies and delegation handoffs
+- **Delegations**: from/to user, date range, scope all-workflows or per-workflow; additive permissions; `notifyDelegateOnStart`, `startHandoffNotifiedAt`, `endHandoffNotifiedAt`
 - **formRegisterViews**: per-user per-form column visibility/order
 
-Enforce **strict 1:1 form↔workflow** (create/repair/cascade rules as needed). On load, migrate older data (e.g. ensure Change Request has optional Attachment; lift inline notify subject/body into templates; copy legacy template recipients onto Notify nodes).
+Enforce **strict 1:1 form↔workflow**. Migrate older data on load (Change Request attachment field; inline notify → templates; template recipients → notify nodes; delegation handoff fields).
 
 ### Default seed catalog
 
@@ -46,54 +46,59 @@ Four sample forms each with a dedicated manager-approval workflow and three noti
 
 `Start → Submit (Requestor) → Notify managers/admin → Manager Review (Approve/Reject) → Notify submitter → Approved/Rejected end`
 
-Forms:
+Forms: Overtime (company), Vehicle Registration (project), Change Request (own, optional Attachment file), Leave Request (company).
 
-1. **Overtime Request** (company) — date, hours, shift, reason  
-2. **Vehicle Registration** (project) — make, model, plate, expiry, purpose  
-3. **Change Request** (own) — title, description, priority, impact, **optional Attachment (file)**  
-4. **Leave Request** (company) — type, start, end, notes  
-
-Boot as **System Admin** `admin@jansen.local` with Admin + Requestor roles (company BHP, project JS1). No login screen.
+Boot as **System Admin** `admin@jansen.local` (Admin + Requestor, BHP / JS1). No login screen.
 
 ### Navigation & pages
 
-**Everyone:** Dashboard (pending the identity can see **and** act on), Requests (submit catalog), Request Register (overall), Delegations  
+**Everyone:** Dashboard (tagline + pending the identity can see **and** act on), Requests, Request Register, Delegations  
 
-**Administration (admin only, nested, this order):** Forms, **Notifications** (templates), Workflows, Users, Roles, **Data Tools** (last). Non-admins hitting `/forms` redirect to `/requests`. `/admin` → `/data-tools`.
+**Administration (admin only, this order):** Forms, **Notifications** (templates), Workflows, Users, Roles, **Data Tools** (last). `/admin` → `/data-tools`.
 
-**AppBar:** notification bell → inbox Notifications page (`/notifications`); identity switcher; version `v0.6`.
+**AppBar:** bell → inbox `/notifications`; identity switcher; version `v0.7`.
 
-Also implement: form builder with live preview; notification template list/editor; form submit; request detail (act/approve/reject only when allowed, edit fields when allowed, branded PDF print, attachment download); overall register with header filters; per-form register with customizable columns; workflow list + canvas editor; users/roles CRUD; Data Tools.
+Also: form builder; notification template editor; form submit; request detail (act only when allowed, branded PDF); overall + per-form registers; workflow canvas; users/roles CRUD; Data Tools.
+
+### Register filters
+
+Field-aware column filters:
+
+- **Dates** — single-line trigger opens popover: Between (from/to) or Relative (last 7/30/90/365 or custom days)
+- **Select-like** (status, form name, current step from workflow labels, form select fields) — **multi-select** checkboxes
+- **Text** — partial contains search; height aligned with selects
+- Clear × per filter and **Clear filters (N)** for all
+
+### Delegations & in-progress handoff
+
+- Additive grant of delegator roles to delegate for covered workflows while dates are active
+- On create: show count of in-progress actionable requests in scope; checkbox to notify the delegate of those items when the window becomes active
+- On end (natural expiry or early remove): notify the **delegator** of covered requests still `in_progress`
+- Process handoffs on app load / focus / periodic tick (no backend scheduler)
 
 ### Data Tools
 
-Admin page to seed demo data with independent sections:
+Independent **Include users** / **Include requests** with create-additional or clear-recreate modes; optional notifications with requests; randomized recent open samples; reset one form / reset all.
 
-- Checkbox **Include users** + mode **Create additional** | **Clear & recreate** + count 0–50  
-- Checkbox **Include requests (workflows)** + same modes + requests-per-form 0–50 (default 2) + optional notifications  
-- User-only runs must not replace forms/workflows; request runs apply the sample catalog (including notification templates)  
-- Sample generator: **random submitters/managers**, weighted open/approved/rejected; **open items within last ~7 days**; completed/rejected can be older; field dates coherent with submission age  
-- Reset requests for one form; reset everything to defaults  
+### Visibility & history
 
-### Visibility & history rules
-
-- A request is viewable if: admin, submitter, can act on current step, previously acted (history), received a notification for it, or matches form company/project visibility  
-- Registers / dashboard awaiting-action / notification deep-links use the same view check  
-- Approve/Reject UI only when `canAct`  
-- **Workflow History** (and PDF): only `step` and `decision` rows (user actions — not Notify/End)  
+- Viewable if: admin, submitter, can act, previously acted, notified, or form company/project visibility  
+- Registers / dashboard / notification deep-links use the same view check  
+- Approve/Reject only when `canAct`  
+- Workflow History + PDF: only `step` and `decision` rows  
 
 ### UX / engine rules
 
-- Delegation expands who can act without removing anyone’s existing roles  
-- When workflow hits a notification node, resolve the template + node recipients, create in-app messages, and continue (but do not list those steps in history UI)  
-- PDF export: orange branded banner, meta chips, form-like field cards, user-action history  
-- File clear/replace on submit and editable steps; reject oversized files with a clear error  
+- Delegation expands who can act without removing anyone’s roles  
+- Notify nodes resolve template + node recipients, create inbox messages, continue (omit from history UI)  
+- PDF: orange branded banner, meta chips, form-like field cards  
+- File clear/replace; reject oversized files  
 
 ### Deliverables
 
 - Working Vite app matching the above  
 - `docs/REQUIREMENTS.md`, `docs/USER_GUIDE.md` with screenshots, and this recreate prompt  
-- `AGENTS.md` noting frontend-only / localStorage / ports; on version bumps update REQUIREMENTS, USER_GUIDE, and this prompt  
+- `AGENTS.md` noting frontend-only / localStorage / ports; **on every version bump update REQUIREMENTS, USER_GUIDE, RECREATE_PROMPT, README version, and screenshots when UI changed**  
 - Screenshot script using puppeteer-core against the running dev server  
 
 ### Out of scope
@@ -103,11 +108,11 @@ Real auth/SSO, server sync, email delivery, multi-file or >512 KB attachments, n
 ### Acceptance smoke checks
 
 1. Create two forms → two distinct workflows  
-2. Create a notification template for Form A; Form B’s workflow cannot select it  
-3. Notify node chooses template + roles; advancing the workflow creates inbox messages  
-4. Manager approve/reject produces submitter notifications when configured; history shows only step/decision actions  
-5. PDF shows branded banner and field cards; version badge is `v0.6`  
+2. Notification template for Form A cannot be picked on Form B’s workflow  
+3. Register date filter supports between + last 90 days; status multi-select works; Clear filters works  
+4. Delegation with in-progress items can notify the delegate; ending it notifies the delegator of leftovers  
+5. Version badge is `v0.7`; dashboard tagline is “Project workflow management system.”  
 
 ---
 
-*Generated for Jansen Workflows v0.6.*
+*Generated for Jansen Workflows v0.7.*

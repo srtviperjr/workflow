@@ -2,7 +2,7 @@
 
 A local-storage React application for designing approval workflows, building forms, and tracking requests end-to-end.
 
-**Version:** 0.6
+**Version:** 0.7
 
 | Doc | Description |
 |-----|-------------|
@@ -24,8 +24,8 @@ A local-storage React application for designing approval workflows, building for
 - **Form-scoped roles** — Roles can be limited to specific forms.
 - **PDF export** — Branded printout on request detail (banner + form-like field cards).
 - **Requests** — Everyone submits from **Requests**; admins design forms under Administration → Forms.
-- **Delegations** — Temporarily grant approval permissions (additive).
-- **Registers** — Overall register plus per-form registers with customizable columns and header filters.
+- **Delegations** — Temporarily grant approval permissions (additive); optional notify of in-progress items at start; notify unfinished items when the delegation ends.
+- **Registers** — Overall + per-form registers with field-aware header filters (date ranges / relative dates, multi-select dropdowns, text search) and clear controls.
 - **Data Tools** — Independently include users and/or requests; create additional or clear & recreate; randomized recent open samples.
 
 ## Quick start
