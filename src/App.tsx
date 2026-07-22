@@ -18,6 +18,8 @@ import { RequestDetailPage } from './pages/RequestDetailPage';
 import { DataToolsPage } from './pages/DataToolsPage';
 import { DelegationsPage } from './pages/DelegationsPage';
 import { NotificationsPage } from './pages/NotificationsPage';
+import { NotificationTemplatesPage } from './pages/NotificationTemplatesPage';
+import { NotificationTemplateEditorPage } from './pages/NotificationTemplateEditorPage';
 
 export default function App() {
   return (
@@ -33,6 +35,14 @@ export default function App() {
               <Route path="roles" element={<RolesPage />} />
               <Route path="delegations" element={<DelegationsPage />} />
               <Route path="notifications" element={<NotificationsPage />} />
+              <Route
+                path="notification-templates"
+                element={<NotificationTemplatesPage />}
+              />
+              <Route
+                path="notification-templates/:id/edit"
+                element={<NotificationTemplateEditorPage />}
+              />
               <Route path="workflows" element={<WorkflowsPage />} />
               <Route path="workflows/:id" element={<WorkflowEditorPage />} />
               <Route path="forms" element={<FormsPage />} />

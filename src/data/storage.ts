@@ -6,13 +6,15 @@ import type {
   FormRegisterViewConfig,
   FormSubmission,
   FormVisibility,
+  NotificationTemplate,
   Project,
   Role,
   Workflow,
   WorkflowEdge,
+  WorkflowNode,
 } from '../types';
 import { PROJECTS } from '../types';
-import { createInitialData } from './defaults';
+import { createId, createInitialData } from './defaults';
 import { enforceFormWorkflowOneToOne } from './formWorkflowLink';
 
 const STORAGE_KEY = 'jansen-workflows-data';
@@ -125,6 +127,128 @@ function normalizeEdge(edge: WorkflowEdge): WorkflowEdge {
   };
 }
 
+function plainBodyToHtml(text: string): string {
+  if (!text) return '<p></p>';
+  if (/<[a-z][\s\S]*>/i.test(text)) return text;
+  return text
+    .split(/\n\n+/)
+    .map((para) => `<p>${para.replace(/\n/g, '<br>')}</p>`)
+    .join('');
+}
+
+function normalizeNotificationTemplate(
+  raw: NotificationTemplate,
+): NotificationTemplate | null {
+  if (!raw?.id || !raw.formId || !raw.name) return null;
+  const ts = new Date().toISOString();
+  return {
+    id: raw.id,
+    name: String(raw.name),
+    formId: raw.formId,
+    description: raw.description ?? '',
+    subject: raw.subject ?? '',
+    bodyHtml: plainBodyToHtml(raw.bodyHtml ?? ''),
+    roleIds: Array.isArray(raw.roleIds) ? raw.roleIds.filter(Boolean) : [],
+    notifySubmitter: Boolean(raw.notifySubmitter),
+    createdAt: raw.createdAt ?? ts,
+    updatedAt: raw.updatedAt ?? ts,
+  };
+}
+
+/**
+ * Lift inline notify-node content into form-dedicated NotificationTemplate
+ * records so workflows only reference templates by id.
+ */
+function migrateInlineNotifyNodes(
+  workflows: Workflow[],
+  existing: NotificationTemplate[],
+): { workflows: Workflow[]; notificationTemplates: NotificationTemplate[] } {
+  const templates = [...existing];
+  const ts = new Date().toISOString();
+
+  const nextWorkflows = workflows.map((wf) => {
+    const formId = wf.formId;
+    if (!formId) return wf;
+
+    const nodes: WorkflowNode[] = wf.nodes.map((n) => {
+      if (n.type !== 'notification') return n;
+
+      const tplId = n.data.notificationTemplateId;
+      if (tplId) {
+        const exists = templates.some(
+          (t) => t.id === tplId && t.formId === formId,
+        );
+        if (exists) {
+          return {
+            ...n,
+            data: {
+              label: n.data.label,
+              description: n.data.description,
+              notificationTemplateId: tplId,
+            },
+          };
+        }
+      }
+
+      const hasInline = Boolean(
+        n.data.notifySubject ||
+          n.data.notifyBody ||
+          n.data.emailSubject ||
+          n.data.emailBody ||
+          (n.data.notifyRoleIds && n.data.notifyRoleIds.length > 0) ||
+          n.data.notifySubmitter,
+      );
+
+      // Dangling or missing template with no inline content — leave unset
+      if (!hasInline) {
+        return {
+          ...n,
+          data: {
+            label: n.data.label,
+            description: n.data.description,
+          },
+        };
+      }
+
+      const subject =
+        n.data.notifySubject ||
+        n.data.emailSubject ||
+        'Update: request';
+      const bodyPlain =
+        n.data.notifyBody ||
+        n.data.emailBody ||
+        'A request was updated.\n\nForm: {{formName}}\nRequest: {{requestId}}';
+
+      const tpl: NotificationTemplate = {
+        id: createId('notif-tpl'),
+        name: n.data.label || 'Notification',
+        formId,
+        description: `Migrated from workflow “${wf.name}”`,
+        subject,
+        bodyHtml: plainBodyToHtml(bodyPlain),
+        roleIds: Array.isArray(n.data.notifyRoleIds) ? n.data.notifyRoleIds : [],
+        notifySubmitter: Boolean(n.data.notifySubmitter),
+        createdAt: ts,
+        updatedAt: ts,
+      };
+      templates.push(tpl);
+
+      return {
+        ...n,
+        data: {
+          label: n.data.label,
+          description: n.data.description,
+          notificationTemplateId: tpl.id,
+        },
+      };
+    });
+
+    return { ...wf, nodes };
+  });
+
+  return { workflows: nextWorkflows, notificationTemplates: templates };
+}
+
 function normalizeWorkflow(workflow: Workflow, forms: AppData['forms']): Workflow {
   let formId = workflow.formId ?? null;
   if (!formId) {
@@ -171,7 +295,7 @@ function normalizeFormRegisterView(
 
 function normalizeData(data: AppData): AppData {
   const rawForms = (data.forms ?? []).map(normalizeForm);
-  const workflows = (data.workflows ?? []).map((w) =>
+  let workflows = (data.workflows ?? []).map((w) =>
     normalizeWorkflow(w, rawForms),
   );
 
@@ -193,6 +317,21 @@ function normalizeData(data: AppData): AppData {
     .map(normalizeFormRegisterView)
     .filter((v): v is FormRegisterViewConfig => Boolean(v));
 
+  const existingTemplates = (
+    Array.isArray(data.notificationTemplates) ? data.notificationTemplates : []
+  )
+    .map(normalizeNotificationTemplate)
+    .filter((t): t is NotificationTemplate => Boolean(t));
+
+  const migrated = migrateInlineNotifyNodes(workflows, existingTemplates);
+  workflows = migrated.workflows;
+
+  // Drop templates whose form no longer exists
+  const formIds = new Set(syncedForms.map((f) => f.id));
+  const notificationTemplates = migrated.notificationTemplates.filter((t) =>
+    formIds.has(t.formId),
+  );
+
   const normalized: AppData = {
     ...data,
     users,
@@ -204,8 +343,9 @@ function normalizeData(data: AppData): AppData {
     notifications: (Array.isArray(data.notifications) ? data.notifications : []).map(
       (n) => normalizeNotification(n as AppNotification & { toEmails?: string[] }),
     ),
+    notificationTemplates,
     formRegisterViews,
-    version: Math.max(data.version ?? 1, 7),
+    version: Math.max(data.version ?? 1, 8),
   };
 
   // Each form must own exactly one workflow (repairs shared / missing links)

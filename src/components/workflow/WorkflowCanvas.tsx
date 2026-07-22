@@ -16,6 +16,7 @@ import {
 } from '@xyflow/react';
 import '@xyflow/react/dist/style.css';
 import {
+  Alert,
   Box,
   Button,
   ButtonGroup,
@@ -50,6 +51,7 @@ import type {
   ConditionOp,
   EdgeCondition,
   FormField,
+  NotificationTemplate,
   Role,
   Workflow,
   WorkflowNodeType,
@@ -62,10 +64,6 @@ import {
   toFlowEdges,
   toFlowNodes,
 } from '../../utils/workflowEngine';
-import {
-  BUILTIN_TEMPLATE_TOKENS,
-  fieldToken,
-} from '../../utils/notifications';
 
 const nodeTypes = {
   start: StartNode,
@@ -95,6 +93,8 @@ interface Props {
   workflow: Workflow;
   roles: Role[];
   formFields: FormField[];
+  /** Templates dedicated to this workflow's form (no cross-form). */
+  notificationTemplates?: NotificationTemplate[];
   onChange: (nodes: Workflow['nodes'], edges: Workflow['edges']) => void;
   readOnly?: boolean;
 }
@@ -103,20 +103,37 @@ export function WorkflowCanvas({
   workflow,
   roles,
   formFields,
+  notificationTemplates = [],
   onChange,
   readOnly,
 }: Props) {
+  const formTemplates = useMemo(
+    () =>
+      notificationTemplates.filter(
+        (t) => workflow.formId && t.formId === workflow.formId,
+      ),
+    [notificationTemplates, workflow.formId],
+  );
+
   const enrichedNodes = useMemo((): Node[] => {
-    return toFlowNodes(workflow.nodes).map((n) => ({
-      ...n,
-      data: {
-        ...n.data,
-        roleName: roles.find(
-          (r) => r.id === (n.data as { roleId?: string }).roleId,
-        )?.name,
-      },
-    }));
-  }, [workflow.nodes, roles]);
+    return toFlowNodes(workflow.nodes).map((n) => {
+      const data = n.data as {
+        roleId?: string;
+        notificationTemplateId?: string;
+      };
+      const tpl = formTemplates.find(
+        (t) => t.id === data.notificationTemplateId,
+      );
+      return {
+        ...n,
+        data: {
+          ...n.data,
+          roleName: roles.find((r) => r.id === data.roleId)?.name,
+          notificationTemplateName: tpl?.name,
+        },
+      };
+    });
+  }, [workflow.nodes, roles, formTemplates]);
 
   const [nodes, setNodes, onNodesChange] = useNodesState<Node>(enrichedNodes);
   const [edges, setEdges, onEdgesChange] = useEdgesState(
@@ -187,14 +204,10 @@ export function WorkflowCanvas({
         roleName: roles.find((r) => r.id === defaultRole)?.name,
         decisionMode: type === 'decision' ? 'manual' : undefined,
         allowFieldEdits: false,
-        notifyRoleIds: type === 'notification' && defaultRole ? [defaultRole] : [],
-        notifySubmitter: type === 'notification' ? false : undefined,
-        notifySubject:
-          type === 'notification' ? 'Update on {{formName}}' : undefined,
-        notifyBody:
-          type === 'notification'
-            ? 'Hello,\n\nA request was updated.\n\nForm: {{formName}}\nRequest: {{requestId}}\n\nRegards'
-            : undefined,
+        notificationTemplateId:
+          type === 'notification' ? formTemplates[0]?.id : undefined,
+        notificationTemplateName:
+          type === 'notification' ? formTemplates[0]?.name : undefined,
       },
     };
     setNodes((nds) => {
@@ -214,12 +227,8 @@ export function WorkflowCanvas({
     roleName?: string;
     decisionMode?: 'manual' | 'conditional';
     allowFieldEdits?: boolean;
-    notifyRoleIds?: string[];
-    notifySubmitter?: boolean;
-    notifySubject?: string;
-    notifyBody?: string;
-    emailSubject?: string;
-    emailBody?: string;
+    notificationTemplateId?: string;
+    notificationTemplateName?: string;
   };
   const selectedEdgeData = (selectedEdge?.data ?? {}) as {
     routeMode?: 'manual' | 'condition';
@@ -505,134 +514,64 @@ export function WorkflowCanvas({
               <Stack spacing={1.5}>
                 <Typography variant="caption" color="text.secondary">
                   Creates an in-app notification when the workflow reaches this
-                  step. Recipients are users with the selected roles
-                  (form-scoped roles only apply on their linked forms), and
-                  optionally the request submitter. View them under
-                  Notifications.
+                  step. Choose a template designed for this workflow&apos;s
+                  form. Design templates under Administration → Notifications.
                 </Typography>
-                <FormControl size="small" fullWidth disabled={readOnly}>
-                  <InputLabel>Notify roles</InputLabel>
-                  <Select
-                    multiple
-                    label="Notify roles"
-                    value={selectedData.notifyRoleIds ?? []}
-                    onChange={(e) => {
-                      const value = e.target.value;
-                      updateSelectedNode({
-                        notifyRoleIds:
-                          typeof value === 'string' ? value.split(',') : value,
-                      });
-                    }}
-                    renderValue={(selected) =>
-                      (selected as string[])
-                        .map((id) => roles.find((r) => r.id === id)?.name ?? id)
-                        .join(', ')
-                    }
-                  >
-                    {roles.map((r) => (
-                      <MenuItem key={r.id} value={r.id}>
-                        {r.name}
-                        {r.scope === 'form' ? ' (form)' : ' (app)'}
-                      </MenuItem>
-                    ))}
-                  </Select>
-                </FormControl>
-                <FormControlLabel
-                  control={
-                    <Checkbox
-                      checked={Boolean(selectedData.notifySubmitter)}
-                      disabled={readOnly}
-                      onChange={(e) =>
+                {!workflow.formId ? (
+                  <Alert severity="warning">
+                    Assign this workflow to a form before selecting a
+                    notification template.
+                  </Alert>
+                ) : formTemplates.length === 0 ? (
+                  <Alert severity="info">
+                    No templates for this form yet. Create one under
+                    Administration → Notifications.
+                  </Alert>
+                ) : (
+                  <FormControl size="small" fullWidth disabled={readOnly}>
+                    <InputLabel>Notification template</InputLabel>
+                    <Select
+                      label="Notification template"
+                      value={selectedData.notificationTemplateId ?? ''}
+                      onChange={(e) => {
+                        const id = e.target.value as string;
+                        const tpl = formTemplates.find((t) => t.id === id);
                         updateSelectedNode({
-                          notifySubmitter: e.target.checked,
-                        })
-                      }
-                    />
-                  }
-                  label="Also notify the request submitter"
-                />
-                <TextField
-                  label="Subject"
-                  size="small"
-                  fullWidth
-                  disabled={readOnly}
-                  value={
-                    selectedData.notifySubject ??
-                    selectedData.emailSubject ??
-                    ''
-                  }
-                  onChange={(e) =>
-                    updateSelectedNode({
-                      notifySubject: e.target.value,
-                      emailSubject: undefined,
-                    })
-                  }
-                  helperText="Use {{tokens}} for dynamic values"
-                />
-                <TextField
-                  label="Message"
-                  size="small"
-                  fullWidth
-                  multiline
-                  minRows={5}
-                  disabled={readOnly}
-                  value={
-                    selectedData.notifyBody ?? selectedData.emailBody ?? ''
-                  }
-                  onChange={(e) =>
-                    updateSelectedNode({
-                      notifyBody: e.target.value,
-                      emailBody: undefined,
-                    })
-                  }
-                />
-                <Box>
-                  <Typography variant="caption" fontWeight={700} display="block" mb={0.5}>
-                    Insert token
+                          notificationTemplateId: id || undefined,
+                          notificationTemplateName: tpl?.name,
+                          label: tpl?.name || selectedData.label,
+                        });
+                      }}
+                    >
+                      {formTemplates.map((t) => (
+                        <MenuItem key={t.id} value={t.id}>
+                          {t.name}
+                        </MenuItem>
+                      ))}
+                    </Select>
+                  </FormControl>
+                )}
+                {selectedData.notificationTemplateId && (
+                  <Typography variant="caption" color="text.secondary">
+                    {(() => {
+                      const tpl = formTemplates.find(
+                        (t) => t.id === selectedData.notificationTemplateId,
+                      );
+                      if (!tpl) return 'Template missing — pick another.';
+                      const rolesLabel = tpl.roleIds
+                        .map((rid) => roles.find((r) => r.id === rid)?.name)
+                        .filter(Boolean)
+                        .join(', ');
+                      const who = [
+                        rolesLabel || null,
+                        tpl.notifySubmitter ? 'submitter' : null,
+                      ]
+                        .filter(Boolean)
+                        .join(' + ');
+                      return `Recipients: ${who || 'none'} · Subject: ${tpl.subject || '—'}`;
+                    })()}
                   </Typography>
-                  <Stack direction="row" spacing={0.5} flexWrap="wrap" useFlexGap>
-                    {BUILTIN_TEMPLATE_TOKENS.map((t) => (
-                      <Chip
-                        key={t.token}
-                        size="small"
-                        label={t.label}
-                        onClick={() => {
-                          if (readOnly) return;
-                          const current =
-                            selectedData.notifyBody ??
-                            selectedData.emailBody ??
-                            '';
-                          updateSelectedNode({
-                            notifyBody: `${current}${t.token}`,
-                            emailBody: undefined,
-                          });
-                        }}
-                        sx={{ cursor: readOnly ? 'default' : 'pointer' }}
-                      />
-                    ))}
-                    {formFields.map((f) => (
-                      <Chip
-                        key={f.id}
-                        size="small"
-                        color="primary"
-                        variant="outlined"
-                        label={f.label}
-                        onClick={() => {
-                          if (readOnly) return;
-                          const current =
-                            selectedData.notifyBody ??
-                            selectedData.emailBody ??
-                            '';
-                          updateSelectedNode({
-                            notifyBody: `${current}${fieldToken(f)}`,
-                            emailBody: undefined,
-                          });
-                        }}
-                        sx={{ cursor: readOnly ? 'default' : 'pointer' }}
-                      />
-                    ))}
-                  </Stack>
-                </Box>
+                )}
               </Stack>
             )}
             <TextField

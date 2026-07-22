@@ -13,6 +13,7 @@ import type {
   AppNotification,
   FormDefinition,
   FormSubmission,
+  NotificationTemplate,
   RegisterColumnConfig,
   Role,
   User,
@@ -60,6 +61,16 @@ interface AppContextValue {
   // Notifications
   addNotifications: (items: AppNotification[]) => void;
   markNotificationRead: (id: string, userId: string) => void;
+  // Notification templates (admin)
+  addNotificationTemplate: (
+    tpl: Omit<NotificationTemplate, 'id' | 'createdAt' | 'updatedAt'>,
+  ) => NotificationTemplate;
+  updateNotificationTemplate: (
+    id: string,
+    patch: Partial<NotificationTemplate>,
+  ) => void;
+  deleteNotificationTemplate: (id: string) => void;
+  getNotificationTemplateById: (id: string) => NotificationTemplate | undefined;
   // Delegations
   addDelegation: (
     delegation: Omit<ApprovalDelegation, 'id' | 'createdAt'>,
@@ -421,6 +432,9 @@ export function AppProvider({ children }: { children: ReactNode }) {
           }),
           submissions: d.submissions.filter((s) => s.formId !== id),
           notifications: (d.notifications ?? []).filter((n) => n.formId !== id),
+          notificationTemplates: (d.notificationTemplates ?? []).filter(
+            (t) => t.formId !== id,
+          ),
           formRegisterViews: (d.formRegisterViews ?? []).filter(
             (v) => v.formId !== id,
           ),
@@ -482,6 +496,82 @@ export function AppProvider({ children }: { children: ReactNode }) {
           readBy.add(userId);
           return { ...n, readByUserIds: [...readBy] };
         }),
+      })),
+
+    addNotificationTemplate: (tpl) => {
+      const ts = new Date().toISOString();
+      const created: NotificationTemplate = {
+        ...tpl,
+        id: createId('notif-tpl'),
+        createdAt: ts,
+        updatedAt: ts,
+      };
+      update((d) => ({
+        ...d,
+        notificationTemplates: [...(d.notificationTemplates ?? []), created],
+      }));
+      return created;
+    },
+    updateNotificationTemplate: (id, patch) =>
+      update((d) => {
+        const existing = (d.notificationTemplates ?? []).find((t) => t.id === id);
+        if (!existing) return d;
+        const nextFormId = patch.formId ?? existing.formId;
+        const formChanged = nextFormId !== existing.formId;
+        return {
+          ...d,
+          notificationTemplates: (d.notificationTemplates ?? []).map((t) =>
+            t.id === id
+              ? {
+                  ...t,
+                  ...patch,
+                  id: t.id,
+                  updatedAt: new Date().toISOString(),
+                }
+              : t,
+          ),
+          workflows: formChanged
+            ? d.workflows.map((w) => ({
+                ...w,
+                nodes: w.nodes.map((n) =>
+                  n.type === 'notification' &&
+                  n.data.notificationTemplateId === id &&
+                  w.formId !== nextFormId
+                    ? {
+                        ...n,
+                        data: {
+                          ...n.data,
+                          notificationTemplateId: undefined,
+                        },
+                      }
+                    : n,
+                ),
+              }))
+            : d.workflows,
+        };
+      }),
+    deleteNotificationTemplate: (id) =>
+      update((d) => ({
+        ...d,
+        notificationTemplates: (d.notificationTemplates ?? []).filter(
+          (t) => t.id !== id,
+        ),
+        // Clear references from workflow notify nodes
+        workflows: d.workflows.map((w) => ({
+          ...w,
+          nodes: w.nodes.map((n) =>
+            n.type === 'notification' &&
+            n.data.notificationTemplateId === id
+              ? {
+                  ...n,
+                  data: {
+                    ...n.data,
+                    notificationTemplateId: undefined,
+                  },
+                }
+              : n,
+          ),
+        })),
       })),
 
     addDelegation: (delegation) => {
@@ -600,6 +690,8 @@ export function AppProvider({ children }: { children: ReactNode }) {
     getRoleById: (id) => data.roles.find((r) => r.id === id),
     getWorkflowById: (id) => data.workflows.find((w) => w.id === id),
     getFormById: (id) => data.forms.find((f) => f.id === id),
+    getNotificationTemplateById: (id) =>
+      (data.notificationTemplates ?? []).find((t) => t.id === id),
   };
 
   return <AppContext.Provider value={value}>{children}</AppContext.Provider>;

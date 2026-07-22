@@ -3,12 +3,69 @@ import type {
   AppData,
   FormDefinition,
   FormVisibility,
+  NotificationTemplate,
   Role,
   User,
   Workflow,
 } from '../types';
 
 const now = () => new Date().toISOString();
+
+/** Stable template ids for sample form notification catalog */
+export function sampleNotifyTemplateId(
+  formId: string,
+  kind: 'submit' | 'ok' | 'no',
+): string {
+  return `notif-tpl-${formId}-${kind}`;
+}
+
+/** Three standard templates dedicated to one form (submit / approve / reject). */
+export function createFormNotificationTemplates(
+  formId: string,
+): NotificationTemplate[] {
+  const ts = now();
+  return [
+    {
+      id: sampleNotifyTemplateId(formId, 'submit'),
+      name: 'Notify on submission',
+      formId,
+      description: 'Alert managers when a request is submitted',
+      subject: 'New {{formName}} from {{submitter}}',
+      bodyHtml:
+        '<p>A new request needs review.</p><p>Form: {{formName}}<br>Request: {{requestId}}<br>Submitted by: {{submitter}}</p><p>Please open the request register to approve or reject.</p>',
+      roleIds: ['role-manager', 'role-admin'],
+      notifySubmitter: false,
+      createdAt: ts,
+      updatedAt: ts,
+    },
+    {
+      id: sampleNotifyTemplateId(formId, 'ok'),
+      name: 'Notify on approval',
+      formId,
+      description: 'Tell the submitter their request was approved',
+      subject: '{{formName}} approved',
+      bodyHtml:
+        '<p>Your request was approved.</p><p>Form: {{formName}}<br>Request: {{requestId}}<br>Status: {{status}}</p>',
+      roleIds: [],
+      notifySubmitter: true,
+      createdAt: ts,
+      updatedAt: ts,
+    },
+    {
+      id: sampleNotifyTemplateId(formId, 'no'),
+      name: 'Notify on rejection',
+      formId,
+      description: 'Tell the submitter their request was rejected',
+      subject: '{{formName}} rejected',
+      bodyHtml:
+        '<p>Your request was rejected.</p><p>Form: {{formName}}<br>Request: {{requestId}}<br>Status: {{status}}</p>',
+      roleIds: [],
+      notifySubmitter: true,
+      createdAt: ts,
+      updatedAt: ts,
+    },
+  ];
+}
 
 export function createDefaultRoles(): Role[] {
   return [
@@ -113,11 +170,9 @@ export function createManagerApprovalWorkflow(
         position: { x: 280, y: 220 },
         data: {
           label: 'Notify on submission',
-          notifyRoleIds: ['role-manager', 'role-admin'],
-          notifySubmitter: false,
-          notifySubject: 'New {{formName}} from {{submitter}}',
-          notifyBody:
-            'A new request needs review.\n\nForm: {{formName}}\nRequest: {{requestId}}\nSubmitted by: {{submitter}}\n\nPlease open the request register to approve or reject.',
+          notificationTemplateId: opts.formId
+            ? sampleNotifyTemplateId(opts.formId, 'submit')
+            : undefined,
         },
       },
       {
@@ -137,11 +192,9 @@ export function createManagerApprovalWorkflow(
         position: { x: 80, y: 500 },
         data: {
           label: 'Notify on approval',
-          notifyRoleIds: [],
-          notifySubmitter: true,
-          notifySubject: '{{formName}} approved',
-          notifyBody:
-            'Your request was approved.\n\nForm: {{formName}}\nRequest: {{requestId}}\nStatus: {{status}}',
+          notificationTemplateId: opts.formId
+            ? sampleNotifyTemplateId(opts.formId, 'ok')
+            : undefined,
         },
       },
       {
@@ -150,11 +203,9 @@ export function createManagerApprovalWorkflow(
         position: { x: 480, y: 500 },
         data: {
           label: 'Notify on rejection',
-          notifyRoleIds: [],
-          notifySubmitter: true,
-          notifySubject: '{{formName}} rejected',
-          notifyBody:
-            'Your request was rejected.\n\nForm: {{formName}}\nRequest: {{requestId}}\nStatus: {{status}}',
+          notificationTemplateId: opts.formId
+            ? sampleNotifyTemplateId(opts.formId, 'no')
+            : undefined,
         },
       },
       {
@@ -217,10 +268,11 @@ function formShell(
   };
 }
 
-/** Four sample forms, each with a dedicated manager-approval workflow. */
+/** Four sample forms, each with a dedicated manager-approval workflow + notify templates. */
 export function createSampleCatalog(): {
   forms: FormDefinition[];
   workflows: Workflow[];
+  notificationTemplates: NotificationTemplate[];
 } {
   const overtimeWfId = 'workflow-overtime';
   const vehicleWfId = 'workflow-vehicle';
@@ -411,7 +463,11 @@ export function createSampleCatalog(): {
     }),
   ];
 
-  return { forms, workflows };
+  const notificationTemplates = forms.flatMap((f) =>
+    createFormNotificationTemplates(f.id),
+  );
+
+  return { forms, workflows, notificationTemplates };
 }
 
 /** @deprecated Use createSampleCatalog — kept for older seed helpers */
@@ -428,7 +484,7 @@ export function createDefaultForm(workflowId: string): FormDefinition {
 export function createInitialData(): AppData {
   const roles = createDefaultRoles();
   const admin = createDefaultAdmin();
-  const { forms, workflows } = createSampleCatalog();
+  const { forms, workflows, notificationTemplates } = createSampleCatalog();
 
   return {
     users: [admin],
@@ -438,9 +494,10 @@ export function createInitialData(): AppData {
     submissions: [],
     delegations: [],
     notifications: [],
+    notificationTemplates,
     formRegisterViews: [],
     currentUserId: admin.id,
-    version: 7,
+    version: 8,
   };
 }
 

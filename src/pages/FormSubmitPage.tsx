@@ -73,6 +73,7 @@ export function FormSubmitPage() {
         form,
         users: data.users,
         roles: data.roles,
+        notificationTemplates: data.notificationTemplates ?? [],
       },
     );
     addSubmission(submission);

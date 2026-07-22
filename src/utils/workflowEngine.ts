@@ -6,6 +6,7 @@ import type {
   FormDefinition,
   FormSubmission,
   HistoryEntry,
+  NotificationTemplate,
   Role,
   User,
   Workflow,
@@ -62,6 +63,11 @@ export function fromFlowNodes(nodes: Node[]): WorkflowNode[] {
         decisionMode:
           data.decisionMode === 'conditional' ? 'conditional' : 'manual',
         allowFieldEdits: Boolean(data.allowFieldEdits),
+        notificationTemplateId:
+          typeof data.notificationTemplateId === 'string'
+            ? data.notificationTemplateId
+            : undefined,
+        // Legacy inline fields kept for migration / older saved canvases
         notifyRoleIds: Array.isArray(data.notifyRoleIds)
           ? data.notifyRoleIds.filter((id): id is string => typeof id === 'string')
           : undefined,
@@ -284,6 +290,7 @@ export interface AdvanceContext {
   form?: FormDefinition | null;
   users?: User[];
   roles?: Role[];
+  notificationTemplates?: NotificationTemplate[];
 }
 
 /** Advance submission from current node through automatic hops until a user step/decision/end. */
@@ -362,6 +369,7 @@ export function advanceSubmission(
           users: ctx.users ?? [],
           roles: ctx.roles ?? [],
           triggeredBy: user,
+          templates: ctx.notificationTemplates,
         });
         if (note) {
           notifications.push(note);
@@ -497,6 +505,7 @@ export function startSubmission(
             users: ctx.users ?? [],
             roles: ctx.roles ?? [],
             triggeredBy: user,
+            templates: ctx.notificationTemplates,
           });
           if (note) {
             notifications.push(note);

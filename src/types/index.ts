@@ -58,18 +58,25 @@ export interface WorkflowNodeData {
   /** When true, the actor can edit form field values at this step */
   allowFieldEdits?: boolean;
   /**
-   * Notification node: roles whose members receive the in-app notification.
-   * Form-scoped roles only apply when the role is linked to this form.
+   * Dedicated notification template for this form (preferred).
+   * When set, recipients/subject/body come from the template.
+   */
+  notificationTemplateId?: string;
+  /**
+   * @deprecated Prefer NotificationTemplate via notificationTemplateId
    */
   notifyRoleIds?: string[];
   /**
-   * When true, the request submitter always receives the notification
-   * (in addition to any selected roles).
+   * @deprecated Prefer NotificationTemplate via notificationTemplateId
    */
   notifySubmitter?: boolean;
-  /** Subject template; supports {{Field Label}} and {{formName}} */
+  /**
+   * @deprecated Prefer NotificationTemplate via notificationTemplateId
+   */
   notifySubject?: string;
-  /** Message body template; static text plus {{field}} tokens */
+  /**
+   * @deprecated Prefer NotificationTemplate via notificationTemplateId
+   */
   notifyBody?: string;
   /**
    * @deprecated Prefer notifySubject — kept for older saved workflows
@@ -280,11 +287,34 @@ export interface AppNotification {
   /** Display names for recipients at send time */
   toUserNames: string[];
   subject: string;
+  /** Rendered message; may contain simple HTML from rich-text templates */
   body: string;
   sentAt: string;
   triggeredByUserId: string;
   /** True until the recipient opens/views it (admins see all) */
   readByUserIds?: string[];
+}
+
+/**
+ * Admin-designed notification template, dedicated to one form.
+ * Workflow Notify nodes pick a template for their linked form.
+ */
+export interface NotificationTemplate {
+  id: string;
+  name: string;
+  /** Exclusive form this template belongs to */
+  formId: string;
+  description: string;
+  /** Plain-text subject; supports {{tokens}} */
+  subject: string;
+  /** Rich-text HTML body; supports {{tokens}} as plain text inside HTML */
+  bodyHtml: string;
+  /** Roles whose members receive the notification */
+  roleIds: string[];
+  /** Also notify the request submitter */
+  notifySubmitter: boolean;
+  createdAt: string;
+  updatedAt: string;
 }
 
 /** Built-in columns shared by overall and per-form registers */
@@ -321,6 +351,8 @@ export interface AppData {
   submissions: FormSubmission[];
   delegations: ApprovalDelegation[];
   notifications: AppNotification[];
+  /** Admin-designed notification templates (each dedicated to one form) */
+  notificationTemplates: NotificationTemplate[];
   /** Saved per-form register column layouts */
   formRegisterViews: FormRegisterViewConfig[];
   currentUserId: string | null;
