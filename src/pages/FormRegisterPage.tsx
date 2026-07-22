@@ -199,6 +199,7 @@ export function FormRegisterPage() {
                     onChange={(v) => setFilter(col.id, v)}
                     form={form}
                     forms={data.forms}
+                    workflows={data.workflows}
                   />
                 </TableCell>
               ))}

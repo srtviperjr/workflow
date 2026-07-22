@@ -156,6 +156,7 @@ export function RequestRegisterPage() {
                     value={filters[col]}
                     onChange={(v) => setFilter(col, v)}
                     forms={data.forms}
+                    workflows={data.workflows}
                   />
                 </TableCell>
               ))}
