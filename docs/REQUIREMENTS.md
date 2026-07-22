@@ -108,7 +108,7 @@ Dashboard hero tagline: **Project workflow management system.**
 | RQ-7a | Users can clear an individual filter and clear all active filters. |
 | RQ-8 | Dashboard shows pending items the current identity can both see and act on. |
 | RQ-9 | Form design (`/forms`) is admin-only; non-admins are redirected to Requests. |
-| RQ-10 | **Workflow History** shows only user actions: submission **step** and **decision** rows (not Notify / End / other system nodes). |
+| RQ-10 | **Workflow History** shows only user actions: submission **step** and **decision** rows (not Notify / End / other system nodes). Columns: Step, User, Action / Outcome, Timestamp, Status (no Type). |
 | RQ-11 | PDF history likewise includes only step and decision entries. |
 
 ### 4.5 Delegations
@@ -122,9 +122,10 @@ Dashboard hero tagline: **Project workflow management system.**
 | DG-5 | Admins may create/manage delegations for any user. |
 | DG-6 | Per-workflow UI lists workflows the delegator can act on, each with a user dropdown. |
 | DG-7 | On create, the UI reports how many **in-progress actionable** requests the covered scope includes and asks whether to **notify the delegate** of those items. |
-| DG-8 | When that option is on and the delegation becomes active, the delegate receives inbox notifications for those open requests. |
-| DG-9 | When a delegation **ends** (expires or is removed early), the **delegator** is notified of covered requests that are still in progress so they can continue them. |
+| DG-8 | When that option is on and the delegation becomes active, the delegate receives inbox notifications for those open requests. If more than four are open, one summary notification lists a link for each; otherwise one notification per request. |
+| DG-9 | When a delegation **ends** (expires or is removed early), the **delegator** is notified of covered requests that are still in progress so they can continue them (same summary rule as DG-8 when more than four). |
 | DG-10 | Start handoff respects a future start date (sends once the window is active); end handoff is skipped if the delegation never started. |
+| DG-11 | A user cannot have overlapping outbound delegations for the same coverage: date ranges and workflow scope must not both overlap (an “all workflows” grant conflicts with any other grant in the same dates). |
 
 ### 4.6 Data Tools
 

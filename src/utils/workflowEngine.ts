@@ -628,6 +628,64 @@ export function delegationCoversWorkflow(
   return delegation.workflowIds.includes(workflowId);
 }
 
+/** Inclusive YYYY-MM-DD date ranges overlap. */
+export function delegationDateRangesOverlap(
+  a: Pick<ApprovalDelegation, 'startDate' | 'endDate'>,
+  b: Pick<ApprovalDelegation, 'startDate' | 'endDate'>,
+): boolean {
+  return a.startDate <= b.endDate && b.startDate <= a.endDate;
+}
+
+/**
+ * Workflow coverage overlaps for the same delegator:
+ * all∩anything, or intersecting workflow id lists.
+ */
+export function delegationScopesOverlap(
+  a: Pick<ApprovalDelegation, 'scope' | 'workflowIds'>,
+  b: Pick<ApprovalDelegation, 'scope' | 'workflowIds'>,
+): boolean {
+  if (a.scope === 'all' || b.scope === 'all') return true;
+  return a.workflowIds.some((id) => b.workflowIds.includes(id));
+}
+
+/**
+ * Two outbound grants for the same user conflict when their dates and
+ * workflow coverage both overlap.
+ */
+export function delegationsConflict(
+  a: Pick<
+    ApprovalDelegation,
+    'fromUserId' | 'scope' | 'workflowIds' | 'startDate' | 'endDate'
+  >,
+  b: Pick<
+    ApprovalDelegation,
+    'fromUserId' | 'scope' | 'workflowIds' | 'startDate' | 'endDate'
+  >,
+): boolean {
+  if (a.fromUserId !== b.fromUserId) return false;
+  return (
+    delegationDateRangesOverlap(a, b) && delegationScopesOverlap(a, b)
+  );
+}
+
+/**
+ * Find existing outbound delegations that conflict with a proposed grant.
+ * Pass `excludeIds` when editing (or when checking a batch against itself).
+ */
+export function findConflictingDelegations(
+  proposed: Pick<
+    ApprovalDelegation,
+    'fromUserId' | 'scope' | 'workflowIds' | 'startDate' | 'endDate'
+  >,
+  existing: ApprovalDelegation[],
+  excludeIds: Iterable<string> = [],
+): ApprovalDelegation[] {
+  const skip = new Set(excludeIds);
+  return existing.filter(
+    (d) => !skip.has(d.id) && delegationsConflict(proposed, d),
+  );
+}
+
 export function getActiveDelegationsForActor(
   actorUserId: string,
   workflowId: string | null | undefined,
