@@ -1,4 +1,4 @@
-# Jansen Workflows — Recreation Prompt (v0.7)
+# Jansen Workflows — Recreation Prompt (v0.8)
 
 Copy everything below the line into a coding agent (or use as a product brief) to recreate this application.
 
@@ -6,11 +6,11 @@ Copy everything below the line into a coding agent (or use as a product brief) t
 
 ## Prompt
 
-Build **Jansen Workflows** — a frontend-only React + TypeScript (Vite) approval-workflow demo app. There is **no backend, database, or external API**. Persist all state in browser `localStorage` under the key `jansen-workflows-data`. No env vars or secrets.
+Build **Jansen Workflows** — a frontend-only React + TypeScript (Vite) approval-workflow demo app. There is **no backend, database, or external API**. Persist all state in browser `localStorage` under the key `jansen-workflows-data`. No env vars or secrets. Admins can store **production integration settings** (Azure AD, Azure SQL, email) in the UI for a future back-end; they are not live connections in this build.
 
 ### Product summary
 
-Admins design forms and exclusive 1:1 workflows on a visual canvas. Notification **message templates** are administered separately (per form, rich text). Workflow Notify nodes pick a template and choose recipients. Users submit requests from a **Requests** catalog, advance approvals by role, view registers with field-aware filters, receive in-app notifications, and optionally attach small files. Delegations can hand off in-progress work at start/end. Demo users switch identity via an AppBar picker. Display version **v0.7** in the AppBar and sidebar. Dashboard hero tagline: **Project workflow management system.**
+Admins design forms and exclusive 1:1 workflows on a visual canvas. Notification **message templates** are administered separately (per form, rich text). Workflow Notify nodes pick a template and choose recipients. Users submit requests from a **Requests** catalog, advance approvals by role, view registers with field-aware filters, receive in-app notifications, and optionally attach small files. Delegations can hand off in-progress work at start/end (summary notification when more than four open items; no overlapping grants for the same user coverage). Demo users switch identity via an AppBar picker. Display version **v0.8** in the AppBar and sidebar. Dashboard hero tagline: **Project workflow management system.** Admin **Integrations** configures Azure AD, Azure SQL, and email.
 
 Keep **view** and **approve** access consistent: never show a request (or a notification deep-link) that the user cannot open, and never show Approve/Reject unless they can act on the current step.
 
@@ -57,7 +57,7 @@ Boot as **System Admin** `admin@jansen.local` (Admin + Requestor, BHP / JS1). No
 
 **Administration (admin only, this order):** Forms, **Notifications** (templates), Workflows, Users, Roles, **Integrations**, **Data Tools** (last). `/admin` → `/data-tools`.
 
-**AppBar:** bell → inbox `/notifications`; identity switcher; version `v0.7`.
+**AppBar:** bell → inbox `/notifications`; identity switcher; version `v0.8`.
 
 Also: form builder; notification template editor; form submit; request detail (act only when allowed, branded PDF); overall + per-form registers; workflow canvas; users/roles CRUD; Integrations (Azure AD / Azure SQL / email); Data Tools.
 
@@ -116,16 +116,17 @@ UI documents that these are configuration for a future back-end (not live in the
 
 ### Out of scope
 
-Real auth/SSO, server sync, email delivery, multi-file or >512 KB attachments, native mobile apps.
+Live Azure AD SSO / SQL / email delivery (Integrations is configuration-only), multi-user server sync, multi-file or >512 KB attachments, native mobile apps.
 
 ### Acceptance smoke checks
 
 1. Create two forms → two distinct workflows  
 2. Notification template for Form A cannot be picked on Form B’s workflow  
 3. Register date filter supports between + last 90 days; status multi-select works; Clear filters works  
-4. Delegation with in-progress items can notify the delegate; ending it notifies the delegator of leftovers  
-5. Version badge is `v0.7`; dashboard tagline is “Project workflow management system.”  
+4. Delegation with in-progress items can notify the delegate; ending it notifies the delegator of leftovers; >4 open items → one summary with links; overlapping same-user grants blocked  
+5. Integrations page saves Azure AD / SQL / email settings; Data Tools reset keeps them  
+6. Version badge is `v0.8`; dashboard tagline is “Project workflow management system.”  
 
 ---
 
-*Generated for Jansen Workflows v0.7.*
+*Generated for Jansen Workflows v0.8.*

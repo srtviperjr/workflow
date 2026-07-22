@@ -1,4 +1,4 @@
-# Jansen Workflows — User Guide (v0.7)
+# Jansen Workflows — User Guide (v0.8)
 
 This guide walks through day-to-day use of the local demo app. All data stays in your browser; use **Data Tools** to seed or reset sample content.
 
@@ -20,7 +20,7 @@ Open the URL shown (typically `http://localhost:5173`). You start as **System Ad
 | **Sidebar** | Dashboard, Requests, Request Register, Delegations; admins also see Administration (Forms, Notifications, Workflows, …) |
 | **Bell** | In-app notification inbox |
 | **Acting as** | Switch identity (no password) |
-| **v0.7** | App version |
+| **v0.8** | App version |
 
 The dashboard hero reads **Project workflow management system.** Below that, it lists work waiting for the current identity — only requests you can both **see** and **act on**.
 
