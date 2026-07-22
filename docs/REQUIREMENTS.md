@@ -1,4 +1,4 @@
-# Jansen Workflows — Product Requirements (v0.6)
+# Jansen Workflows — Product Requirements (v0.7)
 
 ## 1. Purpose
 
@@ -16,6 +16,7 @@ Jansen Workflows is a browser-based approval workflow application for designing 
 | G6 | Support optional file attachments on forms (stored locally) |
 | G7 | Keep list/detail/notification access consistent with who may approve |
 | G8 | Let admins design reusable notification templates per form |
+| G9 | Hand off in-progress approvals cleanly when a delegation starts and ends |
 
 ## 3. Users & access
 
@@ -47,9 +48,11 @@ Custom roles may be app-scoped or form-scoped. Roles can map to Azure AD / AD gr
 |----------|--------|
 | Everyone | Dashboard, Requests, Request Register, Delegations |
 | Admin only | Forms, **Notifications**, Workflows, Users, Roles, Data Tools (under Administration, in that order) |
-| App bar | Notification bell (inbox), identity switcher, version badge (`v0.6`) |
+| App bar | Notification bell (inbox), identity switcher, version badge (`v0.7`) |
 
 Inbox (bell → `/notifications`) is separate from Administration → Notifications (template design at `/notification-templates`).
+
+Dashboard hero tagline: **Project workflow management system.**
 
 ## 4. Functional requirements
 
@@ -101,7 +104,8 @@ Inbox (bell → `/notifications`) is separate from Administration → Notificati
 | RQ-4 | History records actor, action, outcome, timestamp; delegate actions are labeled. |
 | RQ-5 | Overall request register lists submissions with: request #, form name, submitter, submission date, last change date, status, current step. |
 | RQ-6 | Each form has its own register showing form fields; users can customize column visibility and order (saved per identity). |
-| RQ-7 | Registers support filtering from column headers. |
+| RQ-7 | Registers support **field-aware** filtering from column headers: date columns use a between/relative date popup; status, form, current step, and select fields use **multi-select** dropdowns; other columns use partial text search. |
+| RQ-7a | Users can clear an individual filter and clear all active filters. |
 | RQ-8 | Dashboard shows pending items the current identity can both see and act on. |
 | RQ-9 | Form design (`/forms`) is admin-only; non-admins are redirected to Requests. |
 | RQ-10 | **Workflow History** shows only user actions: submission **step** and **decision** rows (not Notify / End / other system nodes). |
@@ -117,6 +121,10 @@ Inbox (bell → `/notifications`) is separate from Administration → Notificati
 | DG-4 | Non-admins may only create/edit/delete **their own** outbound delegations. |
 | DG-5 | Admins may create/manage delegations for any user. |
 | DG-6 | Per-workflow UI lists workflows the delegator can act on, each with a user dropdown. |
+| DG-7 | On create, the UI reports how many **in-progress actionable** requests the covered scope includes and asks whether to **notify the delegate** of those items. |
+| DG-8 | When that option is on and the delegation becomes active, the delegate receives inbox notifications for those open requests. |
+| DG-9 | When a delegation **ends** (expires or is removed early), the **delegator** is notified of covered requests that are still in progress so they can continue them. |
+| DG-10 | Start handoff respects a future start date (sends once the window is active); end handoff is skipped if the delegation never started. |
 
 ### 4.6 Data Tools
 
@@ -174,7 +182,7 @@ Inbox (bell → `/notifications`) is separate from Administration → Notificati
 | NF-2 | Runs with Vite on port **5173** (dev) / **4173** (preview). |
 | NF-3 | Responsive enough for desktop and tablet admin use. |
 | NF-4 | No secrets or external API keys required. |
-| NF-5 | Display version `APP_VERSION` (`0.5`) in AppBar and sidebar. |
+| NF-5 | Display version `APP_VERSION` (`0.7`) in AppBar and sidebar. |
 
 ## 6. Out of scope (current version)
 
@@ -184,7 +192,13 @@ Inbox (bell → `/notifications`) is separate from Administration → Notificati
 - Multiple files per field or attachments larger than 512 KB
 - Mobile-first native apps
 
-## 7. What’s new in v0.6
+## 7. What’s new in v0.7
+
+- Dashboard tagline: **Project workflow management system.**
+- Register filters: date popover (between / relative last N days), multi-select dropdowns (status, form, current step, select fields), aligned text search, clear-all / clear-one
+- Delegation handoff: optional notify delegate of in-progress items at start; notify delegator of unfinished items when the delegation ends
+
+## 7a. What’s new in v0.6
 
 - **Administration → Notifications** — form-dedicated rich-text templates (subject/body + field tokens)
 - Workflow Notify nodes pick a template **and** configure recipients (roles / submitter)
@@ -192,7 +206,7 @@ Inbox (bell → `/notifications`) is separate from Administration → Notificati
 - Request PDF: branded orange banner and form-like field cards
 - TipTap rich-text editor for template bodies
 
-## 7a. What’s new in v0.5
+## 7b. What’s new in v0.5
 
 - Data Tools **Include users** / **Include requests** checkboxes
 - Randomized sample submitters, timestamps (open ≤ 1 week; completed older)
@@ -233,6 +247,12 @@ Captured from the running app (also under `docs/screenshots/`). See **[USER_GUID
 ### Data Tools
 ![Data Tools](./screenshots/12-data-tools.png)
 
+### Notification templates
+![Notification templates](./screenshots/16-notification-templates.png)
+
+### Notification template editor
+![Notification template editor](./screenshots/17-notification-template-editor.png)
+
 Regenerate with:
 
 ```bash
@@ -256,10 +276,10 @@ npm run screenshots
 4. Delete form removes its workflow; other forms unchanged.
 5. Delete a linked workflow leaves the form with a newly created dedicated workflow.
 
-## 11. Acceptance criteria (v0.6)
+## 11. Acceptance criteria (v0.7)
 
-1. Admin can create a notification template assigned to one form with rich-text body and tokens.
-2. Workflow Notify node for that form lists only that form’s templates; recipients are set on the node.
-3. Administration sidebar lists Notifications before Workflows; version badge shows `v0.6`.
-4. PDF download shows a branded banner and form-like field cards; history omits Notify rows.
-5. Prior v0.5 criteria still hold (seed checkboxes, history filtering, visibility consistency).
+1. Version badge shows `v0.7`; dashboard hero reads “Project workflow management system.”
+2. Register date columns open a between/relative popover; status/step/select filters allow multi-select; Clear filters works.
+3. Creating a delegation with in-progress items offers notify-delegate; checking it creates inbox items for the delegate when active.
+4. Ending or expiring a delegation notifies the delegator of still-open covered requests.
+5. Prior v0.6 criteria still hold (notification templates, PDF branding, nav order).

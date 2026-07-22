@@ -1,4 +1,4 @@
-# Jansen Workflows — User Guide (v0.6)
+# Jansen Workflows — User Guide (v0.7)
 
 This guide walks through day-to-day use of the local demo app. All data stays in your browser; use **Data Tools** to seed or reset sample content.
 
@@ -20,9 +20,9 @@ Open the URL shown (typically `http://localhost:5173`). You start as **System Ad
 | **Sidebar** | Dashboard, Requests, Request Register, Delegations; admins also see Administration (Forms, Notifications, Workflows, …) |
 | **Bell** | In-app notification inbox |
 | **Acting as** | Switch identity (no password) |
-| **v0.6** | App version |
+| **v0.7** | App version |
 
-The dashboard lists work waiting for the current identity — only requests you can both **see** and **act on**.
+The dashboard hero reads **Project workflow management system.** Below that, it lists work waiting for the current identity — only requests you can both **see** and **act on**.
 
 ---
 
@@ -45,7 +45,14 @@ The dashboard lists work waiting for the current identity — only requests you 
 
 ![Overall register](./screenshots/07-request-register.png)
 
-Use column header filters to narrow results. Open a row for detail.
+Use the filter row under each column header:
+
+- **Dates** (submission / last change / form date fields) — click to open a popup for **Between** dates or **Relative** (last 7 / 30 / 90 / 365 days, or custom)
+- **Dropdowns** (status, form name, current step, form select fields) — multi-select with checkboxes
+- **Text** — partial search; use × to clear one filter
+- **Clear filters (N)** clears everything at once
+
+Open a row for detail.
 
 Each form also has a **per-form register** (from Forms → Register or `/register/form/...`) with that form’s fields. Customize visible columns and order; the layout is saved for your identity.
 
@@ -77,11 +84,15 @@ When a workflow reaches a Notify step, messages appear for the roles and/or subm
 
 Sample flows notify managers/admins on submit and the submitter on approve or reject. **Open related request** is shown only when you still have access to that submission.
 
+Delegation handoffs also create inbox messages (see below).
+
 ---
 
 ## 6. Delegations
 
 Grant someone else your approval authority for a date range — for all workflows or specific ones. Permissions are **additive** (they keep their own roles too). Non-admins manage only their own outbound delegations; admins can manage any.
+
+When you create a delegation, if you have in-progress requests awaiting action under the covered scope, you can choose to **notify the delegate** of those items. When the delegation **ends** (expires or you remove it), you are notified of any covered requests that are still open so you can continue them.
 
 ![Delegations](./screenshots/11-delegations.png)
 
@@ -100,6 +111,10 @@ Design field lists, visibility (own / company / project), and the linked workflo
 ### Notifications (templates)
 
 Under **Administration → Notifications**, design message templates for each form: subject, rich-text body, and `{{tokens}}` for form fields / builtins. Templates are dedicated to one form.
+
+![Notification templates](./screenshots/16-notification-templates.png)
+
+![Notification template editor](./screenshots/17-notification-template-editor.png)
 
 On the **workflow** canvas, each Notify step picks a template for that form and chooses who receives it (roles and/or the submitter).
 
