@@ -106,8 +106,7 @@ export function DashboardPage() {
           Jansen Workflows
         </Typography>
         <Typography variant="h6" sx={{ fontWeight: 400, opacity: 0.92, maxWidth: 560 }}>
-          Design approval flows, submit requests, and track every step —
-          all stored locally in your browser.
+          Project workflow management system.
         </Typography>
         {currentUser && (
           <Typography variant="body2" sx={{ mt: 2, opacity: 0.85 }}>
