@@ -413,28 +413,23 @@ function synthesizeNotification(opts: {
     id: `${opts.submission.workflowId ?? opts.form.id}-notify-${opts.kind}`,
     type: 'notification',
     position: { x: 0, y: 0 },
-    data: templateId
-      ? {
-          label:
-            opts.kind === 'submit'
-              ? 'Notify on submission'
-              : opts.kind === 'ok'
-                ? 'Notify on approval'
-                : 'Notify on rejection',
-          notificationTemplateId: templateId,
-        }
-      : {
-          label:
-            opts.kind === 'submit'
-              ? 'Notify on submission'
-              : opts.kind === 'ok'
-                ? 'Notify on approval'
-                : 'Notify on rejection',
-          notifyRoleIds: opts.kind === 'submit' ? ['role-manager', 'role-admin'] : [],
-          notifySubmitter: opts.kind !== 'submit',
-          notifySubject: subject,
-          notifyBody: body,
-        },
+    data: {
+      label:
+        opts.kind === 'submit'
+          ? 'Notify on submission'
+          : opts.kind === 'ok'
+            ? 'Notify on approval'
+            : 'Notify on rejection',
+      ...(templateId ? { notificationTemplateId: templateId } : {}),
+      notifyRoleIds: opts.kind === 'submit' ? ['role-manager', 'role-admin'] : [],
+      notifySubmitter: opts.kind !== 'submit',
+      ...(!templateId
+        ? {
+            notifySubject: subject,
+            notifyBody: body,
+          }
+        : {}),
+    },
   };
 
   const notif =

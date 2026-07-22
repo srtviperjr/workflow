@@ -208,6 +208,9 @@ export function WorkflowCanvas({
           type === 'notification' ? formTemplates[0]?.id : undefined,
         notificationTemplateName:
           type === 'notification' ? formTemplates[0]?.name : undefined,
+        notifyRoleIds:
+          type === 'notification' && defaultRole ? [defaultRole] : undefined,
+        notifySubmitter: type === 'notification' ? false : undefined,
       },
     };
     setNodes((nds) => {
@@ -229,6 +232,8 @@ export function WorkflowCanvas({
     allowFieldEdits?: boolean;
     notificationTemplateId?: string;
     notificationTemplateName?: string;
+    notifyRoleIds?: string[];
+    notifySubmitter?: boolean;
   };
   const selectedEdgeData = (selectedEdge?.data ?? {}) as {
     routeMode?: 'manual' | 'condition';
@@ -514,8 +519,9 @@ export function WorkflowCanvas({
               <Stack spacing={1.5}>
                 <Typography variant="caption" color="text.secondary">
                   Creates an in-app notification when the workflow reaches this
-                  step. Choose a template designed for this workflow&apos;s
-                  form. Design templates under Administration → Notifications.
+                  step. Pick a message template for this form, then choose who
+                  receives it. Design templates under Administration →
+                  Notifications.
                 </Typography>
                 {!workflow.formId ? (
                   <Alert severity="warning">
@@ -558,20 +564,51 @@ export function WorkflowCanvas({
                         (t) => t.id === selectedData.notificationTemplateId,
                       );
                       if (!tpl) return 'Template missing — pick another.';
-                      const rolesLabel = tpl.roleIds
-                        .map((rid) => roles.find((r) => r.id === rid)?.name)
-                        .filter(Boolean)
-                        .join(', ');
-                      const who = [
-                        rolesLabel || null,
-                        tpl.notifySubmitter ? 'submitter' : null,
-                      ]
-                        .filter(Boolean)
-                        .join(' + ');
-                      return `Recipients: ${who || 'none'} · Subject: ${tpl.subject || '—'}`;
+                      return `Subject: ${tpl.subject || '—'}`;
                     })()}
                   </Typography>
                 )}
+                <FormControl size="small" fullWidth disabled={readOnly}>
+                  <InputLabel>Notify roles</InputLabel>
+                  <Select
+                    multiple
+                    label="Notify roles"
+                    value={selectedData.notifyRoleIds ?? []}
+                    onChange={(e) => {
+                      const value = e.target.value;
+                      updateSelectedNode({
+                        notifyRoleIds:
+                          typeof value === 'string' ? value.split(',') : value,
+                      });
+                    }}
+                    renderValue={(selected) =>
+                      (selected as string[])
+                        .map((id) => roles.find((r) => r.id === id)?.name ?? id)
+                        .join(', ')
+                    }
+                  >
+                    {roles.map((r) => (
+                      <MenuItem key={r.id} value={r.id}>
+                        {r.name}
+                        {r.scope === 'form' ? ' (form)' : ' (app)'}
+                      </MenuItem>
+                    ))}
+                  </Select>
+                </FormControl>
+                <FormControlLabel
+                  control={
+                    <Checkbox
+                      checked={Boolean(selectedData.notifySubmitter)}
+                      disabled={readOnly}
+                      onChange={(e) =>
+                        updateSelectedNode({
+                          notifySubmitter: e.target.checked,
+                        })
+                      }
+                    />
+                  }
+                  label="Also notify the request submitter"
+                />
               </Stack>
             )}
             <TextField

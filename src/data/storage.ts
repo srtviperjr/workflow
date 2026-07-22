@@ -137,7 +137,7 @@ function plainBodyToHtml(text: string): string {
 }
 
 function normalizeNotificationTemplate(
-  raw: NotificationTemplate,
+  raw: NotificationTemplate & { roleIds?: string[]; notifySubmitter?: boolean },
 ): NotificationTemplate | null {
   if (!raw?.id || !raw.formId || !raw.name) return null;
   const ts = new Date().toISOString();
@@ -148,8 +148,6 @@ function normalizeNotificationTemplate(
     description: raw.description ?? '',
     subject: raw.subject ?? '',
     bodyHtml: plainBodyToHtml(raw.bodyHtml ?? ''),
-    roleIds: Array.isArray(raw.roleIds) ? raw.roleIds.filter(Boolean) : [],
-    notifySubmitter: Boolean(raw.notifySubmitter),
     createdAt: raw.createdAt ?? ts,
     updatedAt: raw.updatedAt ?? ts,
   };
@@ -157,13 +155,18 @@ function normalizeNotificationTemplate(
 
 /**
  * Lift inline notify-node content into form-dedicated NotificationTemplate
- * records so workflows only reference templates by id.
+ * records so workflows reference templates by id for subject/body.
+ * Recipients stay on the workflow node (notifyRoleIds / notifySubmitter).
  */
 function migrateInlineNotifyNodes(
   workflows: Workflow[],
   existing: NotificationTemplate[],
+  rawTemplates: Array<
+    NotificationTemplate & { roleIds?: string[]; notifySubmitter?: boolean }
+  >,
 ): { workflows: Workflow[]; notificationTemplates: NotificationTemplate[] } {
   const templates = [...existing];
+  const rawById = new Map(rawTemplates.map((t) => [t.id, t]));
   const ts = new Date().toISOString();
 
   const nextWorkflows = workflows.map((wf) => {
@@ -174,6 +177,29 @@ function migrateInlineNotifyNodes(
       if (n.type !== 'notification') return n;
 
       const tplId = n.data.notificationTemplateId;
+      const rawTpl = tplId ? rawById.get(tplId) : undefined;
+
+      // Prefer node recipients; fall back to legacy template recipients once
+      let notifyRoleIds = Array.isArray(n.data.notifyRoleIds)
+        ? n.data.notifyRoleIds
+        : undefined;
+      let notifySubmitter =
+        typeof n.data.notifySubmitter === 'boolean'
+          ? n.data.notifySubmitter
+          : undefined;
+      if (
+        (!notifyRoleIds || notifyRoleIds.length === 0) &&
+        notifySubmitter === undefined &&
+        rawTpl
+      ) {
+        if (Array.isArray(rawTpl.roleIds) && rawTpl.roleIds.length > 0) {
+          notifyRoleIds = rawTpl.roleIds;
+        }
+        if (typeof rawTpl.notifySubmitter === 'boolean') {
+          notifySubmitter = rawTpl.notifySubmitter;
+        }
+      }
+
       if (tplId) {
         const exists = templates.some(
           (t) => t.id === tplId && t.formId === formId,
@@ -185,27 +211,42 @@ function migrateInlineNotifyNodes(
               label: n.data.label,
               description: n.data.description,
               notificationTemplateId: tplId,
+              notifyRoleIds: notifyRoleIds ?? [],
+              notifySubmitter: Boolean(notifySubmitter),
             },
           };
         }
       }
 
-      const hasInline = Boolean(
+      const hasInlineContent = Boolean(
         n.data.notifySubject ||
           n.data.notifyBody ||
           n.data.emailSubject ||
-          n.data.emailBody ||
-          (n.data.notifyRoleIds && n.data.notifyRoleIds.length > 0) ||
-          n.data.notifySubmitter,
+          n.data.emailBody,
       );
 
-      // Dangling or missing template with no inline content — leave unset
-      if (!hasInline) {
+      // Dangling or missing template with no inline content — keep recipients
+      if (!hasInlineContent && !tplId) {
         return {
           ...n,
           data: {
             label: n.data.label,
             description: n.data.description,
+            notifyRoleIds: notifyRoleIds ?? [],
+            notifySubmitter: Boolean(notifySubmitter),
+          },
+        };
+      }
+
+      if (!hasInlineContent && tplId) {
+        // Dangling template id — clear content ref, keep recipients
+        return {
+          ...n,
+          data: {
+            label: n.data.label,
+            description: n.data.description,
+            notifyRoleIds: notifyRoleIds ?? [],
+            notifySubmitter: Boolean(notifySubmitter),
           },
         };
       }
@@ -226,8 +267,6 @@ function migrateInlineNotifyNodes(
         description: `Migrated from workflow “${wf.name}”`,
         subject,
         bodyHtml: plainBodyToHtml(bodyPlain),
-        roleIds: Array.isArray(n.data.notifyRoleIds) ? n.data.notifyRoleIds : [],
-        notifySubmitter: Boolean(n.data.notifySubmitter),
         createdAt: ts,
         updatedAt: ts,
       };
@@ -239,6 +278,10 @@ function migrateInlineNotifyNodes(
           label: n.data.label,
           description: n.data.description,
           notificationTemplateId: tpl.id,
+          notifyRoleIds: notifyRoleIds ?? n.data.notifyRoleIds ?? [],
+          notifySubmitter: Boolean(
+            notifySubmitter ?? n.data.notifySubmitter,
+          ),
         },
       };
     });
@@ -317,13 +360,20 @@ function normalizeData(data: AppData): AppData {
     .map(normalizeFormRegisterView)
     .filter((v): v is FormRegisterViewConfig => Boolean(v));
 
-  const existingTemplates = (
-    Array.isArray(data.notificationTemplates) ? data.notificationTemplates : []
-  )
+  const rawTemplates = Array.isArray(data.notificationTemplates)
+    ? data.notificationTemplates
+    : [];
+  const existingTemplates = rawTemplates
     .map(normalizeNotificationTemplate)
     .filter((t): t is NotificationTemplate => Boolean(t));
 
-  const migrated = migrateInlineNotifyNodes(workflows, existingTemplates);
+  const migrated = migrateInlineNotifyNodes(
+    workflows,
+    existingTemplates,
+    rawTemplates as Array<
+      NotificationTemplate & { roleIds?: string[]; notifySubmitter?: boolean }
+    >,
+  );
   workflows = migrated.workflows;
 
   // Drop templates whose form no longer exists

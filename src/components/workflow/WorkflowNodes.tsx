@@ -189,19 +189,17 @@ export function NotificationNode({ data, selected }: NodeProps) {
     notifyRoleIds?: string[];
     notifySubmitter?: boolean;
   };
-  const subtitle =
-    d.notificationTemplateName ||
-    (() => {
-      const roleCount = Array.isArray(d.notifyRoleIds)
-        ? d.notifyRoleIds.length
-        : 0;
-      const parts: string[] = [];
-      if (roleCount > 0) {
-        parts.push(`${roleCount} role${roleCount === 1 ? '' : 's'}`);
-      }
-      if (d.notifySubmitter) parts.push('submitter');
-      return parts.length > 0 ? parts.join(' + ') : 'No template';
-    })();
+  const roleCount = Array.isArray(d.notifyRoleIds) ? d.notifyRoleIds.length : 0;
+  const parts: string[] = [];
+  if (roleCount > 0) {
+    parts.push(`${roleCount} role${roleCount === 1 ? '' : 's'}`);
+  }
+  if (d.notifySubmitter) parts.push('submitter');
+  const recipients =
+    parts.length > 0 ? parts.join(' + ') : 'No recipients';
+  const subtitle = d.notificationTemplateName
+    ? `${d.notificationTemplateName} · ${recipients}`
+    : recipients;
   return (
     <Box
       sx={{

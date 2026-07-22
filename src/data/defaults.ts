@@ -33,8 +33,6 @@ export function createFormNotificationTemplates(
       subject: 'New {{formName}} from {{submitter}}',
       bodyHtml:
         '<p>A new request needs review.</p><p>Form: {{formName}}<br>Request: {{requestId}}<br>Submitted by: {{submitter}}</p><p>Please open the request register to approve or reject.</p>',
-      roleIds: ['role-manager', 'role-admin'],
-      notifySubmitter: false,
       createdAt: ts,
       updatedAt: ts,
     },
@@ -46,8 +44,6 @@ export function createFormNotificationTemplates(
       subject: '{{formName}} approved',
       bodyHtml:
         '<p>Your request was approved.</p><p>Form: {{formName}}<br>Request: {{requestId}}<br>Status: {{status}}</p>',
-      roleIds: [],
-      notifySubmitter: true,
       createdAt: ts,
       updatedAt: ts,
     },
@@ -59,8 +55,6 @@ export function createFormNotificationTemplates(
       subject: '{{formName}} rejected',
       bodyHtml:
         '<p>Your request was rejected.</p><p>Form: {{formName}}<br>Request: {{requestId}}<br>Status: {{status}}</p>',
-      roleIds: [],
-      notifySubmitter: true,
       createdAt: ts,
       updatedAt: ts,
     },
@@ -173,6 +167,8 @@ export function createManagerApprovalWorkflow(
           notificationTemplateId: opts.formId
             ? sampleNotifyTemplateId(opts.formId, 'submit')
             : undefined,
+          notifyRoleIds: ['role-manager', 'role-admin'],
+          notifySubmitter: false,
         },
       },
       {
@@ -195,6 +191,8 @@ export function createManagerApprovalWorkflow(
           notificationTemplateId: opts.formId
             ? sampleNotifyTemplateId(opts.formId, 'ok')
             : undefined,
+          notifyRoleIds: [],
+          notifySubmitter: true,
         },
       },
       {
@@ -206,6 +204,8 @@ export function createManagerApprovalWorkflow(
           notificationTemplateId: opts.formId
             ? sampleNotifyTemplateId(opts.formId, 'no')
             : undefined,
+          notifyRoleIds: [],
+          notifySubmitter: true,
         },
       },
       {

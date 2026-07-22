@@ -131,7 +131,9 @@ export function findNotificationTemplate(
   return templates.find((t) => t.id === id && t.formId === formId);
 }
 
-/** Resolve subject/body/recipients from template (preferred) or legacy inline node fields. */
+/** Resolve subject/body from template (preferred) or legacy inline node fields.
+ * Recipients always come from the workflow node.
+ */
 export function resolveNotifyContent(
   node: WorkflowNode,
   ctx: {
@@ -146,25 +148,16 @@ export function resolveNotifyContent(
   nodeLabel: string;
 } {
   const tpl = findNotificationTemplate(node, ctx.templates, ctx.form.id);
-  if (tpl) {
-    return {
-      roleIds: tpl.roleIds,
-      notifySubmitter: tpl.notifySubmitter,
-      subjectTemplate: tpl.subject || `Update: ${ctx.form.name}`,
-      bodyTemplate: tpl.bodyHtml,
-      nodeLabel: node.data.label || tpl.name || 'Notification',
-    };
-  }
-
   return {
     roleIds: node.data.notifyRoleIds ?? [],
     notifySubmitter: Boolean(node.data.notifySubmitter),
-    subjectTemplate:
-      node.data.notifySubject ||
-      node.data.emailSubject ||
-      `Update: ${ctx.form.name}`,
-    bodyTemplate: notificationBodyTemplate(node),
-    nodeLabel: node.data.label || 'Notification',
+    subjectTemplate: tpl
+      ? tpl.subject || `Update: ${ctx.form.name}`
+      : node.data.notifySubject ||
+        node.data.emailSubject ||
+        `Update: ${ctx.form.name}`,
+    bodyTemplate: tpl ? tpl.bodyHtml : notificationBodyTemplate(node),
+    nodeLabel: node.data.label || tpl?.name || 'Notification',
   };
 }
 

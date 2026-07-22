@@ -58,17 +58,13 @@ export interface WorkflowNodeData {
   /** When true, the actor can edit form field values at this step */
   allowFieldEdits?: boolean;
   /**
-   * Dedicated notification template for this form (preferred).
-   * When set, recipients/subject/body come from the template.
+   * Notification template for this form (subject + body).
+   * Recipients are configured on the node via notifyRoleIds / notifySubmitter.
    */
   notificationTemplateId?: string;
-  /**
-   * @deprecated Prefer NotificationTemplate via notificationTemplateId
-   */
+  /** Roles whose members receive this notification */
   notifyRoleIds?: string[];
-  /**
-   * @deprecated Prefer NotificationTemplate via notificationTemplateId
-   */
+  /** Also notify the request submitter */
   notifySubmitter?: boolean;
   /**
    * @deprecated Prefer NotificationTemplate via notificationTemplateId
@@ -297,7 +293,8 @@ export interface AppNotification {
 
 /**
  * Admin-designed notification template, dedicated to one form.
- * Workflow Notify nodes pick a template for their linked form.
+ * Workflow Notify nodes pick a template for content; recipients are
+ * configured on the workflow node itself.
  */
 export interface NotificationTemplate {
   id: string;
@@ -309,10 +306,6 @@ export interface NotificationTemplate {
   subject: string;
   /** Rich-text HTML body; supports {{tokens}} as plain text inside HTML */
   bodyHtml: string;
-  /** Roles whose members receive the notification */
-  roleIds: string[];
-  /** Also notify the request submitter */
-  notifySubmitter: boolean;
   createdAt: string;
   updatedAt: string;
 }

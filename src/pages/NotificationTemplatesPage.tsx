@@ -45,8 +45,6 @@ export function NotificationTemplatesPage() {
       subject: 'Update on {{formName}}',
       bodyHtml:
         '<p>Hello,</p><p>A request was updated.</p><p>Form: {{formName}}<br>Request: {{requestId}}</p>',
-      roleIds: [],
-      notifySubmitter: true,
     });
     navigate(`/notification-templates/${tpl.id}/edit`);
   };
@@ -64,8 +62,9 @@ export function NotificationTemplatesPage() {
             Notifications
           </Typography>
           <Typography color="text.secondary">
-            Design message templates for each form. Workflow Notify steps pick
-            from templates assigned to the same form.
+            Design message templates for each form. Workflow Notify steps pick a
+            template and choose which roles (and optionally the submitter)
+            receive it.
           </Typography>
         </Box>
         <Button
@@ -90,9 +89,6 @@ export function NotificationTemplatesPage() {
         <Grid container spacing={2}>
           {templates.map((t) => {
             const form = data.forms.find((f) => f.id === t.formId);
-            const roleNames = t.roleIds
-              .map((id) => data.roles.find((r) => r.id === id)?.name)
-              .filter(Boolean);
             return (
               <Grid key={t.id} size={{ xs: 12, md: 6 }}>
                 <Card elevation={1}>
@@ -122,13 +118,7 @@ export function NotificationTemplatesPage() {
                       Subject: {t.subject || '—'}
                     </Typography>
                     <Typography variant="caption" color="text.secondary">
-                      Recipients:{' '}
-                      {[
-                        ...roleNames,
-                        t.notifySubmitter ? 'submitter' : null,
-                      ]
-                        .filter(Boolean)
-                        .join(', ') || 'None'}
+                      Recipients are chosen on the workflow Notify step
                     </Typography>
                   </CardContent>
                   <CardActions>

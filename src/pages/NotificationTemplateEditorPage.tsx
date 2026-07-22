@@ -1,13 +1,11 @@
-import { useEffect, useMemo, useRef, useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import { Link as RouterLink, Navigate, useNavigate, useParams } from 'react-router-dom';
 import {
   Alert,
   Box,
   Button,
-  Checkbox,
   Chip,
   FormControl,
-  FormControlLabel,
   InputLabel,
   MenuItem,
   Paper,
@@ -27,7 +25,6 @@ import {
   BUILTIN_TEMPLATE_TOKENS,
   fieldToken,
 } from '../utils/notifications';
-import { rolesForForm } from '../utils/workflowEngine';
 
 export function NotificationTemplateEditorPage() {
   const { id } = useParams<{ id: string }>();
@@ -46,10 +43,6 @@ export function NotificationTemplateEditorPage() {
   const [formId, setFormId] = useState(tpl?.formId ?? '');
   const [subject, setSubject] = useState(tpl?.subject ?? '');
   const [bodyHtml, setBodyHtml] = useState(tpl?.bodyHtml ?? '');
-  const [roleIds, setRoleIds] = useState<string[]>(tpl?.roleIds ?? []);
-  const [notifySubmitter, setNotifySubmitter] = useState(
-    Boolean(tpl?.notifySubmitter),
-  );
   const [saved, setSaved] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
@@ -60,17 +53,11 @@ export function NotificationTemplateEditorPage() {
     setFormId(tpl.formId);
     setSubject(tpl.subject);
     setBodyHtml(tpl.bodyHtml);
-    setRoleIds(tpl.roleIds);
-    setNotifySubmitter(tpl.notifySubmitter);
     setSaved(false);
     setError(null);
   }, [tpl?.id]); // eslint-disable-line react-hooks/exhaustive-deps
 
   const form = data.forms.find((f) => f.id === formId);
-  const availableRoles = useMemo(
-    () => (formId ? rolesForForm(data.roles, formId) : data.roles),
-    [data.roles, formId],
-  );
 
   if (!isAdmin) {
     return <Navigate to="/requests" replace />;
@@ -106,8 +93,6 @@ export function NotificationTemplateEditorPage() {
       formId,
       subject: subject.trim(),
       bodyHtml,
-      roleIds,
-      notifySubmitter,
     });
     setError(null);
     setSaved(true);
@@ -149,7 +134,8 @@ export function NotificationTemplateEditorPage() {
 
       {saved && (
         <Alert severity="success" sx={{ mb: 2 }} onClose={() => setSaved(false)}>
-          Saved. Workflow Notify steps for this form can select this template.
+          Saved. Workflow Notify steps for this form can select this template;
+          recipients are chosen on the workflow node.
         </Alert>
       )}
       {error && (
@@ -188,7 +174,6 @@ export function NotificationTemplateEditorPage() {
               value={formId}
               onChange={(e) => {
                 setFormId(e.target.value);
-                setRoleIds([]);
                 setSaved(false);
               }}
             >
@@ -200,49 +185,9 @@ export function NotificationTemplateEditorPage() {
             </Select>
           </FormControl>
           <Typography variant="caption" color="text.secondary">
-            Templates are dedicated to one form. Workflows for other forms
-            cannot select this template.
+            Templates are dedicated to one form (subject and message only). Who
+            receives the notification is configured on the workflow Notify step.
           </Typography>
-
-          <FormControl fullWidth>
-            <InputLabel>Notify roles</InputLabel>
-            <Select
-              multiple
-              label="Notify roles"
-              value={roleIds}
-              onChange={(e) => {
-                const value = e.target.value;
-                setRoleIds(
-                  typeof value === 'string' ? value.split(',') : value,
-                );
-                setSaved(false);
-              }}
-              renderValue={(selected) =>
-                (selected as string[])
-                  .map((rid) => data.roles.find((r) => r.id === rid)?.name ?? rid)
-                  .join(', ')
-              }
-            >
-              {availableRoles.map((r) => (
-                <MenuItem key={r.id} value={r.id}>
-                  {r.name}
-                  {r.scope === 'form' ? ' (form)' : ' (app)'}
-                </MenuItem>
-              ))}
-            </Select>
-          </FormControl>
-          <FormControlLabel
-            control={
-              <Checkbox
-                checked={notifySubmitter}
-                onChange={(e) => {
-                  setNotifySubmitter(e.target.checked);
-                  setSaved(false);
-                }}
-              />
-            }
-            label="Also notify the request submitter"
-          />
 
           <TextField
             label="Subject"
