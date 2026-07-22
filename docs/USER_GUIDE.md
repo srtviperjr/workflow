@@ -47,7 +47,7 @@ The dashboard hero reads **Project workflow management system.** Below that, it 
 
 Use the filter row under each column header:
 
-- **Dates** (submission / last change / form date fields) — click to open a popup for **Between** dates or **Relative** (last 7 / 30 / 90 / 365 days, or custom)
+- **Dates** (submission date / form date fields) — click to open a popup for **Between** dates or **Relative** (last 7 / 30 / 90 / 365 days, or custom)
 - **Dropdowns** (status, form name, current step, form select fields) — multi-select with checkboxes
 - **Text** — partial search; use × to clear one filter
 - **Clear filters (N)** clears everything at once

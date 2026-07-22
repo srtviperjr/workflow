@@ -325,7 +325,6 @@ export type RegisterMetaColumnId =
   | 'formName'
   | 'submitter'
   | 'submittedAt'
-  | 'lastChangedAt'
   | 'status'
   | 'currentStep';
 

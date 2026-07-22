@@ -26,7 +26,6 @@ export const META_COLUMN_LABELS: Record<RegisterMetaColumnId, string> = {
   formName: 'Form',
   submitter: 'Submitter',
   submittedAt: 'Submission date',
-  lastChangedAt: 'Last change',
   status: 'Status',
   currentStep: 'Current step',
 };
@@ -37,7 +36,6 @@ export const OVERALL_REGISTER_COLUMNS: RegisterMetaColumnId[] = [
   'submitter',
   'formName',
   'submittedAt',
-  'lastChangedAt',
   'status',
   'currentStep',
 ];
@@ -77,6 +75,31 @@ export function orderStickyColumnsFirst(
   const sticky = columns.filter((c) => c.sticky);
   const rest = columns.filter((c) => !c.sticky);
   return [...sticky, ...rest];
+}
+
+/**
+ * Ensure Current step sits immediately to the right of Status when both exist.
+ */
+export function placeCurrentStepAfterStatus(
+  columns: RegisterColumnConfig[],
+): RegisterColumnConfig[] {
+  const statusIdx = columns.findIndex((c) => c.id === 'status');
+  const stepIdx = columns.findIndex((c) => c.id === 'currentStep');
+  if (statusIdx < 0 || stepIdx < 0) return columns;
+  if (statusIdx + 1 === stepIdx) return columns;
+
+  const copy = [...columns];
+  const [step] = copy.splice(stepIdx, 1);
+  const newStatusIdx = copy.findIndex((c) => c.id === 'status');
+  copy.splice(newStatusIdx + 1, 0, step);
+  return copy;
+}
+
+/** Apply sticky-first + Status → Current step ordering rules. */
+export function normalizeRegisterColumnOrder(
+  columns: RegisterColumnConfig[],
+): RegisterColumnConfig[] {
+  return placeCurrentStepAfterStatus(orderStickyColumnsFirst(columns));
 }
 
 /**
@@ -137,28 +160,19 @@ export const FORM_REGISTER_META_COLUMNS: RegisterMetaColumnId[] = [
   'requestId',
   'submitter',
   'submittedAt',
-  'lastChangedAt',
   'status',
   'currentStep',
 ];
 
 /** Overall register layout with default sticky Request # + Submitter. */
 export const OVERALL_REGISTER_COLUMN_CONFIG: RegisterColumnConfig[] =
-  orderStickyColumnsFirst(
+  normalizeRegisterColumnOrder(
     OVERALL_REGISTER_COLUMNS.map((id) => ({
       id,
       visible: true,
       sticky: isDefaultStickyColumn(id),
     })),
   );
-
-export function lastChangedAt(submission: FormSubmission): string {
-  let latest = submission.submittedAt;
-  for (const entry of submission.history ?? []) {
-    if (entry.timestamp > latest) latest = entry.timestamp;
-  }
-  return latest;
-}
 
 export function formatRegisterTime(iso: string): string {
   return new Date(iso).toLocaleString();
@@ -188,7 +202,7 @@ export function currentStepLabel(
 export function defaultFormRegisterColumns(
   form: FormDefinition,
 ): RegisterColumnConfig[] {
-  return orderStickyColumnsFirst([
+  return normalizeRegisterColumnOrder([
     ...FORM_REGISTER_META_COLUMNS.map((id) => ({
       id,
       visible: true,
@@ -205,6 +219,7 @@ export function defaultFormRegisterColumns(
 /**
  * Merge a saved layout with the form's current fields.
  * Keeps user order/visibility/sticky for known columns; appends new fields; drops removed ones.
+ * Drops legacy columns (e.g. lastChangedAt) and keeps Current step beside Status.
  */
 export function resolveFormRegisterColumns(
   form: FormDefinition,
@@ -233,7 +248,7 @@ export function resolveFormRegisterColumns(
     if (seen.has(col.id)) continue;
     resolved.push({ ...col });
   }
-  return orderStickyColumnsFirst(resolved);
+  return normalizeRegisterColumnOrder(resolved);
 }
 
 export function getSavedFormRegisterView(
@@ -273,8 +288,6 @@ export function cellValue(
       return submitterName(submission, ctx.users);
     case 'submittedAt':
       return formatRegisterTime(submission.submittedAt);
-    case 'lastChangedAt':
-      return formatRegisterTime(lastChangedAt(submission));
     case 'status':
       return submission.status.replace('_', ' ');
     case 'currentStep':
@@ -302,8 +315,6 @@ export function filterValue(
       return submitterName(submission, ctx.users);
     case 'submittedAt':
       return submission.submittedAt;
-    case 'lastChangedAt':
-      return lastChangedAt(submission);
     case 'status':
       return submission.status;
     case 'currentStep':
@@ -434,7 +445,7 @@ export function getColumnFilterKind(
   if (columnId === 'status') return 'select';
   if (columnId === 'formName') return 'select';
   if (columnId === 'currentStep') return 'select';
-  if (columnId === 'submittedAt' || columnId === 'lastChangedAt') {
+  if (columnId === 'submittedAt') {
     return 'dateRange';
   }
   const fieldId = parseFieldColumnId(columnId);

@@ -30,7 +30,7 @@ import {
   countActiveFilters,
   getSavedFormRegisterView,
   matchesColumnFilter,
-  orderStickyColumnsFirst,
+  normalizeRegisterColumnOrder,
   REGISTER_STICKY_TABLE_SX,
   resolveFormRegisterColumns,
   stickyCellSx,
@@ -263,9 +263,7 @@ export function FormRegisterPage() {
                       className={col.sticky ? 'register-sticky-col' : undefined}
                       sx={{
                         whiteSpace:
-                          col.id === 'submittedAt' || col.id === 'lastChangedAt'
-                            ? 'nowrap'
-                            : undefined,
+                          col.id === 'submittedAt' ? 'nowrap' : undefined,
                         fontFamily:
                           col.id === 'requestId' ? 'monospace' : undefined,
                         ...(col.sticky
@@ -304,7 +302,7 @@ export function FormRegisterPage() {
         columns={columns}
         onClose={() => setCustomizeOpen(false)}
         onSave={(next) =>
-          setFormRegisterView(form.id, orderStickyColumnsFirst(next))
+          setFormRegisterView(form.id, normalizeRegisterColumnOrder(next))
         }
       />
     </Box>

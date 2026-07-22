@@ -24,7 +24,7 @@ import PushPinOutlinedIcon from '@mui/icons-material/PushPinOutlined';
 import type { FormDefinition, RegisterColumnConfig } from '../../types';
 import {
   columnLabel,
-  orderStickyColumnsFirst,
+  normalizeRegisterColumnOrder,
 } from '../../utils/registerColumns';
 
 interface Props {
@@ -57,7 +57,7 @@ export function CustomizeRegisterColumnsDialog({
       const copy = [...cols];
       const [item] = copy.splice(index, 1);
       copy.splice(next, 0, item);
-      return copy;
+      return normalizeRegisterColumnOrder(copy);
     });
   };
 
@@ -66,7 +66,7 @@ export function CustomizeRegisterColumnsDialog({
       const next = cols.map((c, i) =>
         i === index ? { ...c, sticky: !c.sticky } : c,
       );
-      return orderStickyColumnsFirst(next);
+      return normalizeRegisterColumnOrder(next);
     });
   };
 
@@ -184,7 +184,7 @@ export function CustomizeRegisterColumnsDialog({
                   .every((c) => c.sticky)}
                 onChange={(e) =>
                   setDraft((cols) =>
-                    orderStickyColumnsFirst(
+                    normalizeRegisterColumnOrder(
                       cols.map((c) =>
                         c.id === 'requestId' || c.id === 'submitter'
                           ? { ...c, sticky: e.target.checked }
@@ -208,7 +208,7 @@ export function CustomizeRegisterColumnsDialog({
         <Button
           variant="contained"
           onClick={() => {
-            onSave(orderStickyColumnsFirst(draft));
+            onSave(normalizeRegisterColumnOrder(draft));
             onClose();
           }}
           disabled={!draft.some((c) => c.visible)}

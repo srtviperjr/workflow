@@ -221,9 +221,7 @@ export function RequestRegisterPage() {
                       className={col.sticky ? 'register-sticky-col' : undefined}
                       sx={{
                         whiteSpace:
-                          col.id === 'submittedAt' || col.id === 'lastChangedAt'
-                            ? 'nowrap'
-                            : undefined,
+                          col.id === 'submittedAt' ? 'nowrap' : undefined,
                         fontFamily:
                           col.id === 'requestId' ? 'monospace' : undefined,
                         ...stickyCellSx(
