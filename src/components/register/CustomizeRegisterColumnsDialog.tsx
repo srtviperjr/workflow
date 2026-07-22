@@ -7,18 +7,25 @@ import {
   DialogActions,
   DialogContent,
   DialogTitle,
+  FormControlLabel,
   IconButton,
   List,
   ListItem,
   ListItemIcon,
   ListItemText,
   Stack,
+  Tooltip,
   Typography,
 } from '@mui/material';
 import ArrowUpwardIcon from '@mui/icons-material/ArrowUpward';
 import ArrowDownwardIcon from '@mui/icons-material/ArrowDownward';
+import PushPinIcon from '@mui/icons-material/PushPin';
+import PushPinOutlinedIcon from '@mui/icons-material/PushPinOutlined';
 import type { FormDefinition, RegisterColumnConfig } from '../../types';
-import { columnLabel } from '../../utils/registerColumns';
+import {
+  columnLabel,
+  orderStickyColumnsFirst,
+} from '../../utils/registerColumns';
 
 interface Props {
   open: boolean;
@@ -54,20 +61,51 @@ export function CustomizeRegisterColumnsDialog({
     });
   };
 
+  const toggleSticky = (index: number) => {
+    setDraft((cols) => {
+      const next = cols.map((c, i) =>
+        i === index ? { ...c, sticky: !c.sticky } : c,
+      );
+      return orderStickyColumnsFirst(next);
+    });
+  };
+
   return (
     <Dialog open={open} onClose={onClose} fullWidth maxWidth="sm">
       <DialogTitle>Customize columns — {form.name}</DialogTitle>
       <DialogContent dividers>
         <Typography variant="body2" color="text.secondary" mb={1.5}>
-          Choose which columns appear and their order. Changes are saved for
-          your current identity.
+          Choose which columns appear, pin sticky columns (locked while
+          scrolling horizontally), and reorder. Sticky columns stay on the
+          left. Changes are saved for your current identity.
         </Typography>
         <List dense disablePadding>
           {draft.map((col, index) => (
             <ListItem
               key={col.id}
               secondaryAction={
-                <Stack direction="row" spacing={0.5}>
+                <Stack direction="row" spacing={0.5} alignItems="center">
+                  <Tooltip
+                    title={
+                      col.sticky
+                        ? 'Unpin (stop locking while scrolling)'
+                        : 'Pin sticky (lock while scrolling)'
+                    }
+                  >
+                    <IconButton
+                      edge="end"
+                      size="small"
+                      aria-label={col.sticky ? 'Unpin column' : 'Pin column'}
+                      color={col.sticky ? 'primary' : 'default'}
+                      onClick={() => toggleSticky(index)}
+                    >
+                      {col.sticky ? (
+                        <PushPinIcon fontSize="small" />
+                      ) : (
+                        <PushPinOutlinedIcon fontSize="small" />
+                      )}
+                    </IconButton>
+                  </Tooltip>
                   <IconButton
                     edge="end"
                     size="small"
@@ -91,7 +129,7 @@ export function CustomizeRegisterColumnsDialog({
               sx={{
                 borderBottom: '1px solid',
                 borderColor: 'divider',
-                pr: 12,
+                pr: 16,
               }}
             >
               <ListItemIcon sx={{ minWidth: 36 }}>
@@ -107,7 +145,10 @@ export function CustomizeRegisterColumnsDialog({
                   }
                 />
               </ListItemIcon>
-              <ListItemText primary={columnLabel(col.id, form)} />
+              <ListItemText
+                primary={columnLabel(col.id, form)}
+                secondary={col.sticky ? 'Sticky' : undefined}
+              />
             </ListItem>
           ))}
         </List>
@@ -133,6 +174,33 @@ export function CustomizeRegisterColumnsDialog({
           >
             Meta only
           </Button>
+          <FormControlLabel
+            sx={{ ml: 1 }}
+            control={
+              <Checkbox
+                size="small"
+                checked={draft
+                  .filter((c) => c.id === 'requestId' || c.id === 'submitter')
+                  .every((c) => c.sticky)}
+                onChange={(e) =>
+                  setDraft((cols) =>
+                    orderStickyColumnsFirst(
+                      cols.map((c) =>
+                        c.id === 'requestId' || c.id === 'submitter'
+                          ? { ...c, sticky: e.target.checked }
+                          : c,
+                      ),
+                    ),
+                  )
+                }
+              />
+            }
+            label={
+              <Typography variant="body2">
+                Default pins (Request #, Submitter)
+              </Typography>
+            }
+          />
         </Box>
       </DialogContent>
       <DialogActions>
@@ -140,7 +208,7 @@ export function CustomizeRegisterColumnsDialog({
         <Button
           variant="contained"
           onClick={() => {
-            onSave(draft);
+            onSave(orderStickyColumnsFirst(draft));
             onClose();
           }}
           disabled={!draft.some((c) => c.visible)}

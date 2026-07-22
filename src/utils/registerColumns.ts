@@ -34,13 +34,85 @@ export const META_COLUMN_LABELS: Record<RegisterMetaColumnId, string> = {
 /** Fixed columns for the overall (cross-form) register. */
 export const OVERALL_REGISTER_COLUMNS: RegisterMetaColumnId[] = [
   'requestId',
-  'formName',
   'submitter',
+  'formName',
   'submittedAt',
   'lastChangedAt',
   'status',
   'currentStep',
 ];
+
+/** Meta columns that are sticky by default (Request #, Submitter). */
+export const DEFAULT_STICKY_COLUMN_IDS: ReadonlySet<string> = new Set([
+  'requestId',
+  'submitter',
+]);
+
+export function isDefaultStickyColumn(columnId: string): boolean {
+  return DEFAULT_STICKY_COLUMN_IDS.has(columnId);
+}
+
+/** Approximate widths used for sticky `left` offsets. */
+export function stickyColumnWidth(columnId: string): number {
+  switch (columnId) {
+    case 'requestId':
+      return 104;
+    case 'submitter':
+      return 148;
+    case 'formName':
+      return 160;
+    case 'status':
+      return 120;
+    case 'currentStep':
+      return 140;
+    default:
+      return 148;
+  }
+}
+
+/** Keep sticky columns contiguous at the start (relative order preserved). */
+export function orderStickyColumnsFirst(
+  columns: RegisterColumnConfig[],
+): RegisterColumnConfig[] {
+  const sticky = columns.filter((c) => c.sticky);
+  const rest = columns.filter((c) => !c.sticky);
+  return [...sticky, ...rest];
+}
+
+/**
+ * SX for a sticky register cell. `columns` should be the visible columns
+ * in display order (sticky ones already compacted to the left).
+ */
+export function stickyCellSx(
+  columns: Array<Pick<RegisterColumnConfig, 'id' | 'sticky'>>,
+  columnId: string,
+  opts?: { variant?: 'head' | 'filter' | 'body' },
+): Record<string, unknown> {
+  const stickyCols = columns.filter((c) => c.sticky);
+  const idx = stickyCols.findIndex((c) => c.id === columnId);
+  if (idx < 0) return {};
+
+  let left = 0;
+  for (let i = 0; i < idx; i++) {
+    left += stickyColumnWidth(stickyCols[i].id);
+  }
+
+  const variant = opts?.variant ?? 'body';
+  const isHead = variant === 'head' || variant === 'filter';
+
+  return {
+    position: 'sticky',
+    left,
+    zIndex: variant === 'head' ? 5 : variant === 'filter' ? 4 : 3,
+    bgcolor: isHead ? 'rgba(226,82,0,0.08)' : 'background.paper',
+    minWidth: stickyColumnWidth(columnId),
+    maxWidth: stickyColumnWidth(columnId) + 40,
+    boxShadow:
+      idx === stickyCols.length - 1
+        ? '2px 0 6px rgba(0,0,0,0.08)'
+        : undefined,
+  };
+}
 
 /** Meta columns available on a per-form register (no form name — it's implied). */
 export const FORM_REGISTER_META_COLUMNS: RegisterMetaColumnId[] = [
@@ -51,6 +123,16 @@ export const FORM_REGISTER_META_COLUMNS: RegisterMetaColumnId[] = [
   'status',
   'currentStep',
 ];
+
+/** Overall register layout with default sticky Request # + Submitter. */
+export const OVERALL_REGISTER_COLUMN_CONFIG: RegisterColumnConfig[] =
+  orderStickyColumnsFirst(
+    OVERALL_REGISTER_COLUMNS.map((id) => ({
+      id,
+      visible: true,
+      sticky: isDefaultStickyColumn(id),
+    })),
+  );
 
 export function lastChangedAt(submission: FormSubmission): string {
   let latest = submission.submittedAt;
@@ -88,18 +170,23 @@ export function currentStepLabel(
 export function defaultFormRegisterColumns(
   form: FormDefinition,
 ): RegisterColumnConfig[] {
-  return [
-    ...FORM_REGISTER_META_COLUMNS.map((id) => ({ id, visible: true })),
+  return orderStickyColumnsFirst([
+    ...FORM_REGISTER_META_COLUMNS.map((id) => ({
+      id,
+      visible: true,
+      sticky: isDefaultStickyColumn(id),
+    })),
     ...form.fields.map((f) => ({
       id: fieldColumnId(f.id),
       visible: true,
+      sticky: false,
     })),
-  ];
+  ]);
 }
 
 /**
  * Merge a saved layout with the form's current fields.
- * Keeps user order/visibility for known columns; appends new fields; drops removed ones.
+ * Keeps user order/visibility/sticky for known columns; appends new fields; drops removed ones.
  */
 export function resolveFormRegisterColumns(
   form: FormDefinition,
@@ -115,13 +202,20 @@ export function resolveFormRegisterColumns(
   for (const col of saved) {
     if (!allowed.has(col.id) || seen.has(col.id)) continue;
     seen.add(col.id);
-    resolved.push({ id: col.id, visible: Boolean(col.visible) });
+    resolved.push({
+      id: col.id,
+      visible: Boolean(col.visible),
+      sticky:
+        typeof col.sticky === 'boolean'
+          ? col.sticky
+          : isDefaultStickyColumn(col.id),
+    });
   }
   for (const col of defaults) {
     if (seen.has(col.id)) continue;
-    resolved.push(col);
+    resolved.push({ ...col });
   }
-  return resolved;
+  return orderStickyColumnsFirst(resolved);
 }
 
 export function getSavedFormRegisterView(

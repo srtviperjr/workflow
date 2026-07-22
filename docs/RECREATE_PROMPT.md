@@ -36,7 +36,7 @@ Keep **view** and **approve** access consistent: never show a request (or a noti
 - **Submissions**: form data + baselineData, status `draft|in_progress|completed|rejected`, current node, history
 - **Notifications** (inbox): in-app only (recipients, subject, rendered body/HTML, read state) — including workflow notifies and delegation handoffs
 - **Delegations**: from/to user, date range, scope all-workflows or per-workflow; additive permissions; `notifyDelegateOnStart`, `startHandoffNotifiedAt`, `endHandoffNotifiedAt`
-- **formRegisterViews**: per-user per-form column visibility/order
+- **formRegisterViews**: per-user per-form column visibility/order/`sticky` (default sticky: `requestId`, `submitter`)
 - **integrations**: Azure AD (SSO/identity), Azure SQL (back-end), and email (SMTP or Microsoft Graph) settings configured by admins; survive demo data resets
 
 Enforce **strict 1:1 form↔workflow**. Migrate older data on load (Change Request attachment field; inline notify → templates; template recipients → notify nodes; delegation handoff fields).

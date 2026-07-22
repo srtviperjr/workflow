@@ -23,14 +23,16 @@ import {
 } from '../components/register/RegisterTableBits';
 import { canViewSubmission } from '../utils/submissionVisibility';
 import {
-  OVERALL_REGISTER_COLUMNS,
+  OVERALL_REGISTER_COLUMN_CONFIG,
   META_COLUMN_LABELS,
   cellValue,
   countActiveFilters,
   matchesColumnFilter,
+  stickyCellSx,
   type RegisterFilterValue,
   type RegisterFilters,
 } from '../utils/registerColumns';
+import type { RegisterMetaColumnId } from '../types';
 
 export function RequestRegisterPage() {
   const { data, currentUser, getFormById } = useApp();
@@ -71,8 +73,8 @@ export function RequestRegisterPage() {
   const rows = useMemo(() => {
     const ctx = { users: data.users, workflows: data.workflows };
     return visible.filter((s) =>
-      OVERALL_REGISTER_COLUMNS.every((col) =>
-        matchesColumnFilter(col, filters[col], s, ctx),
+      OVERALL_REGISTER_COLUMN_CONFIG.every((col) =>
+        matchesColumnFilter(col.id, filters[col.id], s, ctx),
       ),
     );
   }, [visible, filters, data.users, data.workflows]);
@@ -97,8 +99,9 @@ export function RequestRegisterPage() {
             Request Register
           </Typography>
           <Typography color="text.secondary">
-            Overall view of requests you can see. Open a form register to show
-            form fields and customize columns.
+            Overall view of requests you can see. Request # and Submitter stay
+            locked while scrolling. Open a form register to show form fields and
+            customize columns.
           </Typography>
         </Box>
         {activeFilterCount > 0 && (
@@ -144,17 +147,32 @@ export function RequestRegisterPage() {
         <Table size="small" stickyHeader>
           <TableHead>
             <TableRow>
-              {OVERALL_REGISTER_COLUMNS.map((col) => (
-                <TableCell key={col}>{META_COLUMN_LABELS[col]}</TableCell>
+              {OVERALL_REGISTER_COLUMN_CONFIG.map((col) => (
+                <TableCell
+                  key={col.id}
+                  sx={stickyCellSx(OVERALL_REGISTER_COLUMN_CONFIG, col.id, {
+                    variant: 'head',
+                  })}
+                >
+                  {META_COLUMN_LABELS[col.id as RegisterMetaColumnId]}
+                </TableCell>
               ))}
             </TableRow>
             <TableRow>
-              {OVERALL_REGISTER_COLUMNS.map((col) => (
-                <TableCell key={`${col}-filter`} sx={{ top: 37 }}>
+              {OVERALL_REGISTER_COLUMN_CONFIG.map((col) => (
+                <TableCell
+                  key={`${col.id}-filter`}
+                  sx={{
+                    top: 37,
+                    ...stickyCellSx(OVERALL_REGISTER_COLUMN_CONFIG, col.id, {
+                      variant: 'filter',
+                    }),
+                  }}
+                >
                   <RegisterColumnFilter
-                    columnId={col}
-                    value={filters[col]}
-                    onChange={(v) => setFilter(col, v)}
+                    columnId={col.id}
+                    value={filters[col.id]}
+                    onChange={(v) => setFilter(col.id, v)}
                     forms={data.forms}
                     workflows={data.workflows}
                   />
@@ -165,7 +183,9 @@ export function RequestRegisterPage() {
           <TableBody>
             {rows.length === 0 && (
               <TableRow>
-                <RegisterEmptyState colSpan={OVERALL_REGISTER_COLUMNS.length} />
+                <RegisterEmptyState
+                  colSpan={OVERALL_REGISTER_COLUMN_CONFIG.length}
+                />
               </TableRow>
             )}
             {rows.map((s) => {
@@ -183,23 +203,33 @@ export function RequestRegisterPage() {
                     textDecoration: 'none',
                     cursor: 'pointer',
                     '&:hover': { bgcolor: 'rgba(226,82,0,0.04)' },
+                    '&:hover .register-sticky-col': {
+                      bgcolor: 'rgba(255,247,242,1)',
+                    },
                   }}
                 >
-                  {OVERALL_REGISTER_COLUMNS.map((col) => (
+                  {OVERALL_REGISTER_COLUMN_CONFIG.map((col) => (
                     <TableCell
-                      key={col}
+                      key={col.id}
+                      className={col.sticky ? 'register-sticky-col' : undefined}
                       sx={{
                         whiteSpace:
-                          col === 'submittedAt' || col === 'lastChangedAt'
+                          col.id === 'submittedAt' || col.id === 'lastChangedAt'
                             ? 'nowrap'
                             : undefined,
-                        fontFamily: col === 'requestId' ? 'monospace' : undefined,
+                        fontFamily:
+                          col.id === 'requestId' ? 'monospace' : undefined,
+                        ...stickyCellSx(
+                          OVERALL_REGISTER_COLUMN_CONFIG,
+                          col.id,
+                          { variant: 'body' },
+                        ),
                       }}
                     >
-                      {col === 'status' ? (
+                      {col.id === 'status' ? (
                         <StatusChip status={s.status} />
                       ) : (
-                        cellValue(col, s, ctx)
+                        cellValue(col.id, s, ctx)
                       )}
                     </TableCell>
                   ))}

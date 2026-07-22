@@ -54,7 +54,7 @@ Use the filter row under each column header:
 
 Open a row for detail.
 
-Each form also has a **per-form register** (from Forms → Register or `/register/form/...`) with that form’s fields. Customize visible columns and order; the layout is saved for your identity.
+Each form also has a **per-form register** (from Forms → Register or `/register/form/...`) with that form’s fields. Customize visible columns, order, and sticky pins; the layout is saved for your identity. **Request #** and **Submitter** stay locked on the left while you scroll horizontally (you can pin or unpin other columns too).
 
 ![Form register](./screenshots/08-form-register.png)
 
