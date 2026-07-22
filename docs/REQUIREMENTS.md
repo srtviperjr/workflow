@@ -1,4 +1,4 @@
-# Jansen Workflows — Product Requirements (v0.4)
+# Jansen Workflows — Product Requirements (v0.5)
 
 ## 1. Purpose
 
@@ -14,6 +14,7 @@ Jansen Workflows is a browser-based approval workflow application for designing 
 | G4 | Support temporary approval delegation without removing existing permissions |
 | G5 | Demonstrate multi-company / multi-role scenarios via an identity switcher |
 | G6 | Support optional file attachments on forms (stored locally) |
+| G7 | Keep list/detail/notification access consistent with who may approve |
 
 ## 3. Users & access
 
@@ -45,7 +46,7 @@ Custom roles may be app-scoped or form-scoped. Roles can map to Azure AD / AD gr
 |----------|--------|
 | Everyone | Dashboard, Requests, Request Register, Delegations |
 | Admin only | Forms, Workflows, Users, Roles, Data Tools (under Administration) |
-| App bar | Notification bell, identity switcher, version badge (`v0.4`) |
+| App bar | Notification bell, identity switcher, version badge (`v0.5`) |
 
 ## 4. Functional requirements
 
@@ -97,8 +98,10 @@ Custom roles may be app-scoped or form-scoped. Roles can map to Azure AD / AD gr
 | RQ-5 | Overall request register lists submissions with: request #, form name, submitter, submission date, last change date, status, current step. |
 | RQ-6 | Each form has its own register showing form fields; users can customize column visibility and order (saved per identity). |
 | RQ-7 | Registers support filtering from column headers. |
-| RQ-8 | Dashboard shows pending items for the current identity. |
+| RQ-8 | Dashboard shows pending items the current identity can both see and act on. |
 | RQ-9 | Form design (`/forms`) is admin-only; non-admins are redirected to Requests. |
+| RQ-10 | **Workflow History** omits notification steps; reject-branch steps appear only when the request was rejected. |
+| RQ-11 | PDF history likewise omits notification entries. |
 
 ### 4.5 Delegations
 
@@ -115,11 +118,13 @@ Custom roles may be app-scoped or form-scoped. Roles can map to Azure AD / AD gr
 
 | ID | Requirement |
 |----|-------------|
-| AD-1 | Data Tools can seed sample users and/or requests independently via checkboxes, each with **Create additional** or **Clear & recreate** modes and counts. |
+| AD-1 | Data Tools can seed sample users and/or requests independently via **Include users** / **Include requests (workflows)** checkboxes, each with **Create additional** or **Clear & recreate** modes and counts. |
 | AD-2 | Optional checkbox to seed matching in-app notifications with requests. |
 | AD-3 | Reset requests for a single form. |
 | AD-4 | Reset all application data to defaults. |
 | AD-5 | Data Tools is the last item under Administration; `/admin` redirects to `/data-tools`. |
+| AD-6 | User-only seed runs must not overwrite existing forms/workflows; request seed applies the sample form/workflow catalog. |
+| AD-7 | Sample requests use **random submitters/managers**, mixed statuses, **open items dated within the last week**, and older completed/rejected ages; form field dates align with submission age. |
 
 ### 4.7 In-app notifications
 
@@ -131,6 +136,7 @@ Custom roles may be app-scoped or form-scoped. Roles can map to Azure AD / AD gr
 | EN-4 | Notifications are created automatically when the workflow reaches the step. |
 | EN-5 | Messages are **in-app only** (not emailed); open from the AppBar bell or Notifications page. |
 | EN-6 | Sample manager-approval workflows notify managers/admin on submission and the submitter on approval or rejection. |
+| EN-7 | Notification deep-links to a request are only offered when the viewer can open that request. |
 
 ### 4.8 PDF export
 
@@ -138,6 +144,7 @@ Custom roles may be app-scoped or form-scoped. Roles can map to Azure AD / AD gr
 |----|-------------|
 | PD-1 | Request detail provides a Print icon that downloads a PDF of the current form values and history. |
 | PD-2 | File field values appear as filenames in the PDF. |
+| PD-3 | Notification history rows are omitted from the PDF. |
 
 ### 4.9 Submission visibility
 
@@ -157,7 +164,7 @@ Custom roles may be app-scoped or form-scoped. Roles can map to Azure AD / AD gr
 | NF-2 | Runs with Vite on port **5173** (dev) / **4173** (preview). |
 | NF-3 | Responsive enough for desktop and tablet admin use. |
 | NF-4 | No secrets or external API keys required. |
-| NF-5 | Display version `APP_VERSION` (`0.4`) in AppBar and sidebar. |
+| NF-5 | Display version `APP_VERSION` (`0.5`) in AppBar and sidebar. |
 
 ## 6. Out of scope (current version)
 
@@ -167,7 +174,14 @@ Custom roles may be app-scoped or form-scoped. Roles can map to Azure AD / AD gr
 - Multiple files per field or attachments larger than 512 KB
 - Mobile-first native apps
 
-## 7. Sample screenshots
+## 7. What’s new in v0.5
+
+- Data Tools **Include users** / **Include requests** checkboxes
+- Randomized sample submitters, timestamps (open ≤ 1 week; completed older)
+- Workflow History hides Notify steps; reject branch only when used
+- Tightened view vs approve access across dashboard, registers, notifications
+
+## 8. Sample screenshots
 
 Captured from the running app (also under `docs/screenshots/`). See **[USER_GUIDE.md](./USER_GUIDE.md)** for a full walkthrough.
 
@@ -208,7 +222,7 @@ npm run dev   # in one terminal
 npm run screenshots
 ```
 
-## 8. Related documents
+## 9. Related documents
 
 | Doc | Purpose |
 |-----|---------|
@@ -216,7 +230,7 @@ npm run screenshots
 | [RECREATE_PROMPT.md](./RECREATE_PROMPT.md) | Prompt to recreate this application from scratch |
 | [AGENTS.md](../AGENTS.md) | Cursor Cloud agent notes |
 
-## 9. Acceptance criteria (1:1 form–workflow)
+## 10. Acceptance criteria (1:1 form–workflow)
 
 1. Create Form twice → two forms and two distinct workflows.
 2. Form builder cannot select another form’s workflow.
@@ -224,10 +238,10 @@ npm run screenshots
 4. Delete form removes its workflow; other forms unchanged.
 5. Delete a linked workflow leaves the form with a newly created dedicated workflow.
 
-## 10. Acceptance criteria (file attachments — v0.4)
+## 11. Acceptance criteria (v0.5)
 
-1. Form builder offers a **file** field type.
-2. Change Request includes optional Attachment by default (and after Data Tools reset).
-3. Submitting with a small file stores it; detail page offers download by filename.
-4. Oversized files (>512 KB) are rejected with a clear message.
-5. Register / PDF / notification tokens show the filename only.
+1. Data Tools can run users-only or requests-only via checkboxes.
+2. Seeded open requests are dated within the last week; submitters vary.
+3. Request detail Workflow History has no Notify rows; unused Rejected ends stay hidden.
+4. Manager can open a pending request they can approve; unrelated requestor does not see `own`-visibility others’ requests in registers.
+5. Notification “Open request” is unavailable when the viewer cannot access the submission.

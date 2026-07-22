@@ -1,4 +1,4 @@
-# Jansen Workflows — User Guide (v0.4)
+# Jansen Workflows — User Guide (v0.5)
 
 This guide walks through day-to-day use of the local demo app. All data stays in your browser; use **Data Tools** to seed or reset sample content.
 
@@ -20,9 +20,9 @@ Open the URL shown (typically `http://localhost:5173`). You start as **System Ad
 | **Sidebar** | Dashboard, Requests, Request Register, Delegations; admins also see Administration |
 | **Bell** | In-app notifications |
 | **Acting as** | Switch identity (no password) |
-| **v0.4** | App version |
+| **v0.5** | App version |
 
-The dashboard lists work waiting for the current identity.
+The dashboard lists work waiting for the current identity — only requests you can both **see** and **act on**.
 
 ---
 
@@ -41,7 +41,7 @@ The dashboard lists work waiting for the current identity.
 
 ## 3. Track requests in registers
 
-**Request Register** shows every submission you are allowed to see:
+**Request Register** shows every submission you are allowed to see (visibility + role/action rules):
 
 ![Overall register](./screenshots/07-request-register.png)
 
@@ -55,11 +55,17 @@ Each form also has a **per-form register** (from Forms → Register or `/registe
 
 ## 4. Review and approve
 
-On **Request detail** you see field values (download attachments by filename), history, and — if you can act — Approve / Reject / Complete with an optional comment.
+On **Request detail** you see field values (download attachments by filename), history, and — **only if you can act** — Approve / Reject / Complete with an optional comment.
 
 ![Request detail](./screenshots/09-request-detail.png)
 
-Use the **print** icon to download a PDF snapshot of the form and history.
+**Workflow History** shows real process steps (Submit, Manager Review, Approved/Rejected). It does **not** list Notify steps. A Rejected end appears only when that path was taken.
+
+Use the **print** icon to download a PDF snapshot (notification rows omitted there too).
+
+### Who can see a request?
+
+You can open a request if you are the submitter or an admin, you can act on the current step, you already acted on it, you received a notification about it, or you match the form’s company/project visibility.
 
 ---
 
@@ -69,7 +75,7 @@ When a workflow reaches a Notify step, messages appear for the configured roles 
 
 ![Notifications](./screenshots/13-notifications.png)
 
-Sample flows notify managers/admins on submit and the submitter on approve or reject.
+Sample flows notify managers/admins on submit and the submitter on approve or reject. **Open related request** is shown only when you still have access to that submission.
 
 ---
 
@@ -109,12 +115,14 @@ Create users (company + project) and assign roles. Roles may be app-wide or limi
 
 ### Data Tools
 
-Seed demo users and requests:
+Seed demo data with independent checkboxes:
 
-- **Create additional** or **Clear & recreate**
-- Counts for users and requests-per-form
-- Optional notifications with the requests
-- Reset one form’s requests, or reset everything
+1. **Include users** — mode (Create additional / Clear & recreate) + count  
+2. **Include requests (workflows)** — mode + requests per form + optional notifications  
+
+You can run either alone or both. User-only runs leave forms/workflows unchanged. Sample open requests are dated within the last week; completed ones may be older; submitters are randomized.
+
+Also available: reset one form’s requests, or reset everything.
 
 ![Data Tools](./screenshots/12-data-tools.png)
 
@@ -126,6 +134,7 @@ Seed demo users and requests:
 - Attachments over 512 KB are blocked (browser storage limits).
 - Clearing site data for this origin wipes the demo; use Data Tools → reset to restore defaults.
 - Form design is admin-only; everyone uses **Requests** to submit.
+- If you cannot see a request in the register, you also will not get approve/deny controls for it.
 
 ---
 
