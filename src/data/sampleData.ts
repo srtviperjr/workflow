@@ -1098,6 +1098,7 @@ export function mergeSampleData(
       notifications,
       notificationTemplates,
       formRegisterViews: data.formRegisterViews ?? [],
+      integrations: data.integrations,
       currentUserId,
     },
     stats: {

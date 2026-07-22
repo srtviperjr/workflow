@@ -27,6 +27,7 @@ import AdminPanelSettingsIcon from '@mui/icons-material/AdminPanelSettings';
 import SwapHorizIcon from '@mui/icons-material/SwapHoriz';
 import PostAddIcon from '@mui/icons-material/PostAdd';
 import NotificationsActiveIcon from '@mui/icons-material/NotificationsActive';
+import HubIcon from '@mui/icons-material/Hub';
 import ExpandLess from '@mui/icons-material/ExpandLess';
 import ExpandMore from '@mui/icons-material/ExpandMore';
 import { IdentitySwitcher } from './IdentitySwitcher';
@@ -55,6 +56,7 @@ const adminNav = [
   { to: '/workflows', label: 'Workflows', icon: <AccountTreeIcon /> },
   { to: '/users', label: 'Users', icon: <PeopleIcon /> },
   { to: '/roles', label: 'Roles', icon: <BadgeIcon /> },
+  { to: '/integrations', label: 'Integrations', icon: <HubIcon /> },
   { to: '/data-tools', label: 'Data Tools', icon: <AdminPanelSettingsIcon /> },
 ];
 

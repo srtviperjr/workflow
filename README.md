@@ -27,6 +27,7 @@ A local-storage React application for designing approval workflows, building for
 - **Delegations** — Temporarily grant approval permissions (additive); optional notify of in-progress items at start; notify unfinished items when the delegation ends.
 - **Registers** — Overall + per-form registers with field-aware header filters (date ranges / relative dates, multi-select dropdowns, text search) and clear controls.
 - **Data Tools** — Independently include users and/or requests; create additional or clear & recreate; randomized recent open samples.
+- **Integrations** — Admin configuration for Azure AD (SSO / identity), Azure SQL Database, and email (SMTP or Microsoft Graph) for production readiness.
 
 ## Quick start
 

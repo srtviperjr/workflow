@@ -17,6 +17,7 @@ Jansen Workflows is a browser-based approval workflow application for designing 
 | G7 | Keep list/detail/notification access consistent with who may approve |
 | G8 | Let admins design reusable notification templates per form |
 | G9 | Hand off in-progress approvals cleanly when a delegation starts and ends |
+| G10 | Let admins configure production integrations (Azure AD, Azure SQL, email) in the UI |
 
 ## 3. Users & access
 
@@ -27,7 +28,7 @@ Jansen Workflows is a browser-based approval workflow application for designing 
 | **Requestor** | Submit forms; act on steps assigned to Requestor |
 | **Manager** | Act on Manager decision/step nodes |
 | **Project Director** | Act on Project Director nodes |
-| **Admin** | Full access: users, roles, forms, notifications, workflows, Data Tools, all approvals |
+| **Admin** | Full access: users, roles, forms, notifications, workflows, Integrations, Data Tools, all approvals |
 
 Custom roles may be app-scoped or form-scoped. Roles can map to Azure AD / AD group names for future SSO.
 
@@ -47,7 +48,7 @@ Custom roles may be app-scoped or form-scoped. Roles can map to Azure AD / AD gr
 | Audience | Items |
 |----------|--------|
 | Everyone | Dashboard, Requests, Request Register, Delegations |
-| Admin only | Forms, **Notifications**, Workflows, Users, Roles, Data Tools (under Administration, in that order) |
+| Admin only | Forms, **Notifications**, Workflows, Users, Roles, **Integrations**, Data Tools (under Administration, in that order) |
 | App bar | Notification bell (inbox), identity switcher, version badge (`v0.7`) |
 
 Inbox (bell → `/notifications`) is separate from Administration → Notifications (template design at `/notification-templates`).
@@ -127,7 +128,18 @@ Dashboard hero tagline: **Project workflow management system.**
 | DG-10 | Start handoff respects a future start date (sends once the window is active); end handoff is skipped if the delegation never started. |
 | DG-11 | A user cannot have overlapping outbound delegations for the same coverage: date ranges and workflow scope must not both overlap (an “all workflows” grant conflicts with any other grant in the same dates). |
 
-### 4.6 Data Tools
+### 4.6 Integrations
+
+| ID | Requirement |
+|----|-------------|
+| IN-1 | Admins configure production integrations under **Administration → Integrations** (`/integrations`). |
+| IN-2 | **Azure Active Directory**: enable flag; tenant ID; client ID; client secret; redirect URI; authority host; OAuth scopes; optional allowed email domain; SSO and directory-sync toggles; group claim name (for role AD group mapping). |
+| IN-3 | **Azure SQL Database**: enable flag; server; port; database; auth method (`sql` / `azureAd` / `managedIdentity`); username/password when applicable; encrypt / trust-server-certificate; connection timeout; optional connection-string override; read-only connection-string preview. |
+| IN-4 | **Email server**: enable flag; provider `smtp` or `microsoftGraph`; SMTP host/port/encryption/credentials **or** Graph tenant/client/secret/sender mailbox; from address / display name / reply-to. |
+| IN-5 | Each section saves independently into `AppData.integrations` (localStorage). Settings survive Data Tools “reset everything”. |
+| IN-6 | UI makes clear that values are configuration for a future production back-end (not live connections in the browser-only build). |
+
+### 4.7 Data Tools
 
 | ID | Requirement |
 |----|-------------|
@@ -139,7 +151,7 @@ Dashboard hero tagline: **Project workflow management system.**
 | AD-6 | User-only seed runs must not overwrite existing forms/workflows; request seed applies the sample form/workflow catalog. |
 | AD-7 | Sample requests use **random submitters/managers**, mixed statuses, **open items dated within the last week**, and older completed/rejected ages; form field dates align with submission age. |
 
-### 4.7 Notification templates & in-app messages
+### 4.8 Notification templates & in-app messages
 
 | ID | Requirement |
 |----|-------------|
@@ -155,7 +167,7 @@ Dashboard hero tagline: **Project workflow management system.**
 | EN-10 | Notification deep-links to a request are only offered when the viewer can open that request. |
 | EN-11 | Deleting a form cascade-deletes its templates; deleting a template clears Notify-node references. |
 
-### 4.8 PDF export
+### 4.9 PDF export
 
 | ID | Requirement |
 |----|-------------|
@@ -253,6 +265,9 @@ Captured from the running app (also under `docs/screenshots/`). See **[USER_GUID
 
 ### Notification template editor
 ![Notification template editor](./screenshots/17-notification-template-editor.png)
+
+### Integrations
+![Integrations](./screenshots/18-integrations.png)
 
 Regenerate with:
 
