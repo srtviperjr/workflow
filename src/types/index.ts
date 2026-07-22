@@ -268,6 +268,15 @@ export interface ApprovalDelegation {
   /** Duration in whole days used when creating/editing */
   durationDays: number;
   createdAt: string;
+  /**
+   * When true, notify the delegate of the delegator's in-progress actionable
+   * requests once the delegation becomes active.
+   */
+  notifyDelegateOnStart?: boolean;
+  /** ISO timestamp when the start handoff notification(s) were sent */
+  startHandoffNotifiedAt?: string | null;
+  /** ISO timestamp when the end handoff notification(s) were sent to the delegator */
+  endHandoffNotifiedAt?: string | null;
 }
 
 /** In-app notification produced by a workflow notification step (not email). */

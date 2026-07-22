@@ -3,12 +3,14 @@ import {
   Alert,
   Box,
   Button,
+  Checkbox,
   Chip,
   Dialog,
   DialogActions,
   DialogContent,
   DialogTitle,
   FormControl,
+  FormControlLabel,
   IconButton,
   InputLabel,
   MenuItem,
@@ -34,6 +36,7 @@ import {
   toDateOnly,
   workflowsAccessibleToUser,
 } from '../utils/workflowEngine';
+import { listCoveredActionableSubmissions } from '../utils/delegationHandoff';
 
 interface WorkflowMapping {
   workflowId: string;
@@ -59,6 +62,7 @@ export function DelegationsPage() {
   const [mappings, setMappings] = useState<WorkflowMapping[]>([]);
   const [startDate, setStartDate] = useState(toDateOnly());
   const [durationDays, setDurationDays] = useState(7);
+  const [notifyDelegateOnStart, setNotifyDelegateOnStart] = useState(true);
 
   const userName = (id: string) => {
     const u = data.users.find((x) => x.id === id);
@@ -87,6 +91,62 @@ export function DelegationsPage() {
         d.fromUserId === currentUser.id || d.toUserId === currentUser.id,
     );
   }, [currentUser, isAdmin, data.delegations]);
+
+  const endDate = endDateFromDuration(startDate, durationDays);
+
+  /** Preview of in-progress items that would be handed to the chosen delegate(s). */
+  const inProgressPreview = useMemo(() => {
+    const ownerId = isAdmin ? fromUserId : currentUser?.id;
+    if (!ownerId) {
+      return { count: 0, byDelegate: [] as { toUserId: string; count: number }[] };
+    }
+
+    if (scope === 'all') {
+      if (!toUserId) return { count: 0, byDelegate: [] };
+      const draft = {
+        fromUserId: ownerId,
+        toUserId,
+        scope: 'all' as const,
+        workflowIds: [] as string[],
+      };
+      const items = listCoveredActionableSubmissions(draft, data);
+      return {
+        count: items.length,
+        byDelegate: [{ toUserId, count: items.length }],
+      };
+    }
+
+    const selected = mappings.filter((m) => m.workflowId && m.toUserId);
+    const byDelegate = new Map<string, string[]>();
+    for (const m of selected) {
+      const list = byDelegate.get(m.toUserId) ?? [];
+      list.push(m.workflowId);
+      byDelegate.set(m.toUserId, list);
+    }
+    const rows = [...byDelegate.entries()].map(([uid, workflowIds]) => {
+      const items = listCoveredActionableSubmissions(
+        {
+          fromUserId: ownerId,
+          scope: 'workflows',
+          workflowIds,
+        },
+        data,
+      );
+      return { toUserId: uid, count: items.length };
+    });
+    return {
+      count: rows.reduce((sum, r) => sum + r.count, 0),
+      byDelegate: rows,
+    };
+  }, [
+    isAdmin,
+    fromUserId,
+    currentUser?.id,
+    scope,
+    toUserId,
+    mappings,
+    data,
+  ]);
 
   const buildMappingsForUser = (
     userId: string,
@@ -118,6 +178,7 @@ export function DelegationsPage() {
     setMappings(buildMappingsForUser(currentUser.id));
     setStartDate(toDateOnly());
     setDurationDays(7);
+    setNotifyDelegateOnStart(true);
     setOpen(true);
   };
 
@@ -139,10 +200,9 @@ export function DelegationsPage() {
     }
     setStartDate(d.startDate);
     setDurationDays(d.durationDays || 7);
+    setNotifyDelegateOnStart(Boolean(d.notifyDelegateOnStart));
     setOpen(true);
   };
-
-  const endDate = endDateFromDuration(startDate, durationDays);
 
   const delegateOptions = data.users.filter((u) => u.id !== fromUserId);
 
@@ -190,14 +250,25 @@ export function DelegationsPage() {
           toUserId,
           scope: 'all',
           workflowIds: [],
+          notifyDelegateOnStart,
         });
       } else {
         const selected = mappings.filter((m) => m.workflowId && m.toUserId);
         if (selected.length === 0) return;
         const grouped = groupByDelegate(selected);
         const [first, ...rest] = grouped;
-        updateDelegation(editing.id, first);
-        if (rest.length > 0) addDelegations(rest);
+        updateDelegation(editing.id, {
+          ...first,
+          notifyDelegateOnStart,
+        });
+        if (rest.length > 0) {
+          addDelegations(
+            rest.map((r) => ({
+              ...r,
+              notifyDelegateOnStart,
+            })),
+          );
+        }
       }
       setOpen(false);
       return;
@@ -210,11 +281,17 @@ export function DelegationsPage() {
         toUserId,
         scope: 'all',
         workflowIds: [],
+        notifyDelegateOnStart,
       });
     } else {
       const selected = mappings.filter((m) => m.workflowId && m.toUserId);
       if (selected.length === 0) return;
-      addDelegations(groupByDelegate(selected));
+      addDelegations(
+        groupByDelegate(selected).map((r) => ({
+          ...r,
+          notifyDelegateOnStart,
+        })),
+      );
     }
     setOpen(false);
   };
@@ -240,7 +317,9 @@ export function DelegationsPage() {
           <Typography color="text.secondary">
             Grant your approval permissions to another user for a set number of
             days. Their existing permissions are kept — yours are added for the
-            duration only.
+            duration only. You can notify them of in-progress work when a
+            delegation starts; when it ends you are notified of unfinished
+            requests.
             {!isAdmin &&
               ' You can only create and manage delegations for yourself.'}
             {isAdmin &&
@@ -322,7 +401,11 @@ export function DelegationsPage() {
                         size="small"
                         color="error"
                         onClick={() => {
-                          if (confirm('Remove this delegation?'))
+                          if (
+                            confirm(
+                              'End this delegation now? You will be notified of any covered requests that are still in progress.',
+                            )
+                          )
                             deleteDelegation(d.id);
                         }}
                       >
@@ -509,11 +592,35 @@ export function DelegationsPage() {
               />
             </Stack>
 
+            {inProgressPreview.count > 0 ? (
+              <FormControlLabel
+                control={
+                  <Checkbox
+                    checked={notifyDelegateOnStart}
+                    onChange={(e) =>
+                      setNotifyDelegateOnStart(e.target.checked)
+                    }
+                  />
+                }
+                label={
+                  scope === 'all' && toUserId
+                    ? `Notify ${userName(toUserId)} of ${inProgressPreview.count} in-progress request${inProgressPreview.count === 1 ? '' : 's'} currently awaiting action`
+                    : `Notify delegate(s) of ${inProgressPreview.count} in-progress request${inProgressPreview.count === 1 ? '' : 's'} currently awaiting action`
+                }
+              />
+            ) : (
+              <Alert severity="info">
+                No in-progress requests currently await action for the covered
+                workflows, so there is nothing to hand off at the start.
+              </Alert>
+            )}
+
             <Alert severity="info">
               During the active dates, each selected delegate gains your
               approval permissions for the covered workflows in addition to
-              their own. Nothing is removed from them when the delegation ends
-              or while it is active.
+              their own. When the delegation ends, you are notified of any
+              covered requests that are still in progress so you can continue
+              them.
             </Alert>
           </Stack>
         </DialogContent>

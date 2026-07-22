@@ -620,7 +620,7 @@ export function isDelegationActive(
 }
 
 export function delegationCoversWorkflow(
-  delegation: ApprovalDelegation,
+  delegation: Pick<ApprovalDelegation, 'scope' | 'workflowIds'>,
   workflowId: string | null | undefined,
 ): boolean {
   if (delegation.scope === 'all') return true;

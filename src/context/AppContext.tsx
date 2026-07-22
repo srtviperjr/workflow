@@ -23,6 +23,10 @@ import { createId, createDedicatedWorkflowDraft } from '../data/defaults';
 import { enforceFormWorkflowOneToOne } from '../data/formWorkflowLink';
 import { loadData, saveData } from '../data/storage';
 import {
+  applyDelegationHandoffs,
+  notificationsForEndedDelegation,
+} from '../utils/delegationHandoff';
+import {
   mergeSampleData,
   resetAllData,
   resetByForm,
@@ -98,11 +102,26 @@ interface AppContextValue {
 const AppContext = createContext<AppContextValue | null>(null);
 
 export function AppProvider({ children }: { children: ReactNode }) {
-  const [data, setData] = useState<AppData>(() => loadData());
+  const [data, setData] = useState<AppData>(() =>
+    applyDelegationHandoffs(loadData()),
+  );
 
   useEffect(() => {
     saveData(data);
   }, [data]);
+
+  // Re-check expired / activating delegations when the calendar day may have changed
+  useEffect(() => {
+    const tick = () => {
+      setData((prev) => applyDelegationHandoffs(prev));
+    };
+    const id = window.setInterval(tick, 60_000);
+    window.addEventListener('focus', tick);
+    return () => {
+      window.clearInterval(id);
+      window.removeEventListener('focus', tick);
+    };
+  }, []);
 
   const update = useCallback((fn: (prev: AppData) => AppData) => {
     setData((prev) => fn(prev));
@@ -584,11 +603,15 @@ export function AppProvider({ children }: { children: ReactNode }) {
         fromUserId,
         id: createId('deleg'),
         createdAt: new Date().toISOString(),
+        startHandoffNotifiedAt: null,
+        endHandoffNotifiedAt: null,
       };
-      update((d) => ({
-        ...d,
-        delegations: [...(d.delegations ?? []), created],
-      }));
+      update((d) =>
+        applyDelegationHandoffs({
+          ...d,
+          delegations: [...(d.delegations ?? []), created],
+        }),
+      );
       return created;
     },
     addDelegations: (items) => {
@@ -600,11 +623,15 @@ export function AppProvider({ children }: { children: ReactNode }) {
           actor && !actorIsAdmin ? actor.id : item.fromUserId,
         id: createId('deleg'),
         createdAt: new Date().toISOString(),
+        startHandoffNotifiedAt: null,
+        endHandoffNotifiedAt: null,
       }));
-      update((d) => ({
-        ...d,
-        delegations: [...(d.delegations ?? []), ...created],
-      }));
+      update((d) =>
+        applyDelegationHandoffs({
+          ...d,
+          delegations: [...(d.delegations ?? []), ...created],
+        }),
+      );
       return created;
     },
     updateDelegation: (id, patch) =>
@@ -620,12 +647,12 @@ export function AppProvider({ children }: { children: ReactNode }) {
         if (actor && !actorIsAdmin) {
           nextPatch.fromUserId = actor.id;
         }
-        return {
+        return applyDelegationHandoffs({
           ...d,
           delegations: d.delegations.map((del) =>
             del.id === id ? { ...del, ...nextPatch } : del,
           ),
-        };
+        });
       }),
     deleteDelegation: (id) =>
       update((d) => {
@@ -640,9 +667,18 @@ export function AppProvider({ children }: { children: ReactNode }) {
         ) {
           return d;
         }
+        if (!existing) return d;
+        const triggeredBy =
+          actor ??
+          d.users.find((u) => u.roleIds.includes('role-admin')) ??
+          d.users[0];
+        const endNotes = triggeredBy
+          ? notificationsForEndedDelegation(existing, d, triggeredBy)
+          : [];
         return {
           ...d,
           delegations: d.delegations.filter((del) => del.id !== id),
+          notifications: [...(d.notifications ?? []), ...endNotes],
         };
       }),
 
