@@ -1,4 +1,4 @@
-# Jansen Workflows — User Guide (v0.5)
+# Jansen Workflows — User Guide (v0.6)
 
 This guide walks through day-to-day use of the local demo app. All data stays in your browser; use **Data Tools** to seed or reset sample content.
 
@@ -17,10 +17,10 @@ Open the URL shown (typically `http://localhost:5173`). You start as **System Ad
 
 | Control | Purpose |
 |---------|---------|
-| **Sidebar** | Dashboard, Requests, Request Register, Delegations; admins also see Administration |
-| **Bell** | In-app notifications |
+| **Sidebar** | Dashboard, Requests, Request Register, Delegations; admins also see Administration (Forms, Notifications, Workflows, …) |
+| **Bell** | In-app notification inbox |
 | **Acting as** | Switch identity (no password) |
-| **v0.5** | App version |
+| **v0.6** | App version |
 
 The dashboard lists work waiting for the current identity — only requests you can both **see** and **act on**.
 
@@ -61,7 +61,7 @@ On **Request detail** you see field values (download attachments by filename), h
 
 **Workflow History** lists only what people did — submission steps and decisions (e.g. Submit Request, Manager Review). System Notify and End nodes are not shown.
 
-Use the **print** icon to download a PDF snapshot (notification rows omitted there too).
+Use the **print** icon to download a branded PDF snapshot (orange banner, form-like field cards; notification rows omitted from history).
 
 ### Who can see a request?
 
@@ -69,9 +69,9 @@ You can open a request if you are the submitter or an admin, you can act on the 
 
 ---
 
-## 5. Notifications
+## 5. Notifications (inbox)
 
-When a workflow reaches a Notify step, messages appear for the configured roles and/or the submitter. Open the bell or **Notifications**.
+When a workflow reaches a Notify step, messages appear for the roles and/or submitter configured on that step. Open the bell or the inbox **Notifications** page.
 
 ![Notifications](./screenshots/13-notifications.png)
 
@@ -97,9 +97,15 @@ Design field lists, visibility (own / company / project), and the linked workflo
 
 ![Form builder](./screenshots/04-form-builder.png)
 
+### Notifications (templates)
+
+Under **Administration → Notifications**, design message templates for each form: subject, rich-text body, and `{{tokens}}` for form fields / builtins. Templates are dedicated to one form.
+
+On the **workflow** canvas, each Notify step picks a template for that form and chooses who receives it (roles and/or the submitter).
+
 ### Workflows
 
-Edit the canvas: Start, Step, Decision, Notification, End. Assign roles, outcomes, and field conditions. Keep **one workflow per form**.
+Edit the canvas: Start, Step, Decision, Notification, End. Assign roles, outcomes, and field conditions. Keep **one workflow per form**. Notify nodes select a template + recipients.
 
 ![Workflows](./screenshots/05-workflows.png)
 

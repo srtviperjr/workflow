@@ -36,7 +36,7 @@ import { useApp } from '../context/AppContext';
 const DRAWER_WIDTH = 260;
 
 /** App display version — shown in the AppBar and sidebar. */
-export const APP_VERSION = '0.5';
+export const APP_VERSION = '0.6';
 
 const primaryNav = [
   { to: '/', label: 'Dashboard', icon: <DashboardIcon /> },
@@ -47,12 +47,12 @@ const primaryNav = [
 
 const adminNav = [
   { to: '/forms', label: 'Forms', icon: <DescriptionIcon /> },
-  { to: '/workflows', label: 'Workflows', icon: <AccountTreeIcon /> },
   {
     to: '/notification-templates',
     label: 'Notifications',
     icon: <NotificationsActiveIcon />,
   },
+  { to: '/workflows', label: 'Workflows', icon: <AccountTreeIcon /> },
   { to: '/users', label: 'Users', icon: <PeopleIcon /> },
   { to: '/roles', label: 'Roles', icon: <BadgeIcon /> },
   { to: '/data-tools', label: 'Data Tools', icon: <AdminPanelSettingsIcon /> },
