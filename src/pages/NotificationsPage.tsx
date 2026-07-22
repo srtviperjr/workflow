@@ -21,6 +21,7 @@ import {
 import { Link as RouterLink } from 'react-router-dom';
 import { useApp } from '../context/AppContext';
 import type { AppNotification } from '../types';
+import { canViewSubmission } from '../utils/submissionVisibility';
 
 export function NotificationsPage() {
   const {
@@ -28,9 +29,30 @@ export function NotificationsPage() {
     currentUser,
     isAdmin,
     getUserById,
+    getFormById,
     markNotificationRead,
   } = useApp();
   const [selected, setSelected] = useState<AppNotification | null>(null);
+
+  const viewOpts = {
+    roles: data.roles,
+    workflows: data.workflows,
+    includeActionable: true as const,
+    delegations: data.delegations ?? [],
+    notifications: data.notifications ?? [],
+  };
+
+  const canOpenRequest = (submissionId: string) => {
+    const submission = data.submissions.find((s) => s.id === submissionId);
+    if (!submission || !currentUser) return false;
+    return canViewSubmission(
+      currentUser,
+      submission,
+      getFormById(submission.formId),
+      data.users,
+      viewOpts,
+    );
+  };
 
   const rows = useMemo(() => {
     const all = [...(data.notifications ?? [])].sort(
@@ -147,16 +169,22 @@ export function NotificationsPage() {
                       </Stack>
                     </TableCell>
                     <TableCell>
-                      <Typography
-                        component={RouterLink}
-                        to={`/register/${n.submissionId}`}
-                        variant="body2"
-                        fontWeight={600}
-                        onClick={(e) => e.stopPropagation()}
-                        sx={{ color: 'primary.main', textDecoration: 'none' }}
-                      >
-                        {n.submissionId}
-                      </Typography>
+                      {canOpenRequest(n.submissionId) ? (
+                        <Typography
+                          component={RouterLink}
+                          to={`/register/${n.submissionId}`}
+                          variant="body2"
+                          fontWeight={600}
+                          onClick={(e) => e.stopPropagation()}
+                          sx={{ color: 'primary.main', textDecoration: 'none' }}
+                        >
+                          {n.submissionId}
+                        </Typography>
+                      ) : (
+                        <Typography variant="body2" color="text.secondary">
+                          {n.submissionId}
+                        </Typography>
+                      )}
                     </TableCell>
                     <TableCell>
                       {unread ? (
@@ -202,14 +230,21 @@ export function NotificationsPage() {
               >
                 {selected.body}
               </Typography>
-              <Button
-                component={RouterLink}
-                to={`/register/${selected.submissionId}`}
-                size="small"
-                onClick={() => setSelected(null)}
-              >
-                Open related request
-              </Button>
+              {canOpenRequest(selected.submissionId) ? (
+                <Button
+                  component={RouterLink}
+                  to={`/register/${selected.submissionId}`}
+                  size="small"
+                  onClick={() => setSelected(null)}
+                >
+                  Open related request
+                </Button>
+              ) : (
+                <Alert severity="info">
+                  You no longer have access to open this request under the
+                  form&apos;s visibility rules.
+                </Alert>
+              )}
             </Stack>
           )}
         </DialogContent>

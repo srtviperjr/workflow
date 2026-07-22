@@ -20,12 +20,14 @@ import { WorkflowHistory } from '../components/forms/WorkflowHistory';
 import { FormRenderer } from '../components/forms/FormRenderer';
 import {
   advanceSubmission,
-  canUserActOnNode,
   getDecisionOutcomes,
   getDelegationSource,
 } from '../utils/workflowEngine';
 import { downloadFormPdf } from '../utils/formPdf';
-import { canViewSubmission } from '../utils/submissionVisibility';
+import {
+  canActOnSubmission,
+  canViewSubmission,
+} from '../utils/submissionVisibility';
 import type { FormFieldData } from '../types';
 import {
   formatFieldDisplayValue,
@@ -82,16 +84,25 @@ export function RequestDetailPage() {
     );
   }
 
+  const accessOpts = {
+    roles: data.roles,
+    workflows: data.workflows,
+    users: data.users,
+    delegations: data.delegations ?? [],
+    notifications: data.notifications ?? [],
+  };
+
   const allowed = canViewSubmission(
     currentUser,
     submission,
     form,
     data.users,
     {
-      roles: data.roles,
-      workflows: data.workflows,
+      roles: accessOpts.roles,
+      workflows: accessOpts.workflows,
       includeActionable: true,
-      delegations: data.delegations ?? [],
+      delegations: accessOpts.delegations,
+      notifications: accessOpts.notifications,
     },
   );
 
@@ -99,8 +110,8 @@ export function RequestDetailPage() {
     return (
       <Box>
         <Alert severity="warning">
-          You do not have permission to view this submission based on the
-          form&apos;s visibility settings.
+          This request is outside your visibility for this form. It will not
+          appear in your registers or awaiting-action list.
         </Alert>
         <Button component={RouterLink} to="/register" sx={{ mt: 2 }}>
           Back to register
@@ -117,18 +128,8 @@ export function RequestDetailPage() {
     users: data.users,
   };
 
-  const canAct =
-    currentUser &&
-    currentNode &&
-    submission.status === 'in_progress' &&
-    (currentNode.type === 'step' || currentNode.type === 'decision') &&
-    canUserActOnNode(
-      currentUser,
-      currentNode,
-      data.roles,
-      submission.formId,
-      permissionCtx,
-    );
+  // Approve/deny only when the viewer can act — never show actions without access
+  const canAct = canActOnSubmission(currentUser, submission, accessOpts);
 
   const actingFor =
     currentUser && currentNode && canAct

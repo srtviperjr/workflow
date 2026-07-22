@@ -68,6 +68,7 @@ export function FormRegisterPage() {
           workflows: data.workflows,
           includeActionable: true,
           delegations: data.delegations ?? [],
+          notifications: data.notifications ?? [],
         }),
       )
       .sort(
@@ -81,6 +82,7 @@ export function FormRegisterPage() {
     data.roles,
     data.workflows,
     data.delegations,
+    data.notifications,
     currentUser,
   ]);
 
