@@ -176,11 +176,10 @@ export function cellValue(
   }
 }
 
-/** Raw value used for filtering (ISO dates, status codes, full request id). */
 export function filterValue(
   columnId: string,
   submission: FormSubmission,
-  ctx: { users: User[]; workflows: Workflow[] },
+  ctx: { users: User[]; workflows: Workflow[]; form?: FormDefinition | null },
 ): string {
   switch (columnId) {
     case 'requestId':
@@ -206,33 +205,37 @@ export function filterValue(
   }
 }
 
-export function matchesColumnFilter(
-  columnId: string,
-  filterText: string,
-  submission: FormSubmission,
-  ctx: { users: User[]; workflows: Workflow[] },
-): boolean {
-  const q = filterText.trim().toLowerCase();
-  if (!q) return true;
-  const value = filterValue(columnId, submission, ctx).toLowerCase();
-  if (columnId === 'status') {
-    const normalized = q.replace(/\s+/g, '_');
-    return (
-      value === normalized ||
-      value.includes(q) ||
-      value.replace('_', ' ').includes(q)
-    );
-  }
-  if (columnId === 'requestId') {
-    return value.toLowerCase().includes(q) || shortRequestId(value).includes(q);
-  }
-  // Dates: match locale display or ISO fragment
-  if (columnId === 'submittedAt' || columnId === 'lastChangedAt') {
-    const display = formatRegisterTime(filterValue(columnId, submission, ctx)).toLowerCase();
-    return value.includes(q) || display.includes(q);
-  }
-  return value.includes(q);
+/** Calendar day key (YYYY-MM-DD) in local time for ISO timestamps or date fields. */
+export function toDayKey(raw: string): string {
+  const s = raw.trim();
+  if (/^\d{4}-\d{2}-\d{2}/.test(s)) return s.slice(0, 10);
+  const d = new Date(s);
+  if (Number.isNaN(d.getTime())) return '';
+  const y = d.getFullYear();
+  const m = String(d.getMonth() + 1).padStart(2, '0');
+  const day = String(d.getDate()).padStart(2, '0');
+  return `${y}-${m}-${day}`;
 }
+
+export type RegisterFilterKind = 'text' | 'select' | 'dateRange';
+
+export type DateFilterMode = 'between' | 'relative';
+
+export type RegisterFilterValue =
+  | { kind: 'text'; q: string }
+  | { kind: 'select'; values: string[] }
+  | {
+      kind: 'dateRange';
+      mode: DateFilterMode;
+      /** Inclusive start (YYYY-MM-DD) when mode is between */
+      from: string;
+      /** Inclusive end (YYYY-MM-DD) when mode is between */
+      to: string;
+      /** Last N calendar days (including today) when mode is relative */
+      relativeDays: number;
+    };
+
+export type RegisterFilters = Record<string, RegisterFilterValue>;
 
 export const STATUS_FILTER_OPTIONS: Array<{
   value: '' | SubmissionStatus;
@@ -244,3 +247,230 @@ export const STATUS_FILTER_OPTIONS: Array<{
   { value: 'rejected', label: 'Rejected' },
   { value: 'draft', label: 'Draft' },
 ];
+
+export const RELATIVE_DATE_PRESETS: Array<{ days: number; label: string }> = [
+  { days: 7, label: 'Last 7 days' },
+  { days: 30, label: 'Last 30 days' },
+  { days: 90, label: 'Last 90 days' },
+  { days: 365, label: 'Last 365 days' },
+];
+
+export function emptyFilterValue(kind: RegisterFilterKind): RegisterFilterValue {
+  if (kind === 'select') return { kind: 'select', values: [] };
+  if (kind === 'dateRange') {
+    return {
+      kind: 'dateRange',
+      mode: 'between',
+      from: '',
+      to: '',
+      relativeDays: 90,
+    };
+  }
+  return { kind: 'text', q: '' };
+}
+
+export function isFilterActive(filter: RegisterFilterValue | undefined): boolean {
+  if (!filter) return false;
+  if (filter.kind === 'text') return filter.q.trim().length > 0;
+  if (filter.kind === 'select') return filter.values.length > 0;
+  if (filter.mode === 'relative') return filter.relativeDays > 0;
+  return Boolean(filter.from || filter.to);
+}
+
+export function countActiveFilters(filters: RegisterFilters): number {
+  return Object.values(filters).filter(isFilterActive).length;
+}
+
+export function todayDayKey(): string {
+  return toDayKey(new Date().toISOString());
+}
+
+/** Inclusive from/to day keys for matching a date filter. */
+export function resolveDateFilterBounds(filter: Extract<
+  RegisterFilterValue,
+  { kind: 'dateRange' }
+>): { from: string; to: string } {
+  if (filter.mode === 'relative' && filter.relativeDays > 0) {
+    const end = new Date();
+    const start = new Date();
+    start.setHours(0, 0, 0, 0);
+    end.setHours(0, 0, 0, 0);
+    start.setDate(start.getDate() - (filter.relativeDays - 1));
+    return { from: toDayKey(start.toISOString()), to: toDayKey(end.toISOString()) };
+  }
+  return { from: filter.from, to: filter.to };
+}
+
+export function formatDateFilterSummary(
+  filter: Extract<RegisterFilterValue, { kind: 'dateRange' }> | undefined,
+): string {
+  if (!filter || !isFilterActive(filter)) return 'Any date';
+  if (filter.mode === 'relative') {
+    const preset = RELATIVE_DATE_PRESETS.find((p) => p.days === filter.relativeDays);
+    return preset?.label ?? `Last ${filter.relativeDays} days`;
+  }
+  if (filter.from && filter.to) return `${filter.from} → ${filter.to}`;
+  if (filter.from) return `From ${filter.from}`;
+  if (filter.to) return `Until ${filter.to}`;
+  return 'Any date';
+}
+
+export function getColumnFilterKind(
+  columnId: string,
+  form?: FormDefinition | null,
+): RegisterFilterKind {
+  if (columnId === 'status') return 'select';
+  if (columnId === 'formName') return 'select';
+  if (columnId === 'currentStep') return 'select';
+  if (columnId === 'submittedAt' || columnId === 'lastChangedAt') {
+    return 'dateRange';
+  }
+  const fieldId = parseFieldColumnId(columnId);
+  if (fieldId && form) {
+    const field = form.fields.find((f) => f.id === fieldId);
+    if (field?.type === 'date') return 'dateRange';
+    if (field?.type === 'select') return 'select';
+  }
+  return 'text';
+}
+
+/** Distinct step/decision/end labels available for Current step filtering. */
+export function collectWorkflowStepLabels(
+  workflows: Workflow[],
+  formId?: string | null,
+): string[] {
+  const list = formId
+    ? workflows.filter((w) => w.formId === formId)
+    : workflows;
+  const labels = new Set<string>();
+  for (const w of list) {
+    for (const n of w.nodes) {
+      if (n.type === 'start') continue;
+      if (n.type === 'step' || n.type === 'decision' || n.type === 'end') {
+        const label = n.data.label?.trim();
+        if (label) labels.add(label);
+      }
+    }
+  }
+  return [...labels].sort((a, b) => a.localeCompare(b));
+}
+
+export function getSelectFilterOptions(
+  columnId: string,
+  ctx: {
+    form?: FormDefinition | null;
+    forms?: FormDefinition[];
+    workflows?: Workflow[];
+  },
+): Array<{ value: string; label: string }> {
+  if (columnId === 'status') {
+    return STATUS_FILTER_OPTIONS.filter((o) => o.value !== '').map((o) => ({
+      value: o.value,
+      label: o.label,
+    }));
+  }
+  if (columnId === 'formName') {
+    const names = [...new Set((ctx.forms ?? []).map((f) => f.name))].sort();
+    return names.map((n) => ({ value: n, label: n }));
+  }
+  if (columnId === 'currentStep') {
+    return collectWorkflowStepLabels(
+      ctx.workflows ?? [],
+      ctx.form?.id ?? null,
+    ).map((s) => ({ value: s, label: s }));
+  }
+  const fieldId = parseFieldColumnId(columnId);
+  if (fieldId && ctx.form) {
+    const field = ctx.form.fields.find((f) => f.id === fieldId);
+    if (field?.type === 'select') {
+      return (field.options ?? []).map((opt) => ({ value: opt, label: opt }));
+    }
+  }
+  return [];
+}
+
+function matchesDateRange(
+  rawValue: string,
+  from: string,
+  to: string,
+): boolean {
+  const day = toDayKey(rawValue);
+  if (!day) return false;
+  if (from && day < from) return false;
+  if (to && day > to) return false;
+  return true;
+}
+
+export function matchesColumnFilter(
+  columnId: string,
+  filter: RegisterFilterValue | string | undefined,
+  submission: FormSubmission,
+  ctx: {
+    users: User[];
+    workflows: Workflow[];
+    form?: FormDefinition | null;
+  },
+): boolean {
+  // Back-compat: plain string treated as text / status select
+  let normalized: RegisterFilterValue | undefined;
+  if (typeof filter === 'string') {
+    const kind = getColumnFilterKind(columnId, ctx.form);
+    if (kind === 'select') {
+      normalized = {
+        kind: 'select',
+        values: filter.trim() ? [filter] : [],
+      };
+    } else if (kind === 'dateRange') {
+      // Legacy free-text date filter: fall back to substring on ISO/display
+      if (!filter.trim()) return true;
+      const value = filterValue(columnId, submission, ctx).toLowerCase();
+      const q = filter.trim().toLowerCase();
+      const display = formatRegisterTime(
+        filterValue(columnId, submission, ctx),
+      ).toLowerCase();
+      return value.includes(q) || display.includes(q);
+    } else {
+      normalized = { kind: 'text', q: filter };
+    }
+  } else {
+    normalized = filter;
+  }
+
+  if (!normalized || !isFilterActive(normalized)) return true;
+
+  if (normalized.kind === 'dateRange') {
+    const raw = filterValue(columnId, submission, ctx);
+    const bounds = resolveDateFilterBounds(normalized);
+    return matchesDateRange(raw, bounds.from, bounds.to);
+  }
+
+  if (normalized.kind === 'select') {
+    const selected = normalized.values.map((v) => v.trim()).filter(Boolean);
+    if (selected.length === 0) return true;
+    const value = filterValue(columnId, submission, ctx);
+    if (columnId === 'status') {
+      const lower = value.toLowerCase();
+      return selected.some((q) => {
+        const normalizedQ = q.replace(/\s+/g, '_').toLowerCase();
+        return (
+          lower === normalizedQ ||
+          lower === q.toLowerCase() ||
+          lower.replace('_', ' ') === q.toLowerCase()
+        );
+      });
+    }
+    const lower = value.toLowerCase();
+    return selected.some(
+      (q) => value === q || lower === q.toLowerCase(),
+    );
+  }
+
+  // text — partial / contains search
+  const q = normalized.q.trim().toLowerCase();
+  if (!q) return true;
+  const value = filterValue(columnId, submission, ctx).toLowerCase();
+  if (columnId === 'requestId') {
+    return value.includes(q) || shortRequestId(value).toLowerCase().includes(q);
+  }
+  return value.includes(q);
+}

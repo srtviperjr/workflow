@@ -2,6 +2,7 @@ import { useMemo, useState } from 'react';
 import { Link as RouterLink } from 'react-router-dom';
 import {
   Box,
+  Button,
   Chip,
   Paper,
   Stack,
@@ -13,6 +14,7 @@ import {
   TableRow,
   Typography,
 } from '@mui/material';
+import FilterAltOffIcon from '@mui/icons-material/FilterAltOff';
 import { useApp } from '../context/AppContext';
 import {
   RegisterColumnFilter,
@@ -24,12 +26,15 @@ import {
   OVERALL_REGISTER_COLUMNS,
   META_COLUMN_LABELS,
   cellValue,
+  countActiveFilters,
   matchesColumnFilter,
+  type RegisterFilterValue,
+  type RegisterFilters,
 } from '../utils/registerColumns';
 
 export function RequestRegisterPage() {
   const { data, currentUser, getFormById } = useApp();
-  const [filters, setFilters] = useState<Record<string, string>>({});
+  const [filters, setFilters] = useState<RegisterFilters>({});
 
   const visible = useMemo(() => {
     return data.submissions
@@ -67,26 +72,46 @@ export function RequestRegisterPage() {
     const ctx = { users: data.users, workflows: data.workflows };
     return visible.filter((s) =>
       OVERALL_REGISTER_COLUMNS.every((col) =>
-        matchesColumnFilter(col, filters[col] ?? '', s, ctx),
+        matchesColumnFilter(col, filters[col], s, ctx),
       ),
     );
   }, [visible, filters, data.users, data.workflows]);
 
-  const setFilter = (columnId: string, value: string) => {
+  const activeFilterCount = countActiveFilters(filters);
+
+  const setFilter = (columnId: string, value: RegisterFilterValue) => {
     setFilters((prev) => ({ ...prev, [columnId]: value }));
   };
 
   return (
     <Box>
-      <Box mb={3}>
-        <Typography variant="h4" fontWeight={700}>
-          Request Register
-        </Typography>
-        <Typography color="text.secondary">
-          Overall view of requests you can see. Open a form register to show
-          form fields and customize columns.
-        </Typography>
-      </Box>
+      <Stack
+        direction={{ xs: 'column', sm: 'row' }}
+        justifyContent="space-between"
+        alignItems={{ sm: 'flex-start' }}
+        spacing={1.5}
+        mb={3}
+      >
+        <Box>
+          <Typography variant="h4" fontWeight={700}>
+            Request Register
+          </Typography>
+          <Typography color="text.secondary">
+            Overall view of requests you can see. Open a form register to show
+            form fields and customize columns.
+          </Typography>
+        </Box>
+        {activeFilterCount > 0 && (
+          <Button
+            variant="outlined"
+            size="small"
+            startIcon={<FilterAltOffIcon />}
+            onClick={() => setFilters({})}
+          >
+            Clear filters ({activeFilterCount})
+          </Button>
+        )}
+      </Stack>
 
       <Stack direction="row" spacing={1} flexWrap="wrap" useFlexGap mb={2}>
         <Chip label="All forms" color="primary" size="small" />
@@ -128,8 +153,10 @@ export function RequestRegisterPage() {
                 <TableCell key={`${col}-filter`} sx={{ top: 37 }}>
                   <RegisterColumnFilter
                     columnId={col}
-                    value={filters[col] ?? ''}
+                    value={filters[col]}
                     onChange={(v) => setFilter(col, v)}
+                    forms={data.forms}
+                    workflows={data.workflows}
                   />
                 </TableCell>
               ))}

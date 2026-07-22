@@ -15,6 +15,7 @@ import {
   Typography,
 } from '@mui/material';
 import ViewColumnIcon from '@mui/icons-material/ViewColumn';
+import FilterAltOffIcon from '@mui/icons-material/FilterAltOff';
 import { useApp } from '../context/AppContext';
 import { CustomizeRegisterColumnsDialog } from '../components/register/CustomizeRegisterColumnsDialog';
 import {
@@ -26,9 +27,12 @@ import { canViewSubmission } from '../utils/submissionVisibility';
 import {
   cellValue,
   columnLabel,
+  countActiveFilters,
   getSavedFormRegisterView,
   matchesColumnFilter,
   resolveFormRegisterColumns,
+  type RegisterFilterValue,
+  type RegisterFilters,
 } from '../utils/registerColumns';
 
 export function FormRegisterPage() {
@@ -40,7 +44,7 @@ export function FormRegisterPage() {
     setFormRegisterView,
   } = useApp();
   const form = getFormById(formId);
-  const [filters, setFilters] = useState<Record<string, string>>({});
+  const [filters, setFilters] = useState<RegisterFilters>({});
   const [customizeOpen, setCustomizeOpen] = useState(false);
 
   const columns = useMemo(() => {
@@ -87,19 +91,21 @@ export function FormRegisterPage() {
   ]);
 
   const rows = useMemo(() => {
-    const ctx = { users: data.users, workflows: data.workflows };
+    const ctx = { users: data.users, workflows: data.workflows, form };
     return visible.filter((s) =>
       visibleColumns.every((col) =>
-        matchesColumnFilter(col.id, filters[col.id] ?? '', s, ctx),
+        matchesColumnFilter(col.id, filters[col.id], s, ctx),
       ),
     );
-  }, [visible, visibleColumns, filters, data.users, data.workflows]);
+  }, [visible, visibleColumns, filters, data.users, data.workflows, form]);
 
   if (!form) {
     return <Navigate to="/register" replace />;
   }
 
-  const setFilter = (columnId: string, value: string) => {
+  const activeFilterCount = countActiveFilters(filters);
+
+  const setFilter = (columnId: string, value: RegisterFilterValue) => {
     setFilters((prev) => ({ ...prev, [columnId]: value }));
   };
 
@@ -120,13 +126,25 @@ export function FormRegisterPage() {
             Customize visible fields and filter from each column header.
           </Typography>
         </Box>
-        <Button
-          variant="outlined"
-          startIcon={<ViewColumnIcon />}
-          onClick={() => setCustomizeOpen(true)}
-        >
-          Customize columns
-        </Button>
+        <Stack direction="row" spacing={1} flexWrap="wrap" useFlexGap>
+          {activeFilterCount > 0 && (
+            <Button
+              variant="outlined"
+              size="small"
+              startIcon={<FilterAltOffIcon />}
+              onClick={() => setFilters({})}
+            >
+              Clear filters ({activeFilterCount})
+            </Button>
+          )}
+          <Button
+            variant="outlined"
+            startIcon={<ViewColumnIcon />}
+            onClick={() => setCustomizeOpen(true)}
+          >
+            Customize columns
+          </Button>
+        </Stack>
       </Stack>
 
       <Stack direction="row" spacing={1} flexWrap="wrap" useFlexGap mb={2}>
@@ -177,8 +195,11 @@ export function FormRegisterPage() {
                 <TableCell key={`${col.id}-filter`} sx={{ top: 37 }}>
                   <RegisterColumnFilter
                     columnId={col.id}
-                    value={filters[col.id] ?? ''}
+                    value={filters[col.id]}
                     onChange={(v) => setFilter(col.id, v)}
+                    form={form}
+                    forms={data.forms}
+                    workflows={data.workflows}
                   />
                 </TableCell>
               ))}
