@@ -368,33 +368,26 @@ export function DelegationsPage() {
 
   return (
     <Box>
-      <Stack
-        direction="row"
-        justifyContent="space-between"
-        alignItems="center"
-        mb={3}
-      >
-        <Box>
-          <Typography variant="h4" fontWeight={700}>
-            Delegations
-          </Typography>
-          <Typography color="text.secondary">
-            Grant your approval permissions to another user for a set number of
-            days. Their existing permissions are kept — yours are added for the
-            duration only. You can notify them of in-progress work when a
-            delegation starts; when it ends you are notified of unfinished
-            requests. A user cannot have overlapping delegations for the same
-            coverage and dates.
-            {!isAdmin &&
-              ' You can only create and manage delegations for yourself.'}
-            {isAdmin &&
-              ' As an admin you can create and manage delegations for any user.'}
-          </Typography>
-        </Box>
+      <Box mb={3}>
+        <Typography variant="h4" fontWeight={700}>
+          Delegations
+        </Typography>
+        <Typography color="text.secondary" mb={2}>
+          Grant your approval permissions to another user for a set number of
+          days. Their existing permissions are kept — yours are added for the
+          duration only. You can notify them of in-progress work when a
+          delegation starts; when it ends you are notified of unfinished
+          requests. A user cannot have overlapping delegations for the same
+          coverage and dates.
+          {!isAdmin &&
+            ' You can only create and manage delegations for yourself.'}
+          {isAdmin &&
+            ' As an admin you can create and manage delegations for any user.'}
+        </Typography>
         <Button variant="contained" startIcon={<AddIcon />} onClick={openCreate}>
           New Delegation
         </Button>
-      </Stack>
+      </Box>
 
       <TableContainer component={Paper} elevation={1}>
         <Table>
