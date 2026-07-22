@@ -103,8 +103,8 @@ Dashboard hero tagline: **Project workflow management system.**
 | RQ-2 | Request detail shows form data (including downloadable attachments), current step, and history. |
 | RQ-3 | Eligible actors can approve / reject / complete steps with comments. |
 | RQ-4 | History records actor, action, outcome, timestamp; delegate actions are labeled. |
-| RQ-5 | Overall request register lists submissions with: request #, form name, submitter, submission date, last change date, status, current step. |
-| RQ-6 | Each form has its own register showing form fields; users can customize column visibility and order (saved per identity). |
+| RQ-5 | Overall request register lists submissions with: request #, submitter, form name, submission date, status, current step (current step always immediately after status). Request # and Submitter are sticky (locked while scrolling horizontally) by default. |
+| RQ-6 | Each form has its own register showing form fields; users can customize column visibility, order, and sticky pins (saved per identity). Request # and Submitter are sticky by default. Current step stays immediately to the right of Status. |
 | RQ-7 | Registers support **field-aware** filtering from column headers: date columns use a between/relative date popup; status, form, current step, and select fields use **multi-select** dropdowns; other columns use partial text search. |
 | RQ-7a | Users can clear an individual filter and clear all active filters. |
 | RQ-8 | Dashboard shows pending items the current identity can both see and act on. |

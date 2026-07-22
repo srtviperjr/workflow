@@ -26,7 +26,6 @@ export const META_COLUMN_LABELS: Record<RegisterMetaColumnId, string> = {
   formName: 'Form',
   submitter: 'Submitter',
   submittedAt: 'Submission date',
-  lastChangedAt: 'Last change',
   status: 'Status',
   currentStep: 'Current step',
 };
@@ -34,31 +33,146 @@ export const META_COLUMN_LABELS: Record<RegisterMetaColumnId, string> = {
 /** Fixed columns for the overall (cross-form) register. */
 export const OVERALL_REGISTER_COLUMNS: RegisterMetaColumnId[] = [
   'requestId',
-  'formName',
   'submitter',
+  'formName',
   'submittedAt',
-  'lastChangedAt',
   'status',
   'currentStep',
 ];
+
+/** Meta columns that are sticky by default (Request #, Submitter). */
+export const DEFAULT_STICKY_COLUMN_IDS: ReadonlySet<string> = new Set([
+  'requestId',
+  'submitter',
+]);
+
+export function isDefaultStickyColumn(columnId: string): boolean {
+  return DEFAULT_STICKY_COLUMN_IDS.has(columnId);
+}
+
+/** Approximate widths used for sticky `left` offsets (must match cell width). */
+export function stickyColumnWidth(columnId: string): number {
+  switch (columnId) {
+    case 'requestId':
+      return 110;
+    case 'submitter':
+      return 160;
+    case 'formName':
+      return 160;
+    case 'status':
+      return 120;
+    case 'currentStep':
+      return 150;
+    default:
+      return 160;
+  }
+}
+
+/** Keep sticky columns contiguous at the start (relative order preserved). */
+export function orderStickyColumnsFirst(
+  columns: RegisterColumnConfig[],
+): RegisterColumnConfig[] {
+  const sticky = columns.filter((c) => c.sticky);
+  const rest = columns.filter((c) => !c.sticky);
+  return [...sticky, ...rest];
+}
+
+/**
+ * Ensure Current step sits immediately to the right of Status when both exist.
+ */
+export function placeCurrentStepAfterStatus(
+  columns: RegisterColumnConfig[],
+): RegisterColumnConfig[] {
+  const statusIdx = columns.findIndex((c) => c.id === 'status');
+  const stepIdx = columns.findIndex((c) => c.id === 'currentStep');
+  if (statusIdx < 0 || stepIdx < 0) return columns;
+  if (statusIdx + 1 === stepIdx) return columns;
+
+  const copy = [...columns];
+  const [step] = copy.splice(stepIdx, 1);
+  const newStatusIdx = copy.findIndex((c) => c.id === 'status');
+  copy.splice(newStatusIdx + 1, 0, step);
+  return copy;
+}
+
+/** Apply sticky-first + Status → Current step ordering rules. */
+export function normalizeRegisterColumnOrder(
+  columns: RegisterColumnConfig[],
+): RegisterColumnConfig[] {
+  return placeCurrentStepAfterStatus(orderStickyColumnsFirst(columns));
+}
+
+/**
+ * SX for a sticky register cell. Sticky columns use fixed widths so `left`
+ * offsets match the rendered size (avoids gaps where scrolling cells peek through).
+ */
+export function stickyCellSx(
+  columns: Array<Pick<RegisterColumnConfig, 'id' | 'sticky'>>,
+  columnId: string,
+  opts?: { variant?: 'head' | 'filter' | 'body' },
+): Record<string, unknown> {
+  const stickyCols = columns.filter((c) => c.sticky);
+  const idx = stickyCols.findIndex((c) => c.id === columnId);
+  if (idx < 0) return {};
+
+  let left = 0;
+  for (let i = 0; i < idx; i++) {
+    left += stickyColumnWidth(stickyCols[i].id);
+  }
+
+  const variant = opts?.variant ?? 'body';
+  const isHead = variant === 'head' || variant === 'filter';
+  const isLastSticky = idx === stickyCols.length - 1;
+  const width = stickyColumnWidth(columnId);
+
+  // Solid colors only — translucent backgrounds let scrolling cells show through.
+  const headBg = '#FDE8D8';
+  const bodyBg = '#FFFFFF';
+
+  return {
+    position: 'sticky',
+    left,
+    width,
+    minWidth: width,
+    maxWidth: width,
+    zIndex: variant === 'head' ? 6 : variant === 'filter' ? 5 : 4,
+    bgcolor: isHead ? headBg : bodyBg,
+    backgroundColor: isHead ? headBg : bodyBg,
+    backgroundClip: 'padding-box',
+    boxSizing: 'border-box',
+    overflow: 'hidden',
+    // Edge separator so content does not appear to slide under the pin
+    borderRight: isLastSticky ? '1px solid rgba(0,0,0,0.12)' : undefined,
+    boxShadow: isLastSticky
+      ? '6px 0 8px -4px rgba(0,0,0,0.18)'
+      : undefined,
+  };
+}
+
+/** Table styles required for horizontal sticky columns to work cleanly. */
+export const REGISTER_STICKY_TABLE_SX = {
+  borderCollapse: 'separate',
+  borderSpacing: 0,
+} as const;
 
 /** Meta columns available on a per-form register (no form name — it's implied). */
 export const FORM_REGISTER_META_COLUMNS: RegisterMetaColumnId[] = [
   'requestId',
   'submitter',
   'submittedAt',
-  'lastChangedAt',
   'status',
   'currentStep',
 ];
 
-export function lastChangedAt(submission: FormSubmission): string {
-  let latest = submission.submittedAt;
-  for (const entry of submission.history ?? []) {
-    if (entry.timestamp > latest) latest = entry.timestamp;
-  }
-  return latest;
-}
+/** Overall register layout with default sticky Request # + Submitter. */
+export const OVERALL_REGISTER_COLUMN_CONFIG: RegisterColumnConfig[] =
+  normalizeRegisterColumnOrder(
+    OVERALL_REGISTER_COLUMNS.map((id) => ({
+      id,
+      visible: true,
+      sticky: isDefaultStickyColumn(id),
+    })),
+  );
 
 export function formatRegisterTime(iso: string): string {
   return new Date(iso).toLocaleString();
@@ -88,18 +202,24 @@ export function currentStepLabel(
 export function defaultFormRegisterColumns(
   form: FormDefinition,
 ): RegisterColumnConfig[] {
-  return [
-    ...FORM_REGISTER_META_COLUMNS.map((id) => ({ id, visible: true })),
+  return normalizeRegisterColumnOrder([
+    ...FORM_REGISTER_META_COLUMNS.map((id) => ({
+      id,
+      visible: true,
+      sticky: isDefaultStickyColumn(id),
+    })),
     ...form.fields.map((f) => ({
       id: fieldColumnId(f.id),
       visible: true,
+      sticky: false,
     })),
-  ];
+  ]);
 }
 
 /**
  * Merge a saved layout with the form's current fields.
- * Keeps user order/visibility for known columns; appends new fields; drops removed ones.
+ * Keeps user order/visibility/sticky for known columns; appends new fields; drops removed ones.
+ * Drops legacy columns (e.g. lastChangedAt) and keeps Current step beside Status.
  */
 export function resolveFormRegisterColumns(
   form: FormDefinition,
@@ -115,13 +235,20 @@ export function resolveFormRegisterColumns(
   for (const col of saved) {
     if (!allowed.has(col.id) || seen.has(col.id)) continue;
     seen.add(col.id);
-    resolved.push({ id: col.id, visible: Boolean(col.visible) });
+    resolved.push({
+      id: col.id,
+      visible: Boolean(col.visible),
+      sticky:
+        typeof col.sticky === 'boolean'
+          ? col.sticky
+          : isDefaultStickyColumn(col.id),
+    });
   }
   for (const col of defaults) {
     if (seen.has(col.id)) continue;
-    resolved.push(col);
+    resolved.push({ ...col });
   }
-  return resolved;
+  return normalizeRegisterColumnOrder(resolved);
 }
 
 export function getSavedFormRegisterView(
@@ -161,8 +288,6 @@ export function cellValue(
       return submitterName(submission, ctx.users);
     case 'submittedAt':
       return formatRegisterTime(submission.submittedAt);
-    case 'lastChangedAt':
-      return formatRegisterTime(lastChangedAt(submission));
     case 'status':
       return submission.status.replace('_', ' ');
     case 'currentStep':
@@ -190,8 +315,6 @@ export function filterValue(
       return submitterName(submission, ctx.users);
     case 'submittedAt':
       return submission.submittedAt;
-    case 'lastChangedAt':
-      return lastChangedAt(submission);
     case 'status':
       return submission.status;
     case 'currentStep':
@@ -322,7 +445,7 @@ export function getColumnFilterKind(
   if (columnId === 'status') return 'select';
   if (columnId === 'formName') return 'select';
   if (columnId === 'currentStep') return 'select';
-  if (columnId === 'submittedAt' || columnId === 'lastChangedAt') {
+  if (columnId === 'submittedAt') {
     return 'dateRange';
   }
   const fieldId = parseFieldColumnId(columnId);

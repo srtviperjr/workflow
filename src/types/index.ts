@@ -325,7 +325,6 @@ export type RegisterMetaColumnId =
   | 'formName'
   | 'submitter'
   | 'submittedAt'
-  | 'lastChangedAt'
   | 'status'
   | 'currentStep';
 
@@ -336,6 +335,11 @@ export interface RegisterColumnConfig {
    */
   id: string;
   visible: boolean;
+  /**
+   * When true, the column stays locked on the left while scrolling
+   * horizontally. Sticky columns are kept contiguous at the start.
+   */
+  sticky?: boolean;
 }
 
 /** Per-user column layout for a form's register. */

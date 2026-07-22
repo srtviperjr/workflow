@@ -30,7 +30,10 @@ import {
   countActiveFilters,
   getSavedFormRegisterView,
   matchesColumnFilter,
+  normalizeRegisterColumnOrder,
+  REGISTER_STICKY_TABLE_SX,
   resolveFormRegisterColumns,
+  stickyCellSx,
   type RegisterFilterValue,
   type RegisterFilters,
 } from '../utils/registerColumns';
@@ -123,7 +126,9 @@ export function FormRegisterPage() {
             {form.name} register
           </Typography>
           <Typography color="text.secondary">
-            Customize visible fields and filter from each column header.
+            Customize visible fields, pin sticky columns, and filter from each
+            column header. Request # and Submitter stay locked while scrolling
+            by default.
           </Typography>
         </Box>
         <Stack direction="row" spacing={1} flexWrap="wrap" useFlexGap>
@@ -177,22 +182,39 @@ export function FormRegisterPage() {
           overflowX: 'auto',
           '& .MuiTableCell-head': {
             fontWeight: 700,
-            bgcolor: 'rgba(226,82,0,0.08)',
             whiteSpace: 'nowrap',
             verticalAlign: 'bottom',
           },
+          '& .MuiTableCell-head:not(.register-sticky-col)': {
+            bgcolor: '#FDE8D8',
+          },
         }}
       >
-        <Table size="small" stickyHeader>
+        <Table size="small" stickyHeader sx={REGISTER_STICKY_TABLE_SX}>
           <TableHead>
             <TableRow>
               {visibleColumns.map((col) => (
-                <TableCell key={col.id}>{columnLabel(col.id, form)}</TableCell>
+                <TableCell
+                  key={col.id}
+                  className={col.sticky ? 'register-sticky-col' : undefined}
+                  sx={stickyCellSx(visibleColumns, col.id, { variant: 'head' })}
+                >
+                  {columnLabel(col.id, form)}
+                </TableCell>
               ))}
             </TableRow>
             <TableRow>
               {visibleColumns.map((col) => (
-                <TableCell key={`${col.id}-filter`} sx={{ top: 37 }}>
+                <TableCell
+                  key={`${col.id}-filter`}
+                  className={col.sticky ? 'register-sticky-col' : undefined}
+                  sx={{
+                    top: 37,
+                    ...stickyCellSx(visibleColumns, col.id, {
+                      variant: 'filter',
+                    }),
+                  }}
+                >
                   <RegisterColumnFilter
                     columnId={col.id}
                     value={filters[col.id]}
@@ -229,19 +251,29 @@ export function FormRegisterPage() {
                     textDecoration: 'none',
                     cursor: 'pointer',
                     '&:hover': { bgcolor: 'rgba(226,82,0,0.04)' },
+                    '&:hover .register-sticky-col': {
+                      bgcolor: '#FFF7F2',
+                      backgroundColor: '#FFF7F2',
+                    },
                   }}
                 >
                   {visibleColumns.map((col) => (
                     <TableCell
                       key={col.id}
+                      className={col.sticky ? 'register-sticky-col' : undefined}
                       sx={{
                         whiteSpace:
-                          col.id === 'submittedAt' || col.id === 'lastChangedAt'
-                            ? 'nowrap'
-                            : undefined,
+                          col.id === 'submittedAt' ? 'nowrap' : undefined,
                         fontFamily:
                           col.id === 'requestId' ? 'monospace' : undefined,
-                        maxWidth: col.id.startsWith('field:') ? 220 : undefined,
+                        ...(col.sticky
+                          ? {}
+                          : col.id.startsWith('field:')
+                            ? { maxWidth: 220 }
+                            : {}),
+                        ...stickyCellSx(visibleColumns, col.id, {
+                          variant: 'body',
+                        }),
                       }}
                     >
                       {col.id === 'status' ? (
@@ -249,7 +281,7 @@ export function FormRegisterPage() {
                       ) : (
                         <Typography
                           variant="body2"
-                          noWrap={col.id.startsWith('field:')}
+                          noWrap={col.id.startsWith('field:') || Boolean(col.sticky)}
                           title={cellValue(col.id, s, ctx)}
                         >
                           {cellValue(col.id, s, ctx) || '—'}
@@ -269,7 +301,9 @@ export function FormRegisterPage() {
         form={form}
         columns={columns}
         onClose={() => setCustomizeOpen(false)}
-        onSave={(next) => setFormRegisterView(form.id, next)}
+        onSave={(next) =>
+          setFormRegisterView(form.id, normalizeRegisterColumnOrder(next))
+        }
       />
     </Box>
   );

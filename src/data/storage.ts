@@ -342,7 +342,14 @@ function normalizeFormRegisterView(
     userId: raw.userId,
     columns: raw.columns
       .filter((c) => c && typeof c.id === 'string')
-      .map((c) => ({ id: c.id, visible: Boolean(c.visible) })),
+      .map((c) => ({
+        id: c.id,
+        visible: Boolean(c.visible),
+        sticky:
+          typeof c.sticky === 'boolean'
+            ? c.sticky
+            : c.id === 'requestId' || c.id === 'submitter',
+      })),
   };
 }
 
