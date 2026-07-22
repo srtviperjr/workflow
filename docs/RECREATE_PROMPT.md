@@ -1,4 +1,4 @@
-# Jansen Workflows — Recreation Prompt (v0.8)
+# Jansen Workflows — Recreation Prompt (v0.8.1)
 
 Copy everything below the line into a coding agent (or use as a product brief) to recreate this application.
 
@@ -10,7 +10,7 @@ Build **Jansen Workflows** — a frontend-only React + TypeScript (Vite) approva
 
 ### Product summary
 
-Admins design forms and exclusive 1:1 workflows on a visual canvas. Notification **message templates** are administered separately (per form, rich text). Workflow Notify nodes pick a template and choose recipients. Users submit requests from a **Requests** catalog, advance approvals by role, view registers with field-aware filters, receive in-app notifications, and optionally attach small files. Delegations can hand off in-progress work at start/end (summary notification when more than four open items; no overlapping grants for the same user coverage). Demo users switch identity via an AppBar picker. Display version **v0.8** in the AppBar and sidebar. Dashboard hero tagline: **Project workflow management system.** Admin **Integrations** configures Azure AD, Azure SQL, and email.
+Admins design forms and exclusive 1:1 workflows on a visual canvas. Notification **message templates** are administered separately (per form, rich text). Workflow Notify nodes pick a template and choose recipients. Users submit requests from a **Requests** catalog, advance approvals by role, view registers with field-aware filters and sticky Request # / Submitter columns, receive in-app notifications, and optionally attach small files. Delegations can hand off in-progress work at start/end (summary notification when more than four open items; no overlapping grants for the same user coverage). Demo users switch identity via an AppBar picker. Display version **v0.8.1** in the AppBar and sidebar. Dashboard hero tagline: **Project workflow management system.** Admin **Integrations** configures Azure AD, Azure SQL, and email.
 
 Keep **view** and **approve** access consistent: never show a request (or a notification deep-link) that the user cannot open, and never show Approve/Reject unless they can act on the current step.
 
@@ -57,7 +57,7 @@ Boot as **System Admin** `admin@jansen.local` (Admin + Requestor, BHP / JS1). No
 
 **Administration (admin only, this order):** Forms, **Notifications** (templates), Workflows, Users, Roles, **Integrations**, **Data Tools** (last). `/admin` → `/data-tools`.
 
-**AppBar:** bell → inbox `/notifications`; identity switcher; version `v0.8`.
+**AppBar:** bell → inbox `/notifications`; identity switcher; version `v0.8.1`.
 
 Also: form builder; notification template editor; form submit; request detail (act only when allowed, branded PDF); overall + per-form registers; workflow canvas; users/roles CRUD; Integrations (Azure AD / Azure SQL / email); Data Tools.
 
@@ -126,8 +126,9 @@ Live Azure AD SSO / SQL / email delivery (Integrations is configuration-only), m
 3. Register date filter supports between + last 90 days; status multi-select works; Clear filters works  
 4. Delegation with in-progress items can notify the delegate; ending it notifies the delegator of leftovers; >4 open items → one summary with links; overlapping same-user grants blocked  
 5. Integrations page saves Azure AD / SQL / email settings; Data Tools reset keeps them  
-6. Version badge is `v0.8`; dashboard tagline is “Project workflow management system.”  
+6. Version badge is `v0.8.1`; dashboard tagline is “Project workflow management system.”  
+7. Registers omit Last change; Current step is immediately after Status; Request # / Submitter sticky by default  
 
 ---
 
-*Generated for Jansen Workflows v0.8.*
+*Generated for Jansen Workflows v0.8.1.*
