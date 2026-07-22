@@ -176,11 +176,10 @@ export function cellValue(
   }
 }
 
-/** Raw value used for filtering (ISO dates, status codes, full request id). */
 export function filterValue(
   columnId: string,
   submission: FormSubmission,
-  ctx: { users: User[]; workflows: Workflow[] },
+  ctx: { users: User[]; workflows: Workflow[]; form?: FormDefinition | null },
 ): string {
   switch (columnId) {
     case 'requestId':
@@ -206,33 +205,26 @@ export function filterValue(
   }
 }
 
-export function matchesColumnFilter(
-  columnId: string,
-  filterText: string,
-  submission: FormSubmission,
-  ctx: { users: User[]; workflows: Workflow[] },
-): boolean {
-  const q = filterText.trim().toLowerCase();
-  if (!q) return true;
-  const value = filterValue(columnId, submission, ctx).toLowerCase();
-  if (columnId === 'status') {
-    const normalized = q.replace(/\s+/g, '_');
-    return (
-      value === normalized ||
-      value.includes(q) ||
-      value.replace('_', ' ').includes(q)
-    );
-  }
-  if (columnId === 'requestId') {
-    return value.toLowerCase().includes(q) || shortRequestId(value).includes(q);
-  }
-  // Dates: match locale display or ISO fragment
-  if (columnId === 'submittedAt' || columnId === 'lastChangedAt') {
-    const display = formatRegisterTime(filterValue(columnId, submission, ctx)).toLowerCase();
-    return value.includes(q) || display.includes(q);
-  }
-  return value.includes(q);
+/** Calendar day key (YYYY-MM-DD) in local time for ISO timestamps or date fields. */
+export function toDayKey(raw: string): string {
+  const s = raw.trim();
+  if (/^\d{4}-\d{2}-\d{2}/.test(s)) return s.slice(0, 10);
+  const d = new Date(s);
+  if (Number.isNaN(d.getTime())) return '';
+  const y = d.getFullYear();
+  const m = String(d.getMonth() + 1).padStart(2, '0');
+  const day = String(d.getDate()).padStart(2, '0');
+  return `${y}-${m}-${day}`;
 }
+
+export type RegisterFilterKind = 'text' | 'select' | 'dateRange';
+
+export type RegisterFilterValue =
+  | { kind: 'text'; q: string }
+  | { kind: 'select'; value: string }
+  | { kind: 'dateRange'; from: string; to: string };
+
+export type RegisterFilters = Record<string, RegisterFilterValue>;
 
 export const STATUS_FILTER_OPTIONS: Array<{
   value: '' | SubmissionStatus;
@@ -244,3 +236,148 @@ export const STATUS_FILTER_OPTIONS: Array<{
   { value: 'rejected', label: 'Rejected' },
   { value: 'draft', label: 'Draft' },
 ];
+
+export function emptyFilterValue(kind: RegisterFilterKind): RegisterFilterValue {
+  if (kind === 'select') return { kind: 'select', value: '' };
+  if (kind === 'dateRange') return { kind: 'dateRange', from: '', to: '' };
+  return { kind: 'text', q: '' };
+}
+
+export function isFilterActive(filter: RegisterFilterValue | undefined): boolean {
+  if (!filter) return false;
+  if (filter.kind === 'text') return filter.q.trim().length > 0;
+  if (filter.kind === 'select') return filter.value.trim().length > 0;
+  return Boolean(filter.from || filter.to);
+}
+
+export function countActiveFilters(filters: RegisterFilters): number {
+  return Object.values(filters).filter(isFilterActive).length;
+}
+
+export function getColumnFilterKind(
+  columnId: string,
+  form?: FormDefinition | null,
+): RegisterFilterKind {
+  if (columnId === 'status') return 'select';
+  if (columnId === 'formName') return 'select';
+  if (columnId === 'submittedAt' || columnId === 'lastChangedAt') {
+    return 'dateRange';
+  }
+  const fieldId = parseFieldColumnId(columnId);
+  if (fieldId && form) {
+    const field = form.fields.find((f) => f.id === fieldId);
+    if (field?.type === 'date') return 'dateRange';
+    if (field?.type === 'select') return 'select';
+  }
+  return 'text';
+}
+
+export function getSelectFilterOptions(
+  columnId: string,
+  ctx: {
+    form?: FormDefinition | null;
+    forms?: FormDefinition[];
+  },
+): Array<{ value: string; label: string }> {
+  if (columnId === 'status') {
+    return STATUS_FILTER_OPTIONS.map((o) => ({
+      value: o.value,
+      label: o.label,
+    }));
+  }
+  if (columnId === 'formName') {
+    const names = [...new Set((ctx.forms ?? []).map((f) => f.name))].sort();
+    return [
+      { value: '', label: 'All' },
+      ...names.map((n) => ({ value: n, label: n })),
+    ];
+  }
+  const fieldId = parseFieldColumnId(columnId);
+  if (fieldId && ctx.form) {
+    const field = ctx.form.fields.find((f) => f.id === fieldId);
+    if (field?.type === 'select') {
+      return [
+        { value: '', label: 'All' },
+        ...(field.options ?? []).map((opt) => ({ value: opt, label: opt })),
+      ];
+    }
+  }
+  return [{ value: '', label: 'All' }];
+}
+
+function matchesDateRange(
+  rawValue: string,
+  from: string,
+  to: string,
+): boolean {
+  const day = toDayKey(rawValue);
+  if (!day) return false;
+  if (from && day < from) return false;
+  if (to && day > to) return false;
+  return true;
+}
+
+export function matchesColumnFilter(
+  columnId: string,
+  filter: RegisterFilterValue | string | undefined,
+  submission: FormSubmission,
+  ctx: {
+    users: User[];
+    workflows: Workflow[];
+    form?: FormDefinition | null;
+  },
+): boolean {
+  // Back-compat: plain string treated as text / status select
+  let normalized: RegisterFilterValue | undefined;
+  if (typeof filter === 'string') {
+    const kind = getColumnFilterKind(columnId, ctx.form);
+    if (kind === 'select') {
+      normalized = { kind: 'select', value: filter };
+    } else if (kind === 'dateRange') {
+      // Legacy free-text date filter: fall back to substring on ISO/display
+      if (!filter.trim()) return true;
+      const value = filterValue(columnId, submission, ctx).toLowerCase();
+      const q = filter.trim().toLowerCase();
+      const display = formatRegisterTime(
+        filterValue(columnId, submission, ctx),
+      ).toLowerCase();
+      return value.includes(q) || display.includes(q);
+    } else {
+      normalized = { kind: 'text', q: filter };
+    }
+  } else {
+    normalized = filter;
+  }
+
+  if (!normalized || !isFilterActive(normalized)) return true;
+
+  if (normalized.kind === 'dateRange') {
+    const raw = filterValue(columnId, submission, ctx);
+    return matchesDateRange(raw, normalized.from, normalized.to);
+  }
+
+  if (normalized.kind === 'select') {
+    const q = normalized.value.trim();
+    if (!q) return true;
+    const value = filterValue(columnId, submission, ctx);
+    if (columnId === 'status') {
+      const lower = value.toLowerCase();
+      const normalizedQ = q.replace(/\s+/g, '_').toLowerCase();
+      return (
+        lower === normalizedQ ||
+        lower === q.toLowerCase() ||
+        lower.replace('_', ' ') === q.toLowerCase()
+      );
+    }
+    return value === q || value.toLowerCase() === q.toLowerCase();
+  }
+
+  // text — partial / contains search
+  const q = normalized.q.trim().toLowerCase();
+  if (!q) return true;
+  const value = filterValue(columnId, submission, ctx).toLowerCase();
+  if (columnId === 'requestId') {
+    return value.includes(q) || shortRequestId(value).toLowerCase().includes(q);
+  }
+  return value.includes(q);
+}
