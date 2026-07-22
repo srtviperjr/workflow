@@ -41,6 +41,9 @@ function normalizeDelegation(d: ApprovalDelegation): ApprovalDelegation {
         : 1,
     startDate: d.startDate ?? new Date().toISOString().slice(0, 10),
     endDate: d.endDate ?? d.startDate ?? new Date().toISOString().slice(0, 10),
+    notifyDelegateOnStart: Boolean(d.notifyDelegateOnStart),
+    startHandoffNotifiedAt: d.startHandoffNotifiedAt ?? null,
+    endHandoffNotifiedAt: d.endHandoffNotifiedAt ?? null,
   };
 }
 
