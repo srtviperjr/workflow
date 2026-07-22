@@ -14,6 +14,12 @@ import {
 import { filterActionableSubmissions } from './submissionVisibility';
 import { shortRequestId } from './registerColumns';
 
+/**
+ * When more than this many covered requests are open, send one summary
+ * notification with a link per request instead of one message each.
+ */
+export const HANDOFF_SUMMARY_THRESHOLD = 4;
+
 /** In-progress requests the delegator can act on that this delegation covers. */
 export function listCoveredActionableSubmissions(
   delegation: Pick<
@@ -46,8 +52,18 @@ function displayName(user: User): string {
   return `${user.firstName} ${user.lastName}`;
 }
 
+function requestListHtml(submissions: FormSubmission[]): string {
+  const items = submissions
+    .map(
+      (s) =>
+        `<li><a href="/register/${s.id}">${s.formName} · Request ${shortRequestId(s.id)}</a></li>`,
+    )
+    .join('');
+  return `<ul>${items}</ul>`;
+}
+
 function buildHandoffNotification(opts: {
-  submission: FormSubmission;
+  submission: FormSubmission | null;
   recipient: User;
   triggeredBy: User;
   subject: string;
@@ -57,9 +73,10 @@ function buildHandoffNotification(opts: {
 }): AppNotification {
   return {
     id: createId('notif'),
-    submissionId: opts.submission.id,
-    formId: opts.submission.formId,
-    workflowId: opts.submission.workflowId,
+    // Empty for multi-request summaries — links live in the body
+    submissionId: opts.submission?.id ?? '',
+    formId: opts.submission?.formId ?? '',
+    workflowId: opts.submission?.workflowId ?? null,
     nodeId: opts.nodeId,
     nodeLabel: opts.nodeLabel,
     toUserIds: [opts.recipient.id],
@@ -72,6 +89,75 @@ function buildHandoffNotification(opts: {
   };
 }
 
+function buildStartBodies(
+  delegator: User,
+  delegation: ApprovalDelegation,
+  submissions: FormSubmission[],
+): { subject: string; body: string; submission: FormSubmission | null }[] {
+  const intro =
+    `<p>${displayName(delegator)} delegated approval authority to you` +
+    ` and asked that you be notified of in-progress work.</p>` +
+    `<p>Please review and take action while the delegation is active` +
+    ` (${delegation.startDate} → ${delegation.endDate}).</p>`;
+
+  if (submissions.length > HANDOFF_SUMMARY_THRESHOLD) {
+    return [
+      {
+        subject: `${submissions.length} delegated requests awaiting action`,
+        body:
+          intro +
+          `<p>The following <strong>${submissions.length}</strong> requests` +
+          ` currently await action:</p>` +
+          requestListHtml(submissions),
+        submission: null,
+      },
+    ];
+  }
+
+  return submissions.map((s) => ({
+    subject: `Delegated request awaiting action: ${s.formName}`,
+    body:
+      intro +
+      `<p><a href="/register/${s.id}"><strong>${s.formName}</strong> · Request ${shortRequestId(s.id)}</a></p>`,
+    submission: s,
+  }));
+}
+
+function buildEndBodies(
+  delegateName: string,
+  delegation: ApprovalDelegation,
+  submissions: FormSubmission[],
+): { subject: string; body: string; submission: FormSubmission | null }[] {
+  const intro =
+    `<p>Your delegation to ${delegateName} has ended` +
+    ` (${delegation.startDate} → ${delegation.endDate}).</p>`;
+
+  if (submissions.length > HANDOFF_SUMMARY_THRESHOLD) {
+    return [
+      {
+        subject: `Delegation ended — ${submissions.length} requests still need action`,
+        body:
+          intro +
+          `<p>The following <strong>${submissions.length}</strong> covered` +
+          ` requests were not completed during the delegation and still` +
+          ` await your action:</p>` +
+          requestListHtml(submissions),
+        submission: null,
+      },
+    ];
+  }
+
+  return submissions.map((s) => ({
+    subject: `Delegation ended — request still needs action: ${s.formName}`,
+    body:
+      intro +
+      `<p>This request was not completed during the delegation and still` +
+      ` awaits your action:</p>` +
+      `<p><a href="/register/${s.id}"><strong>${s.formName}</strong> · Request ${shortRequestId(s.id)}</a></p>`,
+    submission: s,
+  }));
+}
+
 export function buildDelegationStartNotifications(
   delegation: ApprovalDelegation,
   submissions: FormSubmission[],
@@ -82,20 +168,15 @@ export function buildDelegationStartNotifications(
   const delegator = data.users.find((u) => u.id === delegation.fromUserId);
   if (!delegate || !delegator || submissions.length === 0) return [];
 
-  return submissions.map((s) =>
+  return buildStartBodies(delegator, delegation, submissions).map((item) =>
     buildHandoffNotification({
-      submission: s,
+      submission: item.submission,
       recipient: delegate,
       triggeredBy,
       nodeId: `${delegation.id}-start`,
       nodeLabel: 'Delegation started',
-      subject: `Delegated request awaiting action: ${s.formName}`,
-      body:
-        `<p>${displayName(delegator)} delegated approval authority to you` +
-        ` and asked that you be notified of in-progress work.</p>` +
-        `<p><strong>${s.formName}</strong> · Request ${shortRequestId(s.id)}</p>` +
-        `<p>Please open the request to review and take action while the` +
-        ` delegation is active (${delegation.startDate} → ${delegation.endDate}).</p>`,
+      subject: item.subject,
+      body: item.body,
     }),
   );
 }
@@ -112,21 +193,15 @@ export function buildDelegationEndNotifications(
 
   const delegateName = delegate ? displayName(delegate) : 'your delegate';
 
-  return submissions.map((s) =>
+  return buildEndBodies(delegateName, delegation, submissions).map((item) =>
     buildHandoffNotification({
-      submission: s,
+      submission: item.submission,
       recipient: delegator,
       triggeredBy,
       nodeId: `${delegation.id}-end`,
       nodeLabel: 'Delegation ended',
-      subject: `Delegation ended — request still needs action: ${s.formName}`,
-      body:
-        `<p>Your delegation to ${delegateName} has ended` +
-        ` (${delegation.startDate} → ${delegation.endDate}).</p>` +
-        `<p>This request was not completed during the delegation and still` +
-        ` awaits your action:</p>` +
-        `<p><strong>${s.formName}</strong> · Request ${shortRequestId(s.id)}</p>` +
-        `<p>Open the request to continue processing it.</p>`,
+      subject: item.subject,
+      body: item.body,
     }),
   );
 }

@@ -32,6 +32,7 @@ import { useApp } from '../context/AppContext';
 import type { ApprovalDelegation, DelegationScope } from '../types';
 import {
   endDateFromDuration,
+  findConflictingDelegations,
   isDelegationActive,
   toDateOnly,
   workflowsAccessibleToUser,
@@ -63,6 +64,7 @@ export function DelegationsPage() {
   const [startDate, setStartDate] = useState(toDateOnly());
   const [durationDays, setDurationDays] = useState(7);
   const [notifyDelegateOnStart, setNotifyDelegateOnStart] = useState(true);
+  const [saveError, setSaveError] = useState<string | null>(null);
 
   const userName = (id: string) => {
     const u = data.users.find((x) => x.id === id);
@@ -179,6 +181,7 @@ export function DelegationsPage() {
     setStartDate(toDateOnly());
     setDurationDays(7);
     setNotifyDelegateOnStart(true);
+    setSaveError(null);
     setOpen(true);
   };
 
@@ -201,6 +204,7 @@ export function DelegationsPage() {
     setStartDate(d.startDate);
     setDurationDays(d.durationDays || 7);
     setNotifyDelegateOnStart(Boolean(d.notifyDelegateOnStart));
+    setSaveError(null);
     setOpen(true);
   };
 
@@ -220,6 +224,8 @@ export function DelegationsPage() {
     const ownerId = resolvedFromUserId(fromUserId);
     if (!ownerId || durationDays < 1) return;
     if (editing && !isAdmin && editing.fromUserId !== currentUser.id) return;
+    setSaveError(null);
+
     const payloadBase = {
       fromUserId: ownerId,
       startDate,
@@ -242,21 +248,85 @@ export function DelegationsPage() {
       }));
     };
 
+    const proposed: Array<
+      Pick<
+        ApprovalDelegation,
+        | 'fromUserId'
+        | 'toUserId'
+        | 'scope'
+        | 'workflowIds'
+        | 'startDate'
+        | 'endDate'
+        | 'durationDays'
+      >
+    > =
+      scope === 'all'
+        ? toUserId
+          ? [
+              {
+                ...payloadBase,
+                toUserId,
+                scope: 'all',
+                workflowIds: [],
+              },
+            ]
+          : []
+        : groupByDelegate(
+            mappings.filter((m) => m.workflowId && m.toUserId),
+          );
+
+    if (proposed.length === 0) return;
+
+    const excludeIds = editing ? [editing.id] : [];
+    const existing = data.delegations ?? [];
+
+    for (const p of proposed) {
+      const conflicts = findConflictingDelegations(p, existing, excludeIds);
+      if (conflicts.length > 0) {
+        const c = conflicts[0];
+        const coverage =
+          c.scope === 'all'
+            ? 'all workflows'
+            : c.workflowIds.map(workflowName).join(', ');
+        setSaveError(
+          `Overlapping delegation already exists for ${userName(ownerId)} ` +
+            `(${c.startDate} → ${c.endDate}, ${coverage}). ` +
+            `Adjust the dates or coverage so grants for the same user do not overlap.`,
+        );
+        return;
+      }
+    }
+
+    // Also block overlaps within a multi-delegate batch (shouldn't happen
+    // with disjoint workflow ids, but guard date+scope collisions).
+    for (let i = 0; i < proposed.length; i++) {
+      for (let j = i + 1; j < proposed.length; j++) {
+        const conflicts = findConflictingDelegations(proposed[i], [
+          {
+            id: `batch-${j}`,
+            ...proposed[j],
+            durationDays: payloadBase.durationDays,
+            createdAt: '',
+          },
+        ]);
+        if (conflicts.length > 0) {
+          setSaveError(
+            'This save would create overlapping coverage for the same user. ' +
+              'Use separate date ranges or non-overlapping workflows.',
+          );
+          return;
+        }
+      }
+    }
+
     if (editing) {
       if (scope === 'all') {
-        if (!toUserId) return;
         updateDelegation(editing.id, {
-          ...payloadBase,
-          toUserId,
-          scope: 'all',
-          workflowIds: [],
+          ...proposed[0],
           notifyDelegateOnStart,
         });
       } else {
-        const selected = mappings.filter((m) => m.workflowId && m.toUserId);
-        if (selected.length === 0) return;
-        const grouped = groupByDelegate(selected);
-        const [first, ...rest] = grouped;
+        const [first, ...rest] = proposed;
         updateDelegation(editing.id, {
           ...first,
           notifyDelegateOnStart,
@@ -275,19 +345,13 @@ export function DelegationsPage() {
     }
 
     if (scope === 'all') {
-      if (!toUserId) return;
       addDelegation({
-        ...payloadBase,
-        toUserId,
-        scope: 'all',
-        workflowIds: [],
+        ...proposed[0],
         notifyDelegateOnStart,
       });
     } else {
-      const selected = mappings.filter((m) => m.workflowId && m.toUserId);
-      if (selected.length === 0) return;
       addDelegations(
-        groupByDelegate(selected).map((r) => ({
+        proposed.map((r) => ({
           ...r,
           notifyDelegateOnStart,
         })),
@@ -319,7 +383,8 @@ export function DelegationsPage() {
             days. Their existing permissions are kept — yours are added for the
             duration only. You can notify them of in-progress work when a
             delegation starts; when it ends you are notified of unfinished
-            requests.
+            requests. A user cannot have overlapping delegations for the same
+            coverage and dates.
             {!isAdmin &&
               ' You can only create and manage delegations for yourself.'}
             {isAdmin &&
@@ -620,8 +685,11 @@ export function DelegationsPage() {
               approval permissions for the covered workflows in addition to
               their own. When the delegation ends, you are notified of any
               covered requests that are still in progress so you can continue
-              them.
+              them. Overlapping date ranges for the same user and covered
+              workflows are not allowed.
             </Alert>
+
+            {saveError && <Alert severity="error">{saveError}</Alert>}
           </Stack>
         </DialogContent>
         <DialogActions>

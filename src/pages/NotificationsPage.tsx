@@ -171,7 +171,11 @@ export function NotificationsPage() {
                       </Stack>
                     </TableCell>
                     <TableCell>
-                      {canOpenRequest(n.submissionId) ? (
+                      {!n.submissionId ? (
+                        <Typography variant="body2" color="text.secondary">
+                          Multiple
+                        </Typography>
+                      ) : canOpenRequest(n.submissionId) ? (
                         <Typography
                           component={RouterLink}
                           to={`/register/${n.submissionId}`}
@@ -236,25 +240,37 @@ export function NotificationsPage() {
                     : 'pre-wrap',
                   '& p': { m: 0, mb: 1 },
                   '& ul, & ol': { pl: 2.5, m: 0, mb: 1 },
+                  '& a': {
+                    color: 'primary.main',
+                    fontWeight: 600,
+                    textDecoration: 'none',
+                    '&:hover': { textDecoration: 'underline' },
+                  },
                 }}
                 {...(/<[a-z][\s\S]*>/i.test(selected.body)
                   ? { dangerouslySetInnerHTML: { __html: selected.body } }
                   : { children: selected.body })}
               />
-              {canOpenRequest(selected.submissionId) ? (
-                <Button
-                  component={RouterLink}
-                  to={`/register/${selected.submissionId}`}
-                  size="small"
-                  onClick={() => setSelected(null)}
-                >
-                  Open related request
-                </Button>
+              {selected.submissionId ? (
+                canOpenRequest(selected.submissionId) ? (
+                  <Button
+                    component={RouterLink}
+                    to={`/register/${selected.submissionId}`}
+                    size="small"
+                    onClick={() => setSelected(null)}
+                  >
+                    Open related request
+                  </Button>
+                ) : (
+                  <Alert severity="info">
+                    You no longer have access to open this request under the
+                    form&apos;s visibility rules.
+                  </Alert>
+                )
               ) : (
-                <Alert severity="info">
-                  You no longer have access to open this request under the
-                  form&apos;s visibility rules.
-                </Alert>
+                <Typography variant="caption" color="text.secondary">
+                  Use the request links above to open each item.
+                </Typography>
               )}
             </Stack>
           )}

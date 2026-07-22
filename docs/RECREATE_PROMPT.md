@@ -72,8 +72,10 @@ Field-aware column filters:
 ### Delegations & in-progress handoff
 
 - Additive grant of delegator roles to delegate for covered workflows while dates are active
+- No overlapping outbound grants for the same user when dates and workflow coverage both overlap
 - On create: show count of in-progress actionable requests in scope; checkbox to notify the delegate of those items when the window becomes active
 - On end (natural expiry or early remove): notify the **delegator** of covered requests still `in_progress`
+- Handoff messages: one per request when ≤4 open; one summary with per-request links when more than 4 (start and end)
 - Process handoffs on app load / focus / periodic tick (no backend scheduler)
 
 ### Data Tools
@@ -85,7 +87,7 @@ Independent **Include users** / **Include requests** with create-additional or c
 - Viewable if: admin, submitter, can act, previously acted, notified, or form company/project visibility  
 - Registers / dashboard / notification deep-links use the same view check  
 - Approve/Reject only when `canAct`  
-- Workflow History + PDF: only `step` and `decision` rows  
+- Workflow History + PDF: only `step` and `decision` rows; history columns Step / User / Action / Timestamp / Status (no Type)
 
 ### UX / engine rules
 

@@ -52,8 +52,7 @@ export function WorkflowHistory({ submission, workflow }: Props) {
           <TableHead>
             <TableRow>
               <TableCell>Step</TableCell>
-              <TableCell>Type</TableCell>
-              <TableCell>Actor</TableCell>
+              <TableCell>User</TableCell>
               <TableCell>Action / Outcome</TableCell>
               <TableCell>Timestamp</TableCell>
               <TableCell>Status</TableCell>
@@ -75,14 +74,6 @@ export function WorkflowHistory({ submission, workflow }: Props) {
                   <Typography variant="body2" fontWeight={600}>
                     {row.stepLabel}
                   </Typography>
-                </TableCell>
-                <TableCell>
-                  <Chip
-                    size="small"
-                    label={row.stepType}
-                    variant="outlined"
-                    sx={{ textTransform: 'capitalize' }}
-                  />
                 </TableCell>
                 <TableCell>{row.entry?.userName ?? '—'}</TableCell>
                 <TableCell>

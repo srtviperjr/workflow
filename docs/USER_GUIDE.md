@@ -66,7 +66,7 @@ On **Request detail** you see field values (download attachments by filename), h
 
 ![Request detail](./screenshots/09-request-detail.png)
 
-**Workflow History** lists only what people did — submission steps and decisions (e.g. Submit Request, Manager Review). System Notify and End nodes are not shown.
+**Workflow History** lists only what people did — submission steps and decisions (e.g. Submit Request, Manager Review). Columns: Step, User, Action / Outcome, Timestamp, Status. System Notify and End nodes are not shown.
 
 Use the **print** icon to download a branded PDF snapshot (orange banner, form-like field cards; notification rows omitted from history).
 
@@ -92,7 +92,7 @@ Delegation handoffs also create inbox messages (see below).
 
 Grant someone else your approval authority for a date range — for all workflows or specific ones. Permissions are **additive** (they keep their own roles too). Non-admins manage only their own outbound delegations; admins can manage any.
 
-When you create a delegation, if you have in-progress requests awaiting action under the covered scope, you can choose to **notify the delegate** of those items. When the delegation **ends** (expires or you remove it), you are notified of any covered requests that are still open so you can continue them.
+When you create a delegation, if you have in-progress requests awaiting action under the covered scope, you can choose to **notify the delegate** of those items. When the delegation **ends** (expires or you remove it), you are notified of any covered requests that are still open so you can continue them. If more than four requests are open, you get one summary message with a link for each request; otherwise each request gets its own message. Overlapping date ranges for the same user’s covered workflows are not allowed.
 
 ![Delegations](./screenshots/11-delegations.png)
 
