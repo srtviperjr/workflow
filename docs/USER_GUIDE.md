@@ -59,7 +59,7 @@ On **Request detail** you see field values (download attachments by filename), h
 
 ![Request detail](./screenshots/09-request-detail.png)
 
-**Workflow History** shows real process steps (Submit, Manager Review, Approved/Rejected). It does **not** list Notify steps. A Rejected end appears only when that path was taken.
+**Workflow History** lists only what people did — submission steps and decisions (e.g. Submit Request, Manager Review). System Notify and End nodes are not shown.
 
 Use the **print** icon to download a PDF snapshot (notification rows omitted there too).
 

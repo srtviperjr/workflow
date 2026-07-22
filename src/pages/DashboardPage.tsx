@@ -58,13 +58,13 @@ export function DashboardPage() {
       label: 'Users',
       value: data.users.length,
       icon: <PeopleIcon />,
-      color: '#0d7377',
+      color: '#E25200',
     },
     {
       label: 'Workflows',
       value: data.workflows.length,
       icon: <AccountTreeIcon />,
-      color: '#c45c26',
+      color: '#2B2B2B',
     },
     {
       label: 'Forms',
@@ -88,7 +88,7 @@ export function DashboardPage() {
           p: { xs: 2.5, md: 4 },
           borderRadius: 3,
           background:
-            'linear-gradient(135deg, rgba(9,84,86,0.92) 0%, rgba(13,115,119,0.88) 50%, rgba(20,145,155,0.85) 100%), url("data:image/svg+xml,%3Csvg width=\'60\' height=\'60\' viewBox=\'0 0 60 60\' xmlns=\'http://www.w3.org/2000/svg\'%3E%3Cg fill=\'none\' fill-rule=\'evenodd\'%3E%3Cg fill=\'%23ffffff\' fill-opacity=\'0.06\'%3E%3Cpath d=\'M36 34v-4h-2v4h-4v2h4v4h2v-4h4v-2h-4zm0-30V0h-2v4h-4v2h4v4h2V6h4V4h-4zM6 34v-4H4v4H0v2h4v4h2v-4h4v-2H6zM6 4V0H4v4H0v2h4v4h2V6h4V4H6z\'/%3E%3C/g%3E%3C/g%3E%3C/svg%3E")',
+            'linear-gradient(135deg, rgba(179,66,0,0.94) 0%, rgba(226,82,0,0.90) 50%, rgba(240,106,26,0.88) 100%), url("data:image/svg+xml,%3Csvg width=\'60\' height=\'60\' viewBox=\'0 0 60 60\' xmlns=\'http://www.w3.org/2000/svg\'%3E%3Cg fill=\'none\' fill-rule=\'evenodd\'%3E%3Cg fill=\'%23ffffff\' fill-opacity=\'0.06\'%3E%3Cpath d=\'M36 34v-4h-2v4h-4v2h4v4h2v-4h4v-2h-4zm0-30V0h-2v4h-4v2h4v4h2V6h4V4h-4zM6 34v-4H4v4H0v2h4v4h2v-4h4v-2H6zM6 4V0H4v4H0v2h4v4h2V6h4V4H6z\'/%3E%3C/g%3E%3C/g%3E%3C/svg%3E")',
           color: 'white',
           position: 'relative',
           overflow: 'hidden',
@@ -121,8 +121,13 @@ export function DashboardPage() {
             component={RouterLink}
             to="/requests"
             variant="contained"
-            color="secondary"
+            color="primary"
             startIcon={<AddIcon />}
+            sx={{
+              bgcolor: 'white',
+              color: 'primary.main',
+              '&:hover': { bgcolor: 'rgba(255,255,255,0.9)' },
+            }}
           >
             New Request
           </Button>

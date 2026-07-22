@@ -21,7 +21,7 @@ const base = {
   minWidth: 140,
   textAlign: 'center' as const,
   border: '2px solid',
-  boxShadow: '0 2px 8px rgba(9,84,86,0.12)',
+  boxShadow: '0 2px 8px rgba(43,43,43,0.12)',
 };
 
 export function StartNode({ data }: NodeProps) {
@@ -31,8 +31,8 @@ export function StartNode({ data }: NodeProps) {
       sx={{
         ...base,
         borderRadius: '24px',
-        bgcolor: '#0d7377',
-        borderColor: '#095456',
+        bgcolor: '#E25200',
+        borderColor: '#B34200',
         color: 'white',
       }}
     >
@@ -40,7 +40,7 @@ export function StartNode({ data }: NodeProps) {
       <Typography variant="body2" fontWeight={700} component="span">
         {d.label}
       </Typography>
-      <Handle type="source" position={Position.Bottom} style={{ background: '#095456' }} />
+      <Handle type="source" position={Position.Bottom} style={{ background: '#B34200' }} />
     </Box>
   );
 }
@@ -79,7 +79,7 @@ export function StepNode({ data, selected }: NodeProps) {
         borderWidth: selected ? 3 : 2,
       }}
     >
-      <Handle type="target" position={Position.Top} style={{ background: '#0d7377' }} />
+      <Handle type="target" position={Position.Top} style={{ background: '#E25200' }} />
       <AssignmentIcon sx={{ fontSize: 18, color: 'primary.main', mb: 0.25 }} />
       <Typography variant="body2" fontWeight={700} display="block">
         {d.label}
@@ -89,7 +89,7 @@ export function StepNode({ data, selected }: NodeProps) {
           {d.roleName}
         </Typography>
       )}
-      <Handle type="source" position={Position.Bottom} style={{ background: '#0d7377' }} />
+      <Handle type="source" position={Position.Bottom} style={{ background: '#E25200' }} />
     </Box>
   );
 }
@@ -105,11 +105,11 @@ export function DecisionNode({ data, selected }: NodeProps) {
         alignItems: 'center',
         justifyContent: 'center',
         transform: 'rotate(45deg)',
-        bgcolor: '#fff8f0',
+        bgcolor: '#FFF4EC',
         border: '2px solid',
-        borderColor: selected ? 'secondary.main' : '#c45c26',
+        borderColor: selected ? '#B34200' : '#E25200',
         borderWidth: selected ? 3 : 2,
-        boxShadow: '0 2px 8px rgba(196,92,38,0.15)',
+        boxShadow: '0 2px 8px rgba(226,82,0,0.18)',
       }}
     >
       <Handle
@@ -117,14 +117,14 @@ export function DecisionNode({ data, selected }: NodeProps) {
         position={Position.Top}
         id="in"
         style={{
-          background: '#c45c26',
+          background: '#E25200',
           left: '50%',
           top: 0,
           transform: 'translate(-50%, -50%) rotate(-45deg)',
         }}
       />
       <Box sx={{ transform: 'rotate(-45deg)', textAlign: 'center', px: 1 }}>
-        <HelpOutlineIcon sx={{ fontSize: 18, color: 'secondary.main' }} />
+        <HelpOutlineIcon sx={{ fontSize: 18, color: 'primary.main' }} />
         <Typography variant="body2" fontWeight={700} lineHeight={1.2}>
           {d.label}
         </Typography>
@@ -136,7 +136,7 @@ export function DecisionNode({ data, selected }: NodeProps) {
         {d.decisionMode === 'conditional' && (
           <Typography
             variant="caption"
-            color="secondary.main"
+            color="primary.main"
             display="block"
             fontWeight={700}
           >
@@ -172,7 +172,7 @@ export function DecisionNode({ data, selected }: NodeProps) {
         position={Position.Bottom}
         id="other"
         style={{
-          background: '#c45c26',
+          background: '#B34200',
           left: '50%',
           bottom: 0,
           top: 'auto',
@@ -200,21 +200,21 @@ export function NotificationNode({ data, selected }: NodeProps) {
       sx={{
         ...base,
         borderRadius: 2,
-        bgcolor: '#f3e8ff',
-        borderColor: selected ? '#7b1fa2' : '#9c27b0',
+        bgcolor: '#F2F2F2',
+        borderColor: selected ? '#141414' : '#2B2B2B',
         borderWidth: selected ? 3 : 2,
         minWidth: 150,
       }}
     >
-      <Handle type="target" position={Position.Top} style={{ background: '#9c27b0' }} />
-      <NotificationsNoneIcon sx={{ fontSize: 18, color: '#7b1fa2', mb: 0.25 }} />
+      <Handle type="target" position={Position.Top} style={{ background: '#2B2B2B' }} />
+      <NotificationsNoneIcon sx={{ fontSize: 18, color: '#2B2B2B', mb: 0.25 }} />
       <Typography variant="body2" fontWeight={700} display="block">
         {d.label}
       </Typography>
       <Typography variant="caption" color="text.secondary" display="block">
         {recipientLabel}
       </Typography>
-      <Handle type="source" position={Position.Bottom} style={{ background: '#9c27b0' }} />
+      <Handle type="source" position={Position.Bottom} style={{ background: '#2B2B2B' }} />
     </Box>
   );
 }
