@@ -145,7 +145,9 @@ Custom roles may be app-scoped or form-scoped. Roles can map to Azure AD / AD gr
 |----|-------------|
 | SV-1 | Each form has a visibility boundary: own submissions, within company, or within project. |
 | SV-2 | Admins always see all submissions. |
-| SV-3 | Users who can act on a request always see it regardless of visibility. |
+| SV-3 | Users who can act on a request always see it (and may approve/deny); action controls are never shown without act permission. |
+| SV-4 | Users who previously acted on a request, or received an in-app notification for it, may open that request. |
+| SV-5 | Registers, dashboard awaiting-action, and notification deep-links only surface requests the viewer can see. |
 
 ## 5. Non-functional requirements
 

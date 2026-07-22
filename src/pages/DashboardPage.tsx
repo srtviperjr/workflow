@@ -16,24 +16,28 @@ import DescriptionIcon from '@mui/icons-material/Description';
 import AccountTreeIcon from '@mui/icons-material/AccountTree';
 import PeopleIcon from '@mui/icons-material/People';
 import { useApp } from '../context/AppContext';
-import { canUserActOnNode } from '../utils/workflowEngine';
-import { filterVisibleSubmissions } from '../utils/submissionVisibility';
+import {
+  filterActionableSubmissions,
+  filterVisibleSubmissions,
+} from '../utils/submissionVisibility';
 
 export function DashboardPage() {
   const { data, currentUser, isAdmin } = useApp();
 
-  const myPending = data.submissions.filter((s) => {
-    if (s.status !== 'in_progress' || !s.currentNodeId || !s.workflowId)
-      return false;
-    const wf = data.workflows.find((w) => w.id === s.workflowId);
-    const node = wf?.nodes.find((n) => n.id === s.currentNodeId);
-    if (!node || !currentUser) return false;
-    return canUserActOnNode(currentUser, node, data.roles, s.formId, {
-      workflowId: s.workflowId,
-      delegations: data.delegations ?? [],
-      users: data.users,
-    });
-  });
+  const accessOpts = {
+    roles: data.roles,
+    workflows: data.workflows,
+    users: data.users,
+    delegations: data.delegations ?? [],
+    notifications: data.notifications ?? [],
+  };
+
+  const myPending = filterActionableSubmissions(
+    currentUser,
+    data.submissions,
+    data.forms,
+    accessOpts,
+  );
 
   const visibleCount = filterVisibleSubmissions(
     currentUser,
@@ -45,6 +49,7 @@ export function DashboardPage() {
       workflows: data.workflows,
       includeActionable: true,
       delegations: data.delegations ?? [],
+      notifications: data.notifications ?? [],
     },
   ).length;
 

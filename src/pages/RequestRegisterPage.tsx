@@ -44,6 +44,7 @@ export function RequestRegisterPage() {
             workflows: data.workflows,
             includeActionable: true,
             delegations: data.delegations ?? [],
+            notifications: data.notifications ?? [],
           },
         ),
       )
@@ -57,6 +58,7 @@ export function RequestRegisterPage() {
     data.roles,
     data.workflows,
     data.delegations,
+    data.notifications,
     getFormById,
     currentUser,
   ]);
