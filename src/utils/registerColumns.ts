@@ -52,21 +52,21 @@ export function isDefaultStickyColumn(columnId: string): boolean {
   return DEFAULT_STICKY_COLUMN_IDS.has(columnId);
 }
 
-/** Approximate widths used for sticky `left` offsets. */
+/** Approximate widths used for sticky `left` offsets (must match cell width). */
 export function stickyColumnWidth(columnId: string): number {
   switch (columnId) {
     case 'requestId':
-      return 104;
+      return 110;
     case 'submitter':
-      return 148;
+      return 160;
     case 'formName':
       return 160;
     case 'status':
       return 120;
     case 'currentStep':
-      return 140;
+      return 150;
     default:
-      return 148;
+      return 160;
   }
 }
 
@@ -80,8 +80,8 @@ export function orderStickyColumnsFirst(
 }
 
 /**
- * SX for a sticky register cell. `columns` should be the visible columns
- * in display order (sticky ones already compacted to the left).
+ * SX for a sticky register cell. Sticky columns use fixed widths so `left`
+ * offsets match the rendered size (avoids gaps where scrolling cells peek through).
  */
 export function stickyCellSx(
   columns: Array<Pick<RegisterColumnConfig, 'id' | 'sticky'>>,
@@ -99,20 +99,38 @@ export function stickyCellSx(
 
   const variant = opts?.variant ?? 'body';
   const isHead = variant === 'head' || variant === 'filter';
+  const isLastSticky = idx === stickyCols.length - 1;
+  const width = stickyColumnWidth(columnId);
+
+  // Solid colors only — translucent backgrounds let scrolling cells show through.
+  const headBg = '#FDE8D8';
+  const bodyBg = '#FFFFFF';
 
   return {
     position: 'sticky',
     left,
-    zIndex: variant === 'head' ? 5 : variant === 'filter' ? 4 : 3,
-    bgcolor: isHead ? 'rgba(226,82,0,0.08)' : 'background.paper',
-    minWidth: stickyColumnWidth(columnId),
-    maxWidth: stickyColumnWidth(columnId) + 40,
-    boxShadow:
-      idx === stickyCols.length - 1
-        ? '2px 0 6px rgba(0,0,0,0.08)'
-        : undefined,
+    width,
+    minWidth: width,
+    maxWidth: width,
+    zIndex: variant === 'head' ? 6 : variant === 'filter' ? 5 : 4,
+    bgcolor: isHead ? headBg : bodyBg,
+    backgroundColor: isHead ? headBg : bodyBg,
+    backgroundClip: 'padding-box',
+    boxSizing: 'border-box',
+    overflow: 'hidden',
+    // Edge separator so content does not appear to slide under the pin
+    borderRight: isLastSticky ? '1px solid rgba(0,0,0,0.12)' : undefined,
+    boxShadow: isLastSticky
+      ? '6px 0 8px -4px rgba(0,0,0,0.18)'
+      : undefined,
   };
 }
+
+/** Table styles required for horizontal sticky columns to work cleanly. */
+export const REGISTER_STICKY_TABLE_SX = {
+  borderCollapse: 'separate',
+  borderSpacing: 0,
+} as const;
 
 /** Meta columns available on a per-form register (no form name — it's implied). */
 export const FORM_REGISTER_META_COLUMNS: RegisterMetaColumnId[] = [

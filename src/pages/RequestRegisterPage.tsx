@@ -25,6 +25,7 @@ import { canViewSubmission } from '../utils/submissionVisibility';
 import {
   OVERALL_REGISTER_COLUMN_CONFIG,
   META_COLUMN_LABELS,
+  REGISTER_STICKY_TABLE_SX,
   cellValue,
   countActiveFilters,
   matchesColumnFilter,
@@ -138,18 +139,22 @@ export function RequestRegisterPage() {
           overflowX: 'auto',
           '& .MuiTableCell-head': {
             fontWeight: 700,
-            bgcolor: 'rgba(226,82,0,0.08)',
             whiteSpace: 'nowrap',
             verticalAlign: 'bottom',
           },
+          // Solid head fill for non-sticky only — sticky cells set their own opaque bg
+          '& .MuiTableCell-head:not(.register-sticky-col)': {
+            bgcolor: '#FDE8D8',
+          },
         }}
       >
-        <Table size="small" stickyHeader>
+        <Table size="small" stickyHeader sx={REGISTER_STICKY_TABLE_SX}>
           <TableHead>
             <TableRow>
               {OVERALL_REGISTER_COLUMN_CONFIG.map((col) => (
                 <TableCell
                   key={col.id}
+                  className={col.sticky ? 'register-sticky-col' : undefined}
                   sx={stickyCellSx(OVERALL_REGISTER_COLUMN_CONFIG, col.id, {
                     variant: 'head',
                   })}
@@ -162,6 +167,7 @@ export function RequestRegisterPage() {
               {OVERALL_REGISTER_COLUMN_CONFIG.map((col) => (
                 <TableCell
                   key={`${col.id}-filter`}
+                  className={col.sticky ? 'register-sticky-col' : undefined}
                   sx={{
                     top: 37,
                     ...stickyCellSx(OVERALL_REGISTER_COLUMN_CONFIG, col.id, {
@@ -204,7 +210,8 @@ export function RequestRegisterPage() {
                     cursor: 'pointer',
                     '&:hover': { bgcolor: 'rgba(226,82,0,0.04)' },
                     '&:hover .register-sticky-col': {
-                      bgcolor: 'rgba(255,247,242,1)',
+                      bgcolor: '#FFF7F2',
+                      backgroundColor: '#FFF7F2',
                     },
                   }}
                 >
