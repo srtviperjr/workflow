@@ -37,7 +37,7 @@ import { useApp } from '../context/AppContext';
 const DRAWER_WIDTH = 260;
 
 /** App display version — shown in the AppBar and sidebar. */
-export const APP_VERSION = '0.8';
+export const APP_VERSION = '0.8.1';
 
 const primaryNav = [
   { to: '/', label: 'Dashboard', icon: <DashboardIcon /> },

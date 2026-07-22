@@ -1,4 +1,4 @@
-# Jansen Workflows — Product Requirements (v0.8)
+# Jansen Workflows — Product Requirements (v0.8.1)
 
 ## 1. Purpose
 
@@ -49,7 +49,7 @@ Custom roles may be app-scoped or form-scoped. Roles can map to Azure AD / AD gr
 |----------|--------|
 | Everyone | Dashboard, Requests, Request Register, Delegations |
 | Admin only | Forms, **Notifications**, Workflows, Users, Roles, **Integrations**, Data Tools (under Administration, in that order) |
-| App bar | Notification bell (inbox), identity switcher, version badge (`v0.8`) |
+| App bar | Notification bell (inbox), identity switcher, version badge (`v0.8.1`) |
 
 Inbox (bell → `/notifications`) is separate from Administration → Notifications (template design at `/notification-templates`).
 
@@ -195,7 +195,7 @@ Dashboard hero tagline: **Project workflow management system.**
 | NF-2 | Runs with Vite on port **5173** (dev) / **4173** (preview). |
 | NF-3 | Responsive enough for desktop and tablet admin use. |
 | NF-4 | No secrets or external API keys required. |
-| NF-5 | Display version `APP_VERSION` (`0.8`) in AppBar and sidebar. |
+| NF-5 | Display version `APP_VERSION` (`0.8.1`) in AppBar and sidebar. |
 
 ## 6. Out of scope (current version)
 
@@ -205,20 +205,26 @@ Dashboard hero tagline: **Project workflow management system.**
 - Multiple files per field or attachments larger than 512 KB
 - Mobile-first native apps
 
-## 7. What’s new in v0.8
+## 7. What’s new in v0.8.1
+
+- Sticky register columns (Request # and Submitter pinned by default; pin others in Customize columns)
+- Removed **Last change** column; **Current step** always sits immediately after **Status**
+- **New Delegation** button aligned under the page title on the left (like New Request)
+
+## 7a. What’s new in v0.8
 
 - **Administration → Integrations** — configure Azure AD (SSO/identity), Azure SQL, and email (SMTP or Microsoft Graph) for production readiness
 - Workflow History: remove Type column; rename Actor → **User**
 - Delegation handoffs: when more than four covered requests are open, one summary notification with per-request links (start and end)
 - Block overlapping outbound delegations for the same user when dates and workflow coverage both conflict
 
-## 7a. What’s new in v0.7
+## 7b. What’s new in v0.7
 
 - Dashboard tagline: **Project workflow management system.**
 - Register filters: date popover (between / relative last N days), multi-select dropdowns (status, form, current step, select fields), aligned text search, clear-all / clear-one
 - Delegation handoff: optional notify delegate of in-progress items at start; notify delegator of unfinished items when the delegation ends
 
-## 7b. What’s new in v0.6
+## 7c. What’s new in v0.6
 
 - **Administration → Notifications** — form-dedicated rich-text templates (subject/body + field tokens)
 - Workflow Notify nodes pick a template **and** configure recipients (roles / submitter)
@@ -226,7 +232,7 @@ Dashboard hero tagline: **Project workflow management system.**
 - Request PDF: branded orange banner and form-like field cards
 - TipTap rich-text editor for template bodies
 
-## 7c. What’s new in v0.5
+## 7d. What’s new in v0.5
 
 - Data Tools **Include users** / **Include requests** checkboxes
 - Randomized sample submitters, timestamps (open ≤ 1 week; completed older)
@@ -299,10 +305,9 @@ npm run screenshots
 4. Delete form removes its workflow; other forms unchanged.
 5. Delete a linked workflow leaves the form with a newly created dedicated workflow.
 
-## 11. Acceptance criteria (v0.8)
+## 11. Acceptance criteria (v0.8.1)
 
-1. Version badge shows `v0.8`; dashboard hero reads “Project workflow management system.”
-2. Administration → Integrations saves Azure AD, Azure SQL, and email settings independently; Data Tools reset preserves them.
-3. Workflow History shows Step / User / Action / Timestamp / Status (no Type column).
-4. Delegation start/end with more than four open covered requests produces one summary inbox message with links; overlapping same-user grants are blocked.
-5. Prior v0.7 criteria still hold (register filters, basic delegation handoff, notification templates, PDF branding).
+1. Version badge shows `v0.8.1`; dashboard hero reads “Project workflow management system.”
+2. Register Request # and Submitter are sticky by default; Last change is absent; Current step is immediately after Status.
+3. New Delegation button sits under the title on the left.
+4. Prior v0.8 criteria still hold (Integrations, workflow history User column, delegation summary/overlap).

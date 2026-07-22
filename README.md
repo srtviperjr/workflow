@@ -2,7 +2,7 @@
 
 A local-storage React application for designing approval workflows, building forms, and tracking requests end-to-end.
 
-**Version:** 0.8
+**Version:** 0.8.1
 
 | Doc | Description |
 |-----|-------------|
