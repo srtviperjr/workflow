@@ -1,4 +1,4 @@
-# Jansen Workflows — Product Requirements (v0.8.1)
+# Jansen Workflows — Product Requirements (v0.8.2)
 
 ## 1. Purpose
 
@@ -49,7 +49,7 @@ Custom roles may be app-scoped or form-scoped. Roles can map to Azure AD / AD gr
 |----------|--------|
 | Everyone | Dashboard, Requests, Request Register, Delegations, **Help** (in-app user guide) |
 | Admin only | Forms, **Notifications**, Workflows, Users, Roles, **Integrations**, Data Tools (under Administration, in that order) |
-| App bar | Notification bell (inbox), identity switcher, version badge (`v0.8.1`) — click opens release notes in a new window |
+| App bar | Notification bell (inbox), identity switcher, version badge (`v0.8.2`) — click opens release notes in a new window |
 
 Inbox (bell → `/notifications`) is separate from Administration → Notifications (template design at `/notification-templates`).
 
@@ -82,6 +82,12 @@ Dashboard hero tagline: **Project workflow management system.**
 | FB-5 | File fields store a single attachment as a data URL in localStorage (max **512 KB**). |
 | FB-6 | Registers, PDF, notifications, and detail views show the **filename** (not raw base64). |
 | FB-7 | The Change Request sample form includes an optional **Attachment** file field by default. |
+| FB-8 | Each form owns an ordered `statusOptions` list (default Submitted / Approved / Rejected). First status is applied on submit; remaining statuses are decision outcomes. |
+| FB-9 | Statuses can be reordered with up/down controls (min two: submit + ≥1 outcome). |
+| FB-10 | **Layout** opens a drag canvas to place fields (`FormField.layout`); placement is used on submit/detail when set. |
+| FB-11 | Forms, workflows, and notification templates support **Copy** (forms deep-copy the dedicated workflow and templates). |
+| FB-12 | Catalog editors use a single **Save**; leaving an unsaved create/copy draft discards it (with confirm). |
+| FB-13 | Create-time placeholder names clear on focus so typing replaces them immediately. |
 
 ### 4.3 Workflow editor
 
@@ -90,10 +96,13 @@ Dashboard hero tagline: **Project workflow management system.**
 | WE-1 | Admins edit workflows on a visual canvas (React Flow). |
 | WE-2 | Node types: start, step, decision, notification, end. |
 | WE-3 | Steps/decisions assign a role; optional field-edit permission on the step. |
-| WE-4 | Decision routing: manual outcomes and/or form-field conditions. |
-| WE-5 | Related form enables field-based conditions and form-scoped roles. |
+| WE-4 | Decision routing uses form status outcomes (`statusOptionId` on edges) and/or form-field conditions. Taking a manual action sets the request status to that outcome. |
+| WE-4a | A decision node is either **user** (manual outcomes) or **system/conditional** — modes are not mixed on one node (user = amber, system = teal). |
+| WE-5 | Related form enables field-based conditions, form-scoped roles, and that form’s status outcomes. |
 | WE-6 | Notification nodes pick a **form-dedicated notification template** (subject/body) and configure **recipients** (roles and/or notify submitter) on the node. |
 | WE-7 | Templates from other forms cannot be selected on a workflow (no cross-form templates). |
+| WE-8 | Delete / Backspace removes the selected node(s) or edge(s) (nodes confirm; edges do not). |
+| WE-9 | New workflows default to **“{Form name} Workflow”** when a related form is chosen (and when the name is still a placeholder). |
 
 ### 4.4 Requests & register
 
@@ -101,7 +110,7 @@ Dashboard hero tagline: **Project workflow management system.**
 |----|-------------|
 | RQ-1 | Users open **Requests** to pick a form and submit; submission starts on the linked workflow. |
 | RQ-2 | Request detail shows form data (including downloadable attachments), current step, and history. |
-| RQ-3 | Eligible actors can approve / reject / complete steps with comments. |
+| RQ-3 | Eligible actors can take the form’s available status outcomes (or complete steps) with an optional comment; the chosen outcome becomes the request status. |
 | RQ-4 | History records actor, action, outcome, timestamp; delegate actions are labeled. |
 | RQ-5 | Overall request register lists submissions with: request #, submitter, form name, submission date, status, current step (current step always immediately after status). Request # and Submitter are sticky (locked while scrolling horizontally) by default. |
 | RQ-6 | Each form has its own register showing form fields; users can customize column visibility, order, and sticky pins (saved per identity). Request # and Submitter are sticky by default. Current step stays immediately to the right of Status. |
@@ -168,6 +177,8 @@ Dashboard hero tagline: **Project workflow management system.**
 | EN-9 | Sample manager-approval workflows ship with submit / approve / reject templates and matching Notify nodes. |
 | EN-10 | Notification deep-links to a request are only offered when the viewer can open that request. |
 | EN-11 | Deleting a form cascade-deletes its templates; deleting a template clears Notify-node references. |
+| EN-12 | Administration → Notifications supports filtering by form; list cards show template name and form; **Create Notification** sits above the form filter on the left. |
+| EN-13 | Help (`/help`) renders the user guide; the version badge opens `/release-notes` in a new window. |
 
 ### 4.9 PDF export
 
@@ -197,7 +208,7 @@ Dashboard hero tagline: **Project workflow management system.**
 | NF-2 | Runs with Vite on port **5173** (dev) / **4173** (preview). |
 | NF-3 | Responsive enough for desktop and tablet admin use. |
 | NF-4 | No secrets or external API keys required. |
-| NF-5 | Display version `APP_VERSION` (`0.8.1`) in AppBar and sidebar. |
+| NF-5 | Display version `APP_VERSION` (`0.8.2`) in AppBar and sidebar. |
 
 ## 6. Out of scope (current version)
 
@@ -207,26 +218,36 @@ Dashboard hero tagline: **Project workflow management system.**
 - Multiple files per field or attachments larger than 512 KB
 - Mobile-first native apps
 
-## 7. What’s new in v0.8.1
+## 7. What’s new in v0.8.2
+
+- In-app **Help** (user guide) and clickable version badge → release notes window (newest first)
+- Form-owned ordered **request statuses**; decision actions set status and route by status option
+- Status reorder (up/down); field **Layout** canvas; user vs system/conditional decision styling
+- **Copy** forms / workflows / notification templates; single Save; discard unsaved create/copy drafts
+- Clear create placeholders on focus; notification form filter + Create left; Notify picks form templates
+- Inbox plain-text previews + admin **Show all**; register multi-term text search
+- Workflow editor Delete/Backspace; default “{Form name} Workflow” names
+
+## 7a. What’s new in v0.8.1
 
 - Sticky register columns (Request # and Submitter pinned by default; pin others in Customize columns)
 - Removed **Last change** column; **Current step** always sits immediately after **Status**
 - **New Delegation** button aligned under the page title on the left (like New Request)
 
-## 7a. What’s new in v0.8
+## 7b. What’s new in v0.8
 
 - **Administration → Integrations** — configure Azure AD (SSO/identity), Azure SQL, and email (SMTP or Microsoft Graph) for production readiness
 - Workflow History: remove Type column; rename Actor → **User**
 - Delegation handoffs: when more than four covered requests are open, one summary notification with per-request links (start and end)
 - Block overlapping outbound delegations for the same user when dates and workflow coverage both conflict
 
-## 7b. What’s new in v0.7
+## 7c. What’s new in v0.7
 
 - Dashboard tagline: **Project workflow management system.**
 - Register filters: date popover (between / relative last N days), multi-select dropdowns (status, form, current step, select fields), aligned text search, clear-all / clear-one
 - Delegation handoff: optional notify delegate of in-progress items at start; notify delegator of unfinished items when the delegation ends
 
-## 7c. What’s new in v0.6
+## 7d. What’s new in v0.6
 
 - **Administration → Notifications** — form-dedicated rich-text templates (subject/body + field tokens)
 - Workflow Notify nodes pick a template **and** configure recipients (roles / submitter)
@@ -234,7 +255,7 @@ Dashboard hero tagline: **Project workflow management system.**
 - Request PDF: branded orange banner and form-like field cards
 - TipTap rich-text editor for template bodies
 
-## 7d. What’s new in v0.5
+## 7e. What’s new in v0.5
 
 - Data Tools **Include users** / **Include requests** checkboxes
 - Randomized sample submitters, timestamps (open ≤ 1 week; completed older)
@@ -308,9 +329,11 @@ npm run screenshots
 4. Delete form removes its workflow; other forms unchanged.
 5. Delete a linked workflow leaves the form with a newly created dedicated workflow.
 
-## 11. Acceptance criteria (v0.8.1)
+## 11. Acceptance criteria (v0.8.2)
 
-1. Version badge shows `v0.8.1`; dashboard hero reads “Project workflow management system.”
-2. Register Request # and Submitter are sticky by default; Last change is absent; Current step is immediately after Status.
-3. New Delegation button sits under the title on the left.
-4. Prior v0.8 criteria still hold (Integrations, workflow history User column, delegation summary/overlap).
+1. Version badge shows `v0.8.2`; clicking it opens release notes (newest first); **Help** shows the user guide.
+2. Form statuses: first status applies on submit; remaining statuses are decision outcomes; taking an action updates request status and routes by `statusOptionId`.
+3. Form builder can reorder statuses and open the field Layout canvas; decision nodes do not mix user and system modes.
+4. Copy works for forms (with workflow + templates), workflows, and notification templates; leaving an unsaved create/copy discards the draft.
+5. Inbox defaults to recipient-only; admins can Show all; list previews are plain text.
+6. Prior v0.8.1 criteria still hold (sticky columns, Current step beside Status, New Delegation left).

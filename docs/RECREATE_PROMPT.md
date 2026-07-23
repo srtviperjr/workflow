@@ -1,4 +1,4 @@
-# Jansen Workflows — Recreation Prompt (v0.8.1)
+# Jansen Workflows — Recreation Prompt (v0.8.2)
 
 Copy everything below the line into a coding agent (or use as a product brief) to recreate this application.
 
@@ -10,7 +10,7 @@ Build **Jansen Workflows** — a frontend-only React + TypeScript (Vite) approva
 
 ### Product summary
 
-Admins design forms and exclusive 1:1 workflows on a visual canvas. Notification **message templates** are administered separately (per form, rich text). Workflow Notify nodes pick a template and choose recipients. Users submit requests from a **Requests** catalog, advance approvals by role, view registers with field-aware filters and sticky Request # / Submitter columns, receive in-app notifications, and optionally attach small files. Delegations can hand off in-progress work at start/end (summary notification when more than four open items; no overlapping grants for the same user coverage). Demo users switch identity via an AppBar picker. Display version **v0.8.1** in the AppBar and sidebar. Dashboard hero tagline: **Project workflow management system.** Admin **Integrations** configures Azure AD, Azure SQL, and email.
+Admins design forms (fields, ordered request statuses, optional field layout canvas) and exclusive 1:1 workflows on a visual canvas. Notification **message templates** are administered separately (per form, rich text, filterable by form). Workflow Notify nodes pick a template and choose recipients. Decision outcomes come from the form’s statuses (user vs system/conditional modes). Users submit requests from a **Requests** catalog, advance approvals by role, view registers with field-aware filters and sticky Request # / Submitter columns, receive in-app notifications, and optionally attach small files. Catalog items support **Copy**; editors use a single Save and discard unsaved create/copy drafts. Delegations can hand off in-progress work at start/end (summary notification when more than four open items; no overlapping grants for the same user coverage). Demo users switch identity via an AppBar picker. Display version **v0.8.2** in the AppBar and sidebar (click opens release notes). **Help** shows the in-app user guide. Dashboard hero tagline: **Project workflow management system.** Admin **Integrations** configures Azure AD, Azure SQL, and email.
 
 Keep **view** and **approve** access consistent: never show a request (or a notification deep-link) that the user cannot open, and never show Approve/Reject unless they can act on the current step.
 
@@ -29,11 +29,11 @@ Keep **view** and **approve** access consistent: never show a request (or a noti
 
 - **Users**: first/last name, email, company (`BHP|Hatch|Bantrel|Fluor`), project (`JS1|JS2|Operations`), roleIds
 - **Roles**: name, description, AD group name metadata, scope `app|form`, formIds when form-scoped, system flags. Defaults: Requestor, Manager, Project Director, Admin
-- **Forms**: name, description, fields, exclusive `workflowId`, visibility `own|company|project`
-- **Form fields**: types `text|textarea|number|select|date|file`; label, required, placeholder/help, select options. File values are `{ name, mimeType, size, dataUrl }` with max **512 KB**; UI/registers/PDF/notifications show **filename only**
+- **Forms**: name, description, fields, ordered `statusOptions` (first = on submit), exclusive `workflowId`, visibility `own|company|project`
+- **Form fields**: types `text|textarea|number|select|date|file`; label, required, placeholder/help, select options; optional `layout` {x,y,w,h}. File values are `{ name, mimeType, size, dataUrl }` with max **512 KB**; UI/registers/PDF/notifications show **filename only**
 - **Notification templates**: `id`, `name`, `formId` (exclusive), `description`, `subject`, `bodyHtml`, timestamps. Subject/body support `{{formName}}`, `{{requestId}}`, `{{status}}`, `{{submitter}}`, and `{{Field Label}}`
-- **Workflows**: nodes `start|step|decision|notification|end`; edges with manual outcomes or AND-combined field conditions. Steps/decisions have role assignment; steps may allow editing form fields; **notification nodes** store `notificationTemplateId` plus `notifyRoleIds` and `notifySubmitter` (recipients on the node; content from the template). No cross-form templates
-- **Submissions**: form data + baselineData, status `draft|in_progress|completed|rejected`, current node, history
+- **Workflows**: nodes `start|step|decision|notification|end`; edges with `statusOptionId` outcomes and/or AND-combined field conditions. Decision `decisionMode` is `manual` or `conditional` (not mixed). Steps/decisions have role assignment; steps may allow editing form fields; **notification nodes** store `notificationTemplateId` plus `notifyRoleIds` and `notifySubmitter`. No cross-form templates
+- **Submissions**: form data + baselineData, status = form status option id (legacy `in_progress`/`completed`/`rejected` migrated), current node, history
 - **Notifications** (inbox): in-app only (recipients, subject, rendered body/HTML, read state) — including workflow notifies and delegation handoffs. Default: each user sees only their own; admins may toggle Show all. List preview strips HTML to plain text.
 - **Delegations**: from/to user, date range, scope all-workflows or per-workflow; additive permissions; `notifyDelegateOnStart`, `startHandoffNotifiedAt`, `endHandoffNotifiedAt`
 - **formRegisterViews**: per-user per-form column visibility/order/`sticky` (default sticky: `requestId`, `submitter`)
@@ -57,9 +57,9 @@ Boot as **System Admin** `admin@jansen.local` (Admin + Requestor, BHP / JS1). No
 
 **Administration (admin only, this order):** Forms, **Notifications** (templates), Workflows, Users, Roles, **Integrations**, **Data Tools** (last). `/admin` → `/data-tools`.
 
-**AppBar:** bell → inbox `/notifications`; identity switcher; version `v0.8.1` (click opens `/release-notes` in a new window from `docs/RELEASE_NOTES.md`, newest first).
+**AppBar:** bell → inbox `/notifications`; identity switcher; version `v0.8.2` (click opens `/release-notes` in a new window from `docs/RELEASE_NOTES.md`, newest first).
 
-Also: form builder; notification template editor; form submit; request detail (act only when allowed, branded PDF); overall + per-form registers; workflow canvas; users/roles CRUD; Integrations (Azure AD / Azure SQL / email); Data Tools.
+Also: form builder (statuses + Layout); notification template editor; form submit; request detail (act only when allowed, branded PDF); overall + per-form registers; workflow canvas (Delete key, status outcomes); Copy on forms/workflows/notifications; users/roles CRUD; Integrations (Azure AD / Azure SQL / email); Data Tools; Help; standalone `/release-notes`.
 
 ### Register filters
 
@@ -126,9 +126,10 @@ Live Azure AD SSO / SQL / email delivery (Integrations is configuration-only), m
 3. Register date filter supports between + last 90 days; status multi-select works; Clear filters works  
 4. Delegation with in-progress items can notify the delegate; ending it notifies the delegator of leftovers; >4 open items → one summary with links; overlapping same-user grants blocked  
 5. Integrations page saves Azure AD / SQL / email settings; Data Tools reset keeps them  
-6. Version badge is `v0.8.1`; dashboard tagline is “Project workflow management system.”  
+6. Version badge is `v0.8.2` (opens release notes); Help shows the user guide; dashboard tagline is “Project workflow management system.”  
 7. Registers omit Last change; Current step is immediately after Status; Request # / Submitter sticky by default  
+8. Form statuses drive decision actions; Copy form includes workflow + templates; unsaved create drafts discard on leave  
 
 ---
 
-*Generated for Jansen Workflows v0.8.1.*
+*Generated for Jansen Workflows v0.8.2.*

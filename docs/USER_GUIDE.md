@@ -1,4 +1,4 @@
-# Jansen Workflows — User Guide (v0.8.1)
+# Jansen Workflows — User Guide (v0.8.2)
 
 This guide walks through day-to-day use of the local demo app. All data stays in your browser; use **Data Tools** to seed or reset sample content.
 
@@ -21,7 +21,7 @@ Open the URL shown (typically `http://localhost:5173`). You start as **System Ad
 | **Help** | In-app user guide (this document) with screenshots |
 | **Bell** | In-app notification inbox |
 | **Acting as** | Switch identity (no password) |
-| **v0.8.1** | App version — click to open **release notes** in a new window (newest first) |
+| **v0.8.2** | App version — click to open **release notes** in a new window (newest first) |
 
 The dashboard hero reads **Project workflow management system.** Below that, it lists work waiting for the current identity — only requests you can both **see** and **act on**.
 
@@ -63,7 +63,7 @@ Each form also has a **per-form register** (from Forms → Register or `/registe
 
 ## 4. Review and approve
 
-On **Request detail** you see field values (download attachments by filename), history, and — **only if you can act** — Approve / Reject / Complete with an optional comment.
+On **Request detail** you see field values (download attachments by filename), history, and — **only if you can act** — the form’s available status outcomes (or Complete) with an optional comment. Choosing an outcome sets the request status and advances the workflow.
 
 ![Request detail](./screenshots/09-request-detail.png)
 
@@ -103,7 +103,7 @@ When you create a delegation, if you have in-progress requests awaiting action u
 
 ### Forms
 
-Design field lists, visibility (own / company / project), and the linked workflow. Field types: text, textarea, number, select, date, **file**.
+Design field lists, visibility (own / company / project), ordered **request statuses**, and the linked workflow. Field types: text, textarea, number, select, date, **file**. Use **Copy** to duplicate a form with its workflow and notification templates. Use **Layout** in the form builder to drag-place fields on a canvas. Reorder statuses with up/down — the first status is applied on submit; the rest appear as decision outcomes.
 
 ![Forms](./screenshots/03-forms.png)
 
@@ -111,7 +111,7 @@ Design field lists, visibility (own / company / project), and the linked workflo
 
 ### Notifications (templates)
 
-Under **Administration → Notifications**, design message templates for each form: subject, rich-text body, and `{{tokens}}` for form fields / builtins. Templates are dedicated to one form.
+Under **Administration → Notifications**, design message templates for each form: subject, rich-text body, and `{{tokens}}` for form fields / builtins. Templates are dedicated to one form. Filter the list by form; cards show the template name and form. **Create Notification** is on the left above the filter. **Copy** duplicates a template.
 
 ![Notification templates](./screenshots/16-notification-templates.png)
 
@@ -121,7 +121,7 @@ On the **workflow** canvas, each Notify step picks a template for that form and 
 
 ### Workflows
 
-Edit the canvas: Start, Step, Decision, Notification, End. Assign roles, outcomes, and field conditions. Keep **one workflow per form**. Notify nodes select a template + recipients. Select a step or connection and press **Delete** (or Backspace) to remove it — steps ask for confirmation; connections do not. New workflows default to **“{Form name} Workflow”**.
+Edit the canvas: Start, Step, Decision, Notification, End. Assign roles, form-status outcomes, and field conditions. Keep **one workflow per form**. Decision nodes are either **user** (amber, manual outcomes) or **system/conditional** (teal) — not both. Notify nodes select a template + recipients. Select a step or connection and press **Delete** (or Backspace) to remove it — steps ask for confirmation; connections do not. New workflows default to **“{Form name} Workflow”**. **Copy** creates an unassigned clone.
 
 ![Workflows](./screenshots/05-workflows.png)
 

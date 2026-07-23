@@ -1,5 +1,5 @@
 /** App display version — keep in sync with package.json. */
-export const APP_VERSION = '0.8.1';
+export const APP_VERSION = '0.8.2';
 
 /** Opens release notes in a dedicated browser window (newest first). */
 export function openReleaseNotesWindow(): void {

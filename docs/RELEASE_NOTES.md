@@ -1,11 +1,21 @@
 # Jansen Workflows — Release notes
 
-Most recent release first. In the app, click the version badge (for example **v0.8.1**) to open this page in a new window.
+Most recent release first. In the app, click the version badge (for example **v0.8.2**) to open this page in a new window.
 
-## Unreleased
+## v0.8.2
 
 - In-app **Help** — full user guide with screenshots from the sidebar
-- Click the **version badge** (AppBar or sidebar) to open these release notes in a new window
+- Click the **version badge** (AppBar or sidebar) to open these release notes in a new window (newest first)
+- Forms own ordered **request statuses** (first = on submit; rest = decision outcomes); taking an action sets status and routes by `statusOptionId`
+- Reorder statuses with up/down; **Layout** canvas for drag-placing form fields
+- Decision nodes: **user** (amber) vs **system/conditional** (teal); no mixing modes on one node
+- **Copy** for forms (deep-copy form + workflow + templates), workflows, and notification templates
+- Single **Save** on catalog editors; discard unsaved create/copy drafts when leaving
+- Clear create-time placeholder names on focus (“New Form”, “New field”, “New notification”, …)
+- Notifications list: filter by form; cards show name + form; Create Notification on the left; Notify step picks that form’s templates
+- Inbox: plain-text previews; admins may **Show all (admin)**; recipients still only see their own by default
+- Register text filters: multi-term combination search (pick values and/or type terms)
+- Workflow editor: **Delete**/Backspace removes selection; new workflows default to “{Form name} Workflow”
 
 ## v0.8.1
 
