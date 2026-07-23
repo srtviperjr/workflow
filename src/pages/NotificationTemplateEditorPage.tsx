@@ -1,4 +1,4 @@
-import { useEffect, useRef, useState } from 'react';
+import { useEffect, useRef, useState, type MouseEvent } from 'react';
 import { Link as RouterLink, Navigate, useNavigate, useParams } from 'react-router-dom';
 import {
   Alert,
@@ -45,6 +45,7 @@ export function NotificationTemplateEditorPage() {
   const [bodyHtml, setBodyHtml] = useState(tpl?.bodyHtml ?? '');
   const [saved, setSaved] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [dirty, setDirty] = useState(false);
 
   useEffect(() => {
     if (!tpl) return;
@@ -54,6 +55,7 @@ export function NotificationTemplateEditorPage() {
     setSubject(tpl.subject);
     setBodyHtml(tpl.bodyHtml);
     setSaved(false);
+    setDirty(false);
     setError(null);
   }, [tpl?.id]); // eslint-disable-line react-hooks/exhaustive-deps
 
@@ -78,32 +80,64 @@ export function NotificationTemplateEditorPage() {
     );
   }
 
-  const save = () => {
+  const markDirty = () => {
+    setDirty(true);
+    setSaved(false);
+  };
+
+  /** Persist current form fields. Returns false when validation fails. */
+  const persist = (): boolean => {
     if (!name.trim()) {
       setError('Name is required');
-      return;
+      return false;
     }
     if (!formId) {
       setError('Assign this template to a form');
-      return;
+      return false;
     }
+    const html = bodyRef.current?.getHTML() ?? bodyHtml;
     updateNotificationTemplate(tpl.id, {
       name: name.trim(),
       description: description.trim(),
       formId,
       subject: subject.trim(),
-      bodyHtml,
+      bodyHtml: html,
     });
+    setBodyHtml(html);
     setError(null);
     setSaved(true);
+    setDirty(false);
+    return true;
+  };
+
+  const save = () => {
+    persist();
+  };
+
+  const saveAndClose = () => {
+    if (!persist()) return;
+    navigate('/notification-templates');
+  };
+
+  const leaveWithoutSaving = (e: MouseEvent) => {
+    if (!dirty) return;
+    if (
+      !window.confirm(
+        'You have unsaved changes. Leave without saving?',
+      )
+    ) {
+      e.preventDefault();
+    }
   };
 
   const insertIntoSubject = (token: string) => {
     setSubject((prev) => `${prev}${token}`);
+    markDirty();
   };
 
   const insertIntoBody = (token: string) => {
     bodyRef.current?.insertText(token);
+    markDirty();
   };
 
   return (
@@ -113,6 +147,7 @@ export function NotificationTemplateEditorPage() {
         component={RouterLink}
         to="/notification-templates"
         sx={{ mb: 2 }}
+        onClick={leaveWithoutSaving}
       >
         Back to notifications
       </Button>
@@ -151,7 +186,7 @@ export function NotificationTemplateEditorPage() {
             value={name}
             onChange={(e) => {
               setName(e.target.value);
-              setSaved(false);
+              markDirty();
             }}
             fullWidth
             required
@@ -161,7 +196,7 @@ export function NotificationTemplateEditorPage() {
             value={description}
             onChange={(e) => {
               setDescription(e.target.value);
-              setSaved(false);
+              markDirty();
             }}
             fullWidth
             multiline
@@ -174,7 +209,7 @@ export function NotificationTemplateEditorPage() {
               value={formId}
               onChange={(e) => {
                 setFormId(e.target.value);
-                setSaved(false);
+                markDirty();
               }}
             >
               {data.forms.map((f) => (
@@ -194,7 +229,7 @@ export function NotificationTemplateEditorPage() {
             value={subject}
             onChange={(e) => {
               setSubject(e.target.value);
-              setSaved(false);
+              markDirty();
             }}
             fullWidth
             helperText="Plain text. Use {{tokens}} for dynamic values."
@@ -236,7 +271,7 @@ export function NotificationTemplateEditorPage() {
               value={bodyHtml}
               onChange={(html) => {
                 setBodyHtml(html);
-                setSaved(false);
+                markDirty();
               }}
             />
           </Box>
@@ -273,11 +308,8 @@ export function NotificationTemplateEditorPage() {
             )}
           </Box>
 
-          <Stack direction="row" justifyContent="flex-end">
-            <Button
-              variant="outlined"
-              onClick={() => navigate('/notification-templates')}
-            >
+          <Stack direction="row" justifyContent="flex-end" spacing={1}>
+            <Button variant="outlined" onClick={saveAndClose}>
               Done
             </Button>
           </Stack>

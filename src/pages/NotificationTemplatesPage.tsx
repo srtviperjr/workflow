@@ -1,3 +1,4 @@
+import { flushSync } from 'react-dom';
 import { Link as RouterLink, Navigate, useNavigate } from 'react-router-dom';
 import {
   Box,
@@ -38,15 +39,20 @@ export function NotificationTemplatesPage() {
   const createTemplate = () => {
     const formId = data.forms[0]?.id;
     if (!formId) return;
-    const tpl = addNotificationTemplate({
-      name: 'New notification',
-      formId,
-      description: '',
-      subject: 'Update on {{formName}}',
-      bodyHtml:
-        '<p>Hello,</p><p>A request was updated.</p><p>Form: {{formName}}<br>Request: {{requestId}}</p>',
+    // Flush so the editor route can resolve the new template on first paint
+    let tplId = '';
+    flushSync(() => {
+      const tpl = addNotificationTemplate({
+        name: 'New notification',
+        formId,
+        description: '',
+        subject: 'Update on {{formName}}',
+        bodyHtml:
+          '<p>Hello,</p><p>A request was updated.</p><p>Form: {{formName}}<br>Request: {{requestId}}</p>',
+      });
+      tplId = tpl.id;
     });
-    navigate(`/notification-templates/${tpl.id}/edit`);
+    navigate(`/notification-templates/${tplId}/edit`);
   };
 
   return (
