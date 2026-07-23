@@ -23,6 +23,11 @@ import {
 } from './formValues';
 import type { FormFieldData } from '../types';
 import { buildNotificationFromNode } from './notifications';
+import {
+  getActionStatusOptions,
+  getInitialStatusId,
+  findStatusOption,
+} from './formStatus';
 
 export function toFlowNodes(nodes: WorkflowNode[]): Node[] {
   return nodes.map((n) => ({
@@ -45,6 +50,7 @@ export function toFlowEdges(edges: WorkflowEdge[]): Edge[] {
     data: {
       routeMode: e.routeMode ?? 'manual',
       conditions: e.conditions ?? [],
+      statusOptionId: e.statusOptionId,
     },
   }));
 }
@@ -62,6 +68,11 @@ export function fromFlowNodes(nodes: Node[]): WorkflowNode[] {
         description: data.description,
         decisionMode:
           data.decisionMode === 'conditional' ? 'conditional' : 'manual',
+        decisionActions: Array.isArray(data.decisionActions)
+          ? data.decisionActions.filter(
+              (id): id is string => typeof id === 'string',
+            )
+          : undefined,
         allowFieldEdits: Boolean(data.allowFieldEdits),
         notificationTemplateId:
           typeof data.notificationTemplateId === 'string'
@@ -94,6 +105,7 @@ export function fromFlowEdges(edges: Edge[]): WorkflowEdge[] {
     const data = (e.data ?? {}) as {
       routeMode?: WorkflowEdge['routeMode'];
       conditions?: EdgeCondition[];
+      statusOptionId?: string;
     };
     return {
       id: e.id,
@@ -102,6 +114,12 @@ export function fromFlowEdges(edges: Edge[]): WorkflowEdge[] {
       label: typeof e.label === 'string' ? e.label : undefined,
       sourceHandle: e.sourceHandle ?? undefined,
       targetHandle: e.targetHandle ?? undefined,
+      statusOptionId:
+        typeof data.statusOptionId === 'string'
+          ? data.statusOptionId
+          : e.sourceHandle && e.sourceHandle !== 'other'
+            ? e.sourceHandle
+            : undefined,
       routeMode: data.routeMode === 'condition' ? 'condition' : 'manual',
       conditions: Array.isArray(data.conditions) ? data.conditions : [],
     };
@@ -213,10 +231,15 @@ export function getNextNodes(
       if (isConditionEdge(e) && sourceNode?.data.decisionMode === 'conditional') {
         return false;
       }
+      const target = outcome.toLowerCase();
+      const statusId = (e.statusOptionId ?? '').toLowerCase();
       const label = (e.label ?? '').toLowerCase();
       const handle = (e.sourceHandle ?? '').toLowerCase();
-      const target = outcome.toLowerCase();
-      return label === target || handle === target;
+      return (
+        statusId === target ||
+        label === target ||
+        handle === target
+      );
     });
     if (labeled.length > 0) edges = labeled;
   }
@@ -226,21 +249,53 @@ export function getNextNodes(
     .filter(Boolean) as WorkflowNode[];
 }
 
-/** Manual outcomes only (for action buttons). */
+export interface DecisionOutcome {
+  id: string;
+  label: string;
+  kind: 'positive' | 'negative' | 'neutral' | 'initial';
+}
+
+/** Manual decision actions for request UI buttons (linked to form statuses). */
 export function getDecisionOutcomes(
   workflow: Workflow,
   nodeId: string,
-): string[] {
+  form?: FormDefinition | null,
+): DecisionOutcome[] {
   const node = workflow.nodes.find((n) => n.id === nodeId);
-  if (node?.data.decisionMode === 'conditional') return [];
+  if (!node || node.data.decisionMode === 'conditional') return [];
 
+  const actionOptions = getActionStatusOptions(form);
+  const configured = node.data.decisionActions?.filter(Boolean) ?? [];
+
+  if (configured.length > 0) {
+    return configured.map((id) => {
+      const opt = actionOptions.find((o) => o.id === id) ?? findStatusOption(form, id);
+      return {
+        id,
+        label: opt?.label ?? id,
+        kind: (opt?.kind ?? 'neutral') as DecisionOutcome['kind'],
+      };
+    });
+  }
+
+  // Fall back to outgoing edges with statusOptionId / label
   const edges = workflow.edges.filter(
     (e) => e.source === nodeId && !isConditionEdge(e),
   );
-  const labels = edges
-    .map((e) => e.label || e.sourceHandle || 'Continue')
-    .filter(Boolean);
-  return [...new Set(labels)];
+  const fromEdges: DecisionOutcome[] = [];
+  for (const e of edges) {
+    const id = e.statusOptionId || e.sourceHandle || e.label;
+    if (!id) continue;
+    if (fromEdges.some((o) => o.id === id)) continue;
+    const opt =
+      actionOptions.find((o) => o.id === id) ?? findStatusOption(form, id);
+    fromEdges.push({
+      id,
+      label: opt?.label ?? e.label ?? id,
+      kind: (opt?.kind ?? 'neutral') as DecisionOutcome['kind'],
+    });
+  }
+  return fromEdges;
 }
 
 export function createHistoryEntry(
@@ -317,13 +372,36 @@ export function advanceSubmission(
     baselineData: submission.baselineData ?? { ...submission.data },
   };
 
+  // Resolve decision outcome id/label up front (buttons pass status option id)
+  let resolvedOutcomeId = options.outcome;
+  let resolvedOutcomeLabel = options.outcome;
+  if (current.type === 'decision' && options.outcome) {
+    const outcomes = getDecisionOutcomes(workflow, current.id, ctx.form);
+    const match =
+      outcomes.find(
+        (o) =>
+          o.id === options.outcome ||
+          o.label.toLowerCase() === options.outcome!.toLowerCase(),
+      ) ?? null;
+    if (match) {
+      resolvedOutcomeId = match.id;
+      resolvedOutcomeLabel = match.label;
+    } else {
+      const byForm = findStatusOption(ctx.form, options.outcome);
+      if (byForm) {
+        resolvedOutcomeId = byForm.id;
+        resolvedOutcomeLabel = byForm.label;
+      }
+    }
+  }
+
   const history = [
     ...submission.history,
     createHistoryEntry(
       current,
       user,
       options.action,
-      options.outcome,
+      resolvedOutcomeLabel,
       options.comment,
     ),
   ];
@@ -332,7 +410,7 @@ export function advanceSubmission(
   let nextCandidates = getNextNodes(
     workflow,
     current.id,
-    options.outcome,
+    resolvedOutcomeId,
     working,
   );
 
@@ -343,6 +421,11 @@ export function advanceSubmission(
   let next = nextCandidates[0];
   let status = submission.status;
   let currentNodeId = next?.id ?? submission.currentNodeId;
+
+  // Decision action sets the request status to the chosen form status option
+  if (current.type === 'decision' && resolvedOutcomeId) {
+    status = resolvedOutcomeId;
+  }
 
   const workingSubmission: FormSubmission = {
     ...submission,
@@ -431,11 +514,14 @@ export function advanceSubmission(
       createHistoryEntry(next, user, 'Reached end', options.outcome),
     );
     currentNodeId = next.id;
-    const label = next.data.label.toLowerCase();
-    status = label.includes('reject') ? 'rejected' : 'completed';
+    // Keep status from the decision action; only infer from end label if still open
+    if (!findStatusOption(ctx.form, status) || status === 'submitted' || status === 'in_progress') {
+      const label = next.data.label.toLowerCase();
+      if (label.includes('reject')) status = 'rejected';
+      else if (label.includes('approv')) status = 'approved';
+    }
   } else if (next) {
     currentNodeId = next.id;
-    status = 'in_progress';
   }
 
   return {
@@ -470,7 +556,7 @@ export function startSubmission(
   const history: HistoryEntry[] = [];
   const notifications: AppNotification[] = [];
   let currentNodeId: string | null = null;
-  let status: FormSubmission['status'] = 'in_progress';
+  let status: FormSubmission['status'] = getInitialStatusId(ctx.form);
   const baselineData = { ...fieldData };
   const working = { data: fieldData, baselineData };
 
@@ -483,7 +569,7 @@ export function startSubmission(
     submittedBy: user.id,
     submittedAt: new Date().toISOString(),
     currentNodeId: null,
-    status: 'in_progress',
+    status,
     history: [],
     workflowId: workflow?.id ?? null,
   };
@@ -556,15 +642,15 @@ export function startSubmission(
       currentNodeId = next.id;
       if (next.type === 'end') {
         history.push(createHistoryEntry(next, user, 'Reached end'));
-        status = next.data.label.toLowerCase().includes('reject')
-          ? 'rejected'
-          : 'completed';
+        const label = next.data.label.toLowerCase();
+        if (label.includes('reject')) status = 'rejected';
+        else if (label.includes('approv')) status = 'approved';
       }
     } else {
       currentNodeId = submitStep.id;
     }
   } else if (!workflow) {
-    status = 'completed';
+    status = 'approved';
     currentNodeId = null;
     history.push({
       id: createId('hist'),

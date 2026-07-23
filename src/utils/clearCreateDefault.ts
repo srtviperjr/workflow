@@ -13,6 +13,7 @@ const CREATE_DEFAULTS = new Set([
   'Attachment',
   'Update on {{formName}}',
   'Request', // default first field on a new form
+  'New status',
 ]);
 
 /** True when `value` is still an untouched create-time placeholder. */

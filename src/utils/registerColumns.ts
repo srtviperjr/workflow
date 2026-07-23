@@ -365,9 +365,12 @@ export const STATUS_FILTER_OPTIONS: Array<{
   label: string;
 }> = [
   { value: '', label: 'All' },
-  { value: 'in_progress', label: 'In progress' },
-  { value: 'completed', label: 'Completed' },
+  { value: 'submitted', label: 'Submitted' },
+  { value: 'approved', label: 'Approved' },
   { value: 'rejected', label: 'Rejected' },
+  // Legacy values still filterable after migration
+  { value: 'in_progress', label: 'In progress (legacy)' },
+  { value: 'completed', label: 'Completed (legacy)' },
   { value: 'draft', label: 'Draft' },
 ];
 

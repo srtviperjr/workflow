@@ -1,3 +1,4 @@
+import type { CSSProperties } from 'react';
 import { Handle, Position, type NodeProps } from '@xyflow/react';
 import { Box, Typography } from '@mui/material';
 import PlayArrowIcon from '@mui/icons-material/PlayArrow';
@@ -5,6 +6,7 @@ import StopIcon from '@mui/icons-material/Stop';
 import HelpOutlineIcon from '@mui/icons-material/HelpOutline';
 import AssignmentIcon from '@mui/icons-material/Assignment';
 import NotificationsNoneIcon from '@mui/icons-material/NotificationsNone';
+import type { FormStatusKind } from '../../types';
 
 interface NodeData {
   label: string;
@@ -12,6 +14,9 @@ interface NodeData {
   description?: string;
   roleName?: string;
   decisionMode?: 'manual' | 'conditional';
+  decisionActions?: string[];
+  /** Enriched labels/kinds for decision action handles */
+  decisionActionMeta?: Array<{ id: string; label: string; kind: FormStatusKind }>;
   [key: string]: unknown;
 }
 
@@ -23,6 +28,12 @@ const base = {
   border: '2px solid',
   boxShadow: '0 2px 8px rgba(43,43,43,0.12)',
 };
+
+function handleColor(kind: FormStatusKind): string {
+  if (kind === 'positive') return '#2e7d4f';
+  if (kind === 'negative') return '#c62828';
+  return '#B34200';
+}
 
 export function StartNode({ data }: NodeProps) {
   const d = data as NodeData;
@@ -54,7 +65,7 @@ export function EndNode({ data }: NodeProps) {
         ...base,
         borderRadius: '24px',
         bgcolor: rejected ? '#c62828' : '#2e7d4f',
-        borderColor: rejected ? '#8e1b1b' : '#1b5e35',
+        borderColor: rejected ? '#8e0000' : '#1b5e20',
         color: 'white',
       }}
     >
@@ -62,7 +73,7 @@ export function EndNode({ data }: NodeProps) {
       <Typography variant="body2" fontWeight={700} component="span">
         {d.label}
       </Typography>
-      <Handle type="target" position={Position.Top} style={{ background: '#333' }} />
+      <Handle type="target" position={Position.Top} style={{ background: '#fff' }} />
     </Box>
   );
 }
@@ -74,14 +85,13 @@ export function StepNode({ data, selected }: NodeProps) {
       sx={{
         ...base,
         borderRadius: 2,
-        bgcolor: 'white',
-        borderColor: selected ? 'secondary.main' : 'primary.main',
-        borderWidth: selected ? 3 : 2,
+        bgcolor: selected ? '#FFF3E0' : 'white',
+        borderColor: '#E25200',
       }}
     >
       <Handle type="target" position={Position.Top} style={{ background: '#E25200' }} />
-      <AssignmentIcon sx={{ fontSize: 18, color: 'primary.main', mb: 0.25 }} />
-      <Typography variant="body2" fontWeight={700} display="block">
+      <AssignmentIcon sx={{ fontSize: 18, color: '#E25200', mb: 0.25 }} />
+      <Typography variant="body2" fontWeight={700}>
         {d.label}
       </Typography>
       {d.roleName && (
@@ -96,89 +106,115 @@ export function StepNode({ data, selected }: NodeProps) {
 
 export function DecisionNode({ data, selected }: NodeProps) {
   const d = data as NodeData;
+  const actions =
+    d.decisionActionMeta && d.decisionActionMeta.length > 0
+      ? d.decisionActionMeta
+      : (d.decisionActions ?? []).map((id) => ({
+          id,
+          label: id,
+          kind: 'neutral' as FormStatusKind,
+        }));
+
+  // Distribute source handles: first left, second right, rest along bottom
+  const handleStyle = (
+    index: number,
+    total: number,
+    kind: FormStatusKind,
+  ): CSSProperties => {
+    const color = handleColor(kind);
+    if (index === 0 && total >= 1) {
+      return {
+        background: color,
+        left: 0,
+        top: '50%',
+        transform: 'translate(-50%, -50%) rotate(-45deg)',
+      };
+    }
+    if (index === 1 && total >= 2) {
+      return {
+        background: color,
+        right: 0,
+        left: 'auto',
+        top: '50%',
+        transform: 'translate(50%, -50%) rotate(-45deg)',
+      };
+    }
+    const bottomIndex = index - 2;
+    const bottomCount = Math.max(total - 2, 1);
+    const pct = ((bottomIndex + 1) / (bottomCount + 1)) * 100;
+    return {
+      background: color,
+      left: `${pct}%`,
+      bottom: 0,
+      top: 'auto',
+      transform: 'translate(-50%, 50%) rotate(-45deg)',
+    };
+  };
+
   return (
     <Box
       sx={{
-        width: 160,
-        height: 160,
-        display: 'flex',
-        alignItems: 'center',
-        justifyContent: 'center',
-        transform: 'rotate(45deg)',
-        bgcolor: '#FFF4EC',
-        border: '2px solid',
-        borderColor: selected ? '#B34200' : '#E25200',
-        borderWidth: selected ? 3 : 2,
-        boxShadow: '0 2px 8px rgba(226,82,0,0.18)',
+        ...base,
+        minWidth: 160,
+        borderRadius: 1,
+        bgcolor: selected ? '#FFF8E1' : 'white',
+        borderColor: '#F9A825',
+        transform: 'rotate(0deg)',
       }}
     >
-      <Handle
-        type="target"
-        position={Position.Top}
-        id="in"
-        style={{
-          background: '#E25200',
-          left: '50%',
-          top: 0,
-          transform: 'translate(-50%, -50%) rotate(-45deg)',
-        }}
-      />
-      <Box sx={{ transform: 'rotate(-45deg)', textAlign: 'center', px: 1 }}>
-        <HelpOutlineIcon sx={{ fontSize: 18, color: 'primary.main' }} />
-        <Typography variant="body2" fontWeight={700} lineHeight={1.2}>
-          {d.label}
+      <Handle type="target" position={Position.Top} style={{ background: '#F9A825' }} />
+      <HelpOutlineIcon sx={{ fontSize: 18, color: '#F9A825', mb: 0.25 }} />
+      <Typography variant="body2" fontWeight={700}>
+        {d.label}
+      </Typography>
+      {d.roleName && (
+        <Typography variant="caption" color="text.secondary" display="block">
+          {d.roleName}
         </Typography>
-        {d.roleName && (
-          <Typography variant="caption" color="text.secondary" display="block">
-            {d.roleName}
-          </Typography>
-        )}
-        {d.decisionMode === 'conditional' && (
-          <Typography
-            variant="caption"
-            color="primary.main"
-            display="block"
-            fontWeight={700}
-          >
-            Field rules
-          </Typography>
-        )}
-      </Box>
-      <Handle
-        type="source"
-        position={Position.Left}
-        id="approve"
-        style={{
-          background: '#2e7d4f',
-          left: 0,
-          top: '50%',
-          transform: 'translate(-50%, -50%) rotate(-45deg)',
-        }}
-      />
-      <Handle
-        type="source"
-        position={Position.Right}
-        id="reject"
-        style={{
-          background: '#c62828',
-          right: 0,
-          left: 'auto',
-          top: '50%',
-          transform: 'translate(50%, -50%) rotate(-45deg)',
-        }}
-      />
-      <Handle
-        type="source"
-        position={Position.Bottom}
-        id="other"
-        style={{
-          background: '#B34200',
-          left: '50%',
-          bottom: 0,
-          top: 'auto',
-          transform: 'translate(-50%, 50%) rotate(-45deg)',
-        }}
-      />
+      )}
+      {d.decisionMode === 'conditional' && (
+        <Typography
+          variant="caption"
+          color="primary.main"
+          display="block"
+          fontWeight={700}
+        >
+          Field rules
+        </Typography>
+      )}
+      {d.decisionMode !== 'conditional' && actions.length > 0 && (
+        <Typography variant="caption" color="text.secondary" display="block">
+          {actions.map((a) => a.label).join(' · ')}
+        </Typography>
+      )}
+      {d.decisionMode === 'conditional' ? (
+        <Handle
+          type="source"
+          position={Position.Bottom}
+          id="other"
+          style={{ background: '#B34200' }}
+        />
+      ) : actions.length === 0 ? (
+        <Handle
+          type="source"
+          position={Position.Bottom}
+          id="other"
+          style={{ background: '#B34200' }}
+        />
+      ) : (
+        actions.map((a, i) => (
+          <Handle
+            key={a.id}
+            type="source"
+            position={
+              i === 0 ? Position.Left : i === 1 ? Position.Right : Position.Bottom
+            }
+            id={a.id}
+            style={handleStyle(i, actions.length, a.kind)}
+            title={a.label}
+          />
+        ))
+      )}
     </Box>
   );
 }
@@ -189,37 +225,26 @@ export function NotificationNode({ data, selected }: NodeProps) {
     notifyRoleIds?: string[];
     notifySubmitter?: boolean;
   };
-  const roleCount = Array.isArray(d.notifyRoleIds) ? d.notifyRoleIds.length : 0;
-  const parts: string[] = [];
-  if (roleCount > 0) {
-    parts.push(`${roleCount} role${roleCount === 1 ? '' : 's'}`);
-  }
-  if (d.notifySubmitter) parts.push('submitter');
-  const recipients =
-    parts.length > 0 ? parts.join(' + ') : 'No recipients';
-  const subtitle = d.notificationTemplateName
-    ? `${d.notificationTemplateName} · ${recipients}`
-    : recipients;
   return (
     <Box
       sx={{
         ...base,
         borderRadius: 2,
-        bgcolor: '#F2F2F2',
-        borderColor: selected ? '#141414' : '#2B2B2B',
-        borderWidth: selected ? 3 : 2,
-        minWidth: 150,
+        bgcolor: selected ? '#E3F2FD' : 'white',
+        borderColor: '#1565C0',
       }}
     >
-      <Handle type="target" position={Position.Top} style={{ background: '#2B2B2B' }} />
-      <NotificationsNoneIcon sx={{ fontSize: 18, color: '#2B2B2B', mb: 0.25 }} />
-      <Typography variant="body2" fontWeight={700} display="block">
+      <Handle type="target" position={Position.Top} style={{ background: '#1565C0' }} />
+      <NotificationsNoneIcon sx={{ fontSize: 18, color: '#1565C0', mb: 0.25 }} />
+      <Typography variant="body2" fontWeight={700}>
         {d.label}
       </Typography>
-      <Typography variant="caption" color="text.secondary" display="block">
-        {subtitle}
-      </Typography>
-      <Handle type="source" position={Position.Bottom} style={{ background: '#2B2B2B' }} />
+      {d.notificationTemplateName && (
+        <Typography variant="caption" color="text.secondary" display="block">
+          {d.notificationTemplateName}
+        </Typography>
+      )}
+      <Handle type="source" position={Position.Bottom} style={{ background: '#1565C0' }} />
     </Box>
   );
 }

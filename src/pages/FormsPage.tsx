@@ -20,6 +20,7 @@ import GridOnIcon from '@mui/icons-material/GridOn';
 import { useApp } from '../context/AppContext';
 import { createId } from '../data/defaults';
 import { markEditorDraft } from '../utils/editorDrafts';
+import { DEFAULT_FORM_STATUS_OPTIONS } from '../utils/formStatus';
 import { FORM_VISIBILITY_LABELS } from '../types';
 
 /** Admin-only form design catalog. End users submit via /requests. */
@@ -48,6 +49,7 @@ export function FormsPage() {
         ],
         workflowId: null,
         visibility: 'project',
+        statusOptions: DEFAULT_FORM_STATUS_OPTIONS.map((o) => ({ ...o })),
       });
       formId = form.id;
       markEditorDraft('form', form.id);

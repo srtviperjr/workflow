@@ -35,7 +35,20 @@ import {
   clearEditorDraft,
   isEditorDraft,
 } from '../utils/editorDrafts';
-import type { FieldType, FormField, FormFieldData, FormVisibility } from '../types';
+import {
+  createStatusOption,
+  DEFAULT_FORM_STATUS_OPTIONS,
+  FORM_STATUS_KIND_LABELS,
+  normalizeStatusOptions,
+} from '../utils/formStatus';
+import type {
+  FieldType,
+  FormField,
+  FormFieldData,
+  FormStatusKind,
+  FormStatusOption,
+  FormVisibility,
+} from '../types';
 import { FORM_VISIBILITY_LABELS } from '../types';
 
 const FIELD_TYPES: FieldType[] = [
@@ -61,6 +74,9 @@ export function FormBuilderPage() {
   const [visibility, setVisibility] = useState<FormVisibility>(
     form?.visibility ?? 'project',
   );
+  const [statusOptions, setStatusOptions] = useState<FormStatusOption[]>(() =>
+    normalizeStatusOptions(form?.statusOptions),
+  );
   const [selectedFieldId, setSelectedFieldId] = useState<string | null>(
     form?.fields[0]?.id ?? null,
   );
@@ -76,6 +92,7 @@ export function FormBuilderPage() {
     setFields(form.fields);
     setWorkflowId(form.workflowId ?? '');
     setVisibility(form.visibility ?? 'project');
+    setStatusOptions(normalizeStatusOptions(form.statusOptions));
     setSelectedFieldId(form.fields[0]?.id ?? null);
     setSaved(false);
     setDirty(false);
@@ -185,12 +202,24 @@ export function FormBuilderPage() {
       );
       return;
     }
+    const statuses = normalizeStatusOptions(statusOptions);
+    if (!statuses.some((o) => o.kind === 'initial')) {
+      setError('Add at least one Initial status (e.g. Submitted).');
+      return;
+    }
+    if (statuses.filter((o) => o.kind !== 'initial').length === 0) {
+      setError(
+        'Add at least one decision status (e.g. Approved or Rejected) for workflow actions.',
+      );
+      return;
+    }
     updateForm(form.id, {
       name: name.trim() || 'Untitled Form',
       description,
       fields,
       workflowId,
       visibility,
+      statusOptions: statuses,
     });
     clearEditorDraft('form', form.id);
     setError(null);
@@ -300,9 +329,124 @@ export function FormBuilderPage() {
       </Stack>
       <Alert severity="info" sx={{ mb: 2 }}>
         Each form must have its own workflow. Visibility controls who can see
-        submissions in the register: own only, same company, or same project.
-        Approvers who can act on a request always see it. Admins see all.
+        submissions in the register. Request statuses below are required —
+        decision steps in the workflow choose from the non-initial options
+        (typical: Submitted, Approved, Rejected).
       </Alert>
+
+      <Paper elevation={1} sx={{ p: 2, mb: 2 }}>
+        <Stack
+          direction={{ xs: 'column', sm: 'row' }}
+          justifyContent="space-between"
+          alignItems={{ sm: 'center' }}
+          spacing={1}
+          mb={1.5}
+        >
+          <Box>
+            <Typography variant="subtitle1" fontWeight={700}>
+              Request statuses
+            </Typography>
+            <Typography variant="caption" color="text.secondary">
+              Required. Initial is set on submit; other statuses are actions
+              available on workflow decisions.
+            </Typography>
+          </Box>
+          <Button
+            size="small"
+            startIcon={<AddIcon />}
+            onClick={() => {
+              setStatusOptions((prev) => [
+                ...prev,
+                createStatusOption('New status', 'neutral'),
+              ]);
+              markDirty();
+            }}
+          >
+            Add status
+          </Button>
+        </Stack>
+        <Stack spacing={1.25}>
+          {statusOptions.map((opt, index) => (
+            <Stack
+              key={opt.id}
+              direction={{ xs: 'column', sm: 'row' }}
+              spacing={1}
+              alignItems={{ sm: 'center' }}
+            >
+              <TextField
+                label="Label"
+                size="small"
+                value={opt.label}
+                onFocus={() =>
+                  clearCreateDefaultOnFocus(opt.label, (next) => {
+                    setStatusOptions((prev) =>
+                      prev.map((o, i) =>
+                        i === index ? { ...o, label: next } : o,
+                      ),
+                    );
+                    markDirty();
+                  })
+                }
+                onChange={(e) => {
+                  const label = e.target.value;
+                  setStatusOptions((prev) =>
+                    prev.map((o, i) => (i === index ? { ...o, label } : o)),
+                  );
+                  markDirty();
+                }}
+                sx={{ flex: 1 }}
+              />
+              <FormControl size="small" sx={{ minWidth: 200 }}>
+                <InputLabel>Kind</InputLabel>
+                <Select
+                  label="Kind"
+                  value={opt.kind}
+                  onChange={(e) => {
+                    const kind = e.target.value as FormStatusKind;
+                    setStatusOptions((prev) =>
+                      prev.map((o, i) => (i === index ? { ...o, kind } : o)),
+                    );
+                    markDirty();
+                  }}
+                >
+                  {(
+                    Object.keys(FORM_STATUS_KIND_LABELS) as FormStatusKind[]
+                  ).map((k) => (
+                    <MenuItem key={k} value={k}>
+                      {FORM_STATUS_KIND_LABELS[k]}
+                    </MenuItem>
+                  ))}
+                </Select>
+              </FormControl>
+              <IconButton
+                size="small"
+                color="error"
+                disabled={statusOptions.length <= 2}
+                onClick={() => {
+                  setStatusOptions((prev) => prev.filter((_, i) => i !== index));
+                  markDirty();
+                }}
+                aria-label="Remove status"
+              >
+                <DeleteIcon fontSize="small" />
+              </IconButton>
+            </Stack>
+          ))}
+          {statusOptions.length === 0 && (
+            <Button
+              size="small"
+              onClick={() => {
+                setStatusOptions(
+                  DEFAULT_FORM_STATUS_OPTIONS.map((o) => ({ ...o })),
+                );
+                markDirty();
+              }}
+            >
+              Restore Submitted / Approved / Rejected
+            </Button>
+          )}
+        </Stack>
+      </Paper>
 
       <Stack direction={{ xs: 'column', lg: 'row' }} spacing={2} alignItems="stretch">
         {/* Field list */}

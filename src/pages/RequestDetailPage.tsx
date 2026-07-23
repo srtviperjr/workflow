@@ -35,14 +35,8 @@ import {
   fieldValueCompareKey,
   isFileAttachment,
 } from '../utils/formValues';
+import { isOpenStatus, statusChipColor, statusOptionLabel } from '../utils/formStatus';
 import Link from '@mui/material/Link';
-
-const statusColor = {
-  draft: 'default',
-  in_progress: 'warning',
-  completed: 'success',
-  rejected: 'error',
-} as const;
 
 export function RequestDetailPage() {
   const { id } = useParams<{ id: string }>();
@@ -88,6 +82,7 @@ export function RequestDetailPage() {
     roles: data.roles,
     workflows: data.workflows,
     users: data.users,
+    forms: data.forms,
     delegations: data.delegations ?? [],
     notifications: data.notifications ?? [],
   };
@@ -100,6 +95,7 @@ export function RequestDetailPage() {
     {
       roles: accessOpts.roles,
       workflows: accessOpts.workflows,
+      forms: accessOpts.forms,
       includeActionable: true,
       delegations: accessOpts.delegations,
       notifications: accessOpts.notifications,
@@ -145,7 +141,7 @@ export function RequestDetailPage() {
   const allowEdits = Boolean(canAct && currentNode?.data.allowFieldEdits);
   const outcomes =
     workflow && currentNode?.type === 'decision'
-      ? getDecisionOutcomes(workflow, currentNode.id)
+      ? getDecisionOutcomes(workflow, currentNode.id, form)
       : [];
 
   const act = (action: string, outcome?: string) => {
@@ -226,8 +222,8 @@ export function RequestDetailPage() {
               </IconButton>
             </Tooltip>
             <Chip
-              label={submission.status.replace('_', ' ')}
-              color={statusColor[submission.status]}
+              label={statusOptionLabel(form, submission.status)}
+              color={statusChipColor(submission.status, form)}
               sx={{ textTransform: 'capitalize', fontWeight: 700 }}
             />
           </Stack>
@@ -354,20 +350,28 @@ export function RequestDetailPage() {
             />
             {currentNode.type === 'decision' ? (
               <Stack direction="row" spacing={1} flexWrap="wrap" useFlexGap>
-                {(outcomes.length > 0 ? outcomes : ['Approve', 'Reject']).map(
-                  (outcome) => {
-                    const isReject = outcome.toLowerCase().includes('reject');
-                    return (
-                      <Button
-                        key={outcome}
-                        variant="contained"
-                        color={isReject ? 'error' : 'success'}
-                        onClick={() => act('Decision', outcome)}
-                      >
-                        {outcome}
-                      </Button>
-                    );
-                  },
+                {outcomes.length === 0 ? (
+                  <Alert severity="warning">
+                    This decision has no actions configured. Edit the workflow
+                    and choose available form statuses on the decision node.
+                  </Alert>
+                ) : (
+                  outcomes.map((outcome) => (
+                    <Button
+                      key={outcome.id}
+                      variant="contained"
+                      color={
+                        outcome.kind === 'negative'
+                          ? 'error'
+                          : outcome.kind === 'positive'
+                            ? 'success'
+                            : 'primary'
+                      }
+                      onClick={() => act('Decision', outcome.id)}
+                    >
+                      {outcome.label}
+                    </Button>
+                  ))
                 )}
               </Stack>
             ) : (
@@ -381,7 +385,7 @@ export function RequestDetailPage() {
           </Paper>
         )}
 
-        {submission.status === 'in_progress' &&
+        {isOpenStatus(submission.status, form) &&
           currentNode &&
           currentUser &&
           !canAct && (

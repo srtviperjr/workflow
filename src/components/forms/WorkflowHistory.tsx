@@ -87,7 +87,9 @@ export function WorkflowHistory({ submission, workflow }: Props) {
                           color={
                             row.entry.outcome.toLowerCase().includes('reject')
                               ? 'error'
-                              : 'success'
+                              : row.entry.outcome.toLowerCase().includes('approv')
+                                ? 'success'
+                                : 'default'
                           }
                         />
                       )}

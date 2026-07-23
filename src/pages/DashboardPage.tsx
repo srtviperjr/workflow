@@ -28,6 +28,7 @@ export function DashboardPage() {
     roles: data.roles,
     workflows: data.workflows,
     users: data.users,
+    forms: data.forms,
     delegations: data.delegations ?? [],
     notifications: data.notifications ?? [],
   };

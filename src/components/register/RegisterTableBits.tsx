@@ -428,19 +428,26 @@ export function RegisterColumnFilter({
   );
 }
 
-export function StatusChip({ status }: { status: string }) {
+export function StatusChip({
+  status,
+  label,
+}: {
+  status: string;
+  /** Display label from the form status option when available */
+  label?: string;
+}) {
   const color =
-    status === 'completed'
+    status === 'completed' || status === 'approved'
       ? 'success'
       : status === 'rejected'
         ? 'error'
-        : status === 'in_progress'
+        : status === 'in_progress' || status === 'submitted'
           ? 'warning'
           : 'default';
   return (
     <Chip
       size="small"
-      label={status.replace('_', ' ')}
+      label={(label ?? status).replace('_', ' ')}
       color={color}
       sx={{ textTransform: 'capitalize' }}
     />

@@ -232,7 +232,15 @@ export function RequestRegisterPage() {
                       }}
                     >
                       {col.id === 'status' ? (
-                        <StatusChip status={s.status} />
+                        <StatusChip
+                          status={s.status}
+                          label={
+                            data.forms
+                              .find((f) => f.id === s.formId)
+                              ?.statusOptions?.find((o) => o.id === s.status)
+                              ?.label
+                          }
+                        />
                       ) : (
                         cellValue(col.id, s, ctx)
                       )}

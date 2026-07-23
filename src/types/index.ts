@@ -55,6 +55,11 @@ export interface WorkflowNodeData {
   description?: string;
   /** Manual = actor picks outcome; conditional = route by form field rules */
   decisionMode?: DecisionMode;
+  /**
+   * Manual decision: which form status options the actor may choose
+   * (ids from FormDefinition.statusOptions, typically non-initial).
+   */
+  decisionActions?: string[];
   /** When true, the actor can edit form field values at this step */
   allowFieldEdits?: boolean;
   /**
@@ -134,6 +139,11 @@ export interface WorkflowEdge {
   label?: string;
   sourceHandle?: string;
   targetHandle?: string;
+  /**
+   * When this edge leaves a decision, the form status option applied
+   * (and shown as the actor action).
+   */
+  statusOptionId?: string;
   /** manual = actor chooses; condition = evaluate form field rules */
   routeMode?: EdgeRouteMode;
   /** AND-combined rules; used when routeMode is 'condition' */
@@ -197,6 +207,19 @@ export const FORM_VISIBILITY_LABELS: Record<FormVisibility, string> = {
   project: 'Within project',
 };
 
+/** How a request status behaves in the UI and open-queue logic. */
+export type FormStatusKind = 'initial' | 'positive' | 'negative' | 'neutral';
+
+/**
+ * Form-owned request status / decision action vocabulary.
+ * Typical defaults: Submitted, Approved, Rejected.
+ */
+export interface FormStatusOption {
+  id: string;
+  label: string;
+  kind: FormStatusKind;
+}
+
 export interface FormDefinition {
   id: string;
   name: string;
@@ -206,6 +229,11 @@ export interface FormDefinition {
   workflowId: string | null;
   /** Submission visibility boundary for this form */
   visibility: FormVisibility;
+  /**
+   * Required status options for this form (submit + decision actions).
+   * Decision nodes pick from the non-initial options.
+   */
+  statusOptions: FormStatusOption[];
   createdAt: string;
   updatedAt: string;
 }
@@ -223,11 +251,12 @@ export interface HistoryEntry {
   timestamp: string;
 }
 
-export type SubmissionStatus =
-  | 'draft'
-  | 'in_progress'
-  | 'completed'
-  | 'rejected';
+/**
+ * Request status id — normally a FormStatusOption.id for the form
+ * (e.g. submitted / approved / rejected). Legacy values may still appear
+ * until migrated: draft | in_progress | completed | rejected.
+ */
+export type SubmissionStatus = string;
 
 export interface FormSubmission {
   id: string;
@@ -239,6 +268,7 @@ export interface FormSubmission {
   submittedBy: string;
   submittedAt: string;
   currentNodeId: string | null;
+  /** Form status option id (see FormDefinition.statusOptions) */
   status: SubmissionStatus;
   history: HistoryEntry[];
   workflowId: string | null;

@@ -277,7 +277,13 @@ export function FormRegisterPage() {
                       }}
                     >
                       {col.id === 'status' ? (
-                        <StatusChip status={s.status} />
+                        <StatusChip
+                          status={s.status}
+                          label={
+                            form.statusOptions?.find((o) => o.id === s.status)
+                              ?.label
+                          }
+                        />
                       ) : (
                         <Typography
                           variant="body2"

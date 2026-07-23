@@ -229,6 +229,7 @@ export function WorkflowEditorPage() {
         }}
         roles={availableRoles}
         formFields={linkedForm?.fields ?? []}
+        formStatusOptions={linkedForm?.statusOptions ?? []}
         notificationTemplates={(data.notificationTemplates ?? []).filter(
           (t) => formId && t.formId === formId,
         )}
