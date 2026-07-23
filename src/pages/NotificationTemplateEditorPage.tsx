@@ -25,6 +25,7 @@ import {
   confirmDiscardUnsaved,
   useUnsavedChangesGuard,
 } from '../hooks/useUnsavedChangesGuard';
+import { clearCreateDefaultOnFocus } from '../utils/clearCreateDefault';
 import {
   clearEditorDraft,
   isEditorDraft,
@@ -189,6 +190,9 @@ export function NotificationTemplateEditorPage() {
           <TextField
             label="Name"
             value={name}
+            onFocus={() =>
+              clearCreateDefaultOnFocus(name, setName, markDirty)
+            }
             onChange={(e) => {
               setName(e.target.value);
               markDirty();
@@ -232,6 +236,9 @@ export function NotificationTemplateEditorPage() {
           <TextField
             label="Subject"
             value={subject}
+            onFocus={() =>
+              clearCreateDefaultOnFocus(subject, setSubject, markDirty)
+            }
             onChange={(e) => {
               setSubject(e.target.value);
               markDirty();

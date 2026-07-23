@@ -20,6 +20,7 @@ import {
   confirmDiscardUnsaved,
   useUnsavedChangesGuard,
 } from '../hooks/useUnsavedChangesGuard';
+import { clearCreateDefaultOnFocus } from '../utils/clearCreateDefault';
 import {
   clearEditorDraft,
   isEditorDraft,
@@ -154,6 +155,9 @@ export function WorkflowEditorPage() {
         <TextField
           label="Workflow name"
           value={name}
+          onFocus={() =>
+            clearCreateDefaultOnFocus(name, setName, markDirty)
+          }
           onChange={(e) => {
             setName(e.target.value);
             markDirty();

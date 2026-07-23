@@ -30,6 +30,7 @@ import {
   confirmDiscardUnsaved,
   useUnsavedChangesGuard,
 } from '../hooks/useUnsavedChangesGuard';
+import { clearCreateDefaultOnFocus } from '../utils/clearCreateDefault';
 import {
   clearEditorDraft,
   isEditorDraft,
@@ -240,6 +241,9 @@ export function FormBuilderPage() {
         <TextField
           label="Form name"
           value={name}
+          onFocus={() =>
+            clearCreateDefaultOnFocus(name, setName, markDirty)
+          }
           onChange={(e) => {
             setName(e.target.value);
             markDirty();
@@ -406,6 +410,11 @@ export function FormBuilderPage() {
                 fullWidth
                 size="small"
                 value={selectedField.label}
+                onFocus={() =>
+                  clearCreateDefaultOnFocus(selectedField.label, (next) =>
+                    updateField(selectedField.id, { label: next }),
+                  )
+                }
                 onChange={(e) =>
                   updateField(selectedField.id, { label: e.target.value })
                 }
