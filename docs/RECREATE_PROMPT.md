@@ -53,11 +53,11 @@ Boot as **System Admin** `admin@jansen.local` (Admin + Requestor, BHP / JS1). No
 
 ### Navigation & pages
 
-**Everyone:** Dashboard (tagline + pending the identity can see **and** act on), Requests, Request Register, Delegations  
+**Everyone:** Dashboard (tagline + pending the identity can see **and** act on), Requests, Request Register, Delegations, **Help** (in-app user guide from `docs/USER_GUIDE.md`)  
 
 **Administration (admin only, this order):** Forms, **Notifications** (templates), Workflows, Users, Roles, **Integrations**, **Data Tools** (last). `/admin` → `/data-tools`.
 
-**AppBar:** bell → inbox `/notifications`; identity switcher; version `v0.8.1`.
+**AppBar:** bell → inbox `/notifications`; identity switcher; version `v0.8.1` (click opens `/release-notes` in a new window from `docs/RELEASE_NOTES.md`, newest first).
 
 Also: form builder; notification template editor; form submit; request detail (act only when allowed, branded PDF); overall + per-form registers; workflow canvas; users/roles CRUD; Integrations (Azure AD / Azure SQL / email); Data Tools.
 
