@@ -8,8 +8,10 @@ import {
   DialogActions,
   DialogContent,
   DialogTitle,
+  FormControlLabel,
   Paper,
   Stack,
+  Switch,
   Table,
   TableBody,
   TableCell,
@@ -22,6 +24,7 @@ import { Link as RouterLink } from 'react-router-dom';
 import { useApp } from '../context/AppContext';
 import type { AppNotification } from '../types';
 import { canViewSubmission } from '../utils/submissionVisibility';
+import { plainTextFromHtml } from '../utils/htmlText';
 
 export function NotificationsPage() {
   const {
@@ -33,6 +36,8 @@ export function NotificationsPage() {
     markNotificationRead,
   } = useApp();
   const [selected, setSelected] = useState<AppNotification | null>(null);
+  /** Admins default to their own inbox; optional override to audit all. */
+  const [showAll, setShowAll] = useState(false);
 
   const viewOpts = {
     roles: data.roles,
@@ -59,9 +64,9 @@ export function NotificationsPage() {
       (a, b) => b.sentAt.localeCompare(a.sentAt),
     );
     if (!currentUser) return [];
-    if (isAdmin) return all;
+    if (isAdmin && showAll) return all;
     return all.filter((n) => n.toUserIds.includes(currentUser.id));
-  }, [data.notifications, currentUser, isAdmin]);
+  }, [data.notifications, currentUser, isAdmin, showAll]);
 
   const openNotification = (n: AppNotification) => {
     setSelected(n);
@@ -78,24 +83,55 @@ export function NotificationsPage() {
     n.toUserIds.includes(currentUser.id) &&
     !(n.readByUserIds ?? []).includes(currentUser.id);
 
+  const viewingOthers = isAdmin && showAll;
+
   return (
     <Box>
-      <Stack mb={3}>
-        <Typography variant="h4" fontWeight={700}>
-          Notifications
-        </Typography>
+      <Stack
+        direction={{ xs: 'column', sm: 'row' }}
+        justifyContent="space-between"
+        alignItems={{ sm: 'flex-start' }}
+        spacing={1.5}
+        mb={3}
+      >
+        <Box>
+          <Typography variant="h4" fontWeight={700}>
+            Notifications
+          </Typography>
           <Typography color="text.secondary">
-          In-app messages created by workflow Notify steps. Design templates
-          under Administration → Notifications. Messages are not sent as email
-          — open them here to review.
-        </Typography>
+            In-app messages created by workflow Notify steps. Design templates
+            under Administration → Notifications. Messages are not sent as email
+            — open them here to review.
+          </Typography>
+        </Box>
+        {isAdmin && (
+          <FormControlLabel
+            control={
+              <Switch
+                checked={showAll}
+                onChange={(e) => setShowAll(e.target.checked)}
+                color="primary"
+              />
+            }
+            label="Show all (admin)"
+            sx={{ flexShrink: 0 }}
+          />
+        )}
       </Stack>
+
+      {viewingOthers && (
+        <Alert severity="info" sx={{ mb: 2 }}>
+          Showing every notification in the system. Turn off{' '}
+          <strong>Show all (admin)</strong> to see only messages addressed to
+          you.
+        </Alert>
+      )}
 
       {rows.length === 0 ? (
         <Alert severity="info">
-          No notifications yet. Add a <strong>Notify</strong> step in a workflow
-          (and assign a notification template) to create messages when requests
-          reach that step.
+          {viewingOthers
+            ? 'No notifications have been created yet.'
+            : 'No notifications for you yet. Add a Notify step in a workflow (and assign a notification template) to create messages when requests reach that step.'}
         </Alert>
       ) : (
         <TableContainer component={Paper} elevation={1}>
@@ -104,7 +140,7 @@ export function NotificationsPage() {
               <TableRow>
                 <TableCell>When</TableCell>
                 <TableCell>Subject</TableCell>
-                <TableCell>Recipients</TableCell>
+                {viewingOthers && <TableCell>Recipients</TableCell>}
                 <TableCell>Request</TableCell>
                 <TableCell>Status</TableCell>
               </TableRow>
@@ -112,6 +148,7 @@ export function NotificationsPage() {
             <TableBody>
               {rows.map((n) => {
                 const unread = isUnread(n);
+                const preview = plainTextFromHtml(n.body);
                 return (
                   <TableRow
                     key={n.id}
@@ -140,36 +177,49 @@ export function NotificationsPage() {
                       >
                         {n.subject}
                       </Typography>
-                      <Typography
-                        variant="caption"
-                        color="text.secondary"
-                        noWrap
-                        display="block"
-                        sx={{ maxWidth: 360 }}
-                      >
-                        {n.body}
-                      </Typography>
+                      {preview && (
+                        <Typography
+                          variant="caption"
+                          color="text.secondary"
+                          noWrap
+                          display="block"
+                          sx={{ maxWidth: 360 }}
+                        >
+                          {preview}
+                        </Typography>
+                      )}
                     </TableCell>
-                    <TableCell>
-                      <Stack direction="row" spacing={0.5} flexWrap="wrap" useFlexGap>
-                        {(n.toUserNames?.length
-                          ? n.toUserNames
-                          : n.toUserIds.map((id) => {
-                              const u = getUserById(id);
-                              return u
-                                ? `${u.firstName} ${u.lastName}`
-                                : id;
-                            })
-                        ).map((name) => (
-                          <Chip key={name} size="small" label={name} />
-                        ))}
-                        {(n.toUserNames?.length ?? n.toUserIds.length) === 0 && (
-                          <Typography variant="body2" color="text.secondary">
-                            No recipients
-                          </Typography>
-                        )}
-                      </Stack>
-                    </TableCell>
+                    {viewingOthers && (
+                      <TableCell>
+                        <Stack
+                          direction="row"
+                          spacing={0.5}
+                          flexWrap="wrap"
+                          useFlexGap
+                        >
+                          {(n.toUserNames?.length
+                            ? n.toUserNames
+                            : n.toUserIds.map((id) => {
+                                const u = getUserById(id);
+                                return u
+                                  ? `${u.firstName} ${u.lastName}`
+                                  : id;
+                              })
+                          ).map((name) => (
+                            <Chip key={name} size="small" label={name} />
+                          ))}
+                          {(n.toUserNames?.length ?? n.toUserIds.length) ===
+                            0 && (
+                            <Typography
+                              variant="body2"
+                              color="text.secondary"
+                            >
+                              No recipients
+                            </Typography>
+                          )}
+                        </Stack>
+                      </TableCell>
+                    )}
                     <TableCell>
                       {!n.submissionId ? (
                         <Typography variant="body2" color="text.secondary">
@@ -182,7 +232,10 @@ export function NotificationsPage() {
                           variant="body2"
                           fontWeight={600}
                           onClick={(e) => e.stopPropagation()}
-                          sx={{ color: 'primary.main', textDecoration: 'none' }}
+                          sx={{
+                            color: 'primary.main',
+                            textDecoration: 'none',
+                          }}
                         >
                           {n.submissionId}
                         </Typography>
@@ -193,10 +246,18 @@ export function NotificationsPage() {
                       )}
                     </TableCell>
                     <TableCell>
-                      {unread ? (
-                        <Chip size="small" color="primary" label="Unread" />
+                      {n.toUserIds.includes(currentUser.id) ? (
+                        unread ? (
+                          <Chip size="small" color="primary" label="Unread" />
+                        ) : (
+                          <Chip size="small" label="Read" variant="outlined" />
+                        )
                       ) : (
-                        <Chip size="small" label="Read" variant="outlined" />
+                        <Chip
+                          size="small"
+                          label="Other recipient"
+                          variant="outlined"
+                        />
                       )}
                     </TableCell>
                   </TableRow>
@@ -218,18 +279,21 @@ export function NotificationsPage() {
           {selected && (
             <Stack spacing={2} sx={{ mt: 0.5 }}>
               <Typography variant="caption" color="text.secondary">
-                {new Date(selected.sentAt).toLocaleString()} · {selected.nodeLabel}
+                {new Date(selected.sentAt).toLocaleString()} ·{' '}
+                {selected.nodeLabel}
               </Typography>
-              <Typography variant="body2" color="text.secondary">
-                To:{' '}
-                {(selected.toUserNames?.length
-                  ? selected.toUserNames
-                  : selected.toUserIds.map((id) => {
-                      const u = getUserById(id);
-                      return u ? `${u.firstName} ${u.lastName}` : id;
-                    })
-                ).join(', ') || 'No recipients'}
-              </Typography>
+              {viewingOthers && (
+                <Typography variant="body2" color="text.secondary">
+                  To:{' '}
+                  {(selected.toUserNames?.length
+                    ? selected.toUserNames
+                    : selected.toUserIds.map((id) => {
+                        const u = getUserById(id);
+                        return u ? `${u.firstName} ${u.lastName}` : id;
+                      })
+                  ).join(', ') || 'No recipients'}
+                </Typography>
+              )}
               <Typography
                 variant="body1"
                 component="div"
