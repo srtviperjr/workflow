@@ -10,20 +10,17 @@ import { useApp } from '../context/AppContext';
 
 /** App bar shortcut to Notifications, placed left of the identity picker. */
 export function NotificationBell() {
-  const { data, currentUser, isAdmin } = useApp();
+  const { data, currentUser } = useApp();
   const navigate = useNavigate();
 
   const unreadCount = useMemo(() => {
     if (!currentUser) return 0;
-    const mine = (data.notifications ?? []).filter((n) =>
-      isAdmin ? true : n.toUserIds.includes(currentUser.id),
-    );
-    return mine.filter(
+    return (data.notifications ?? []).filter(
       (n) =>
         n.toUserIds.includes(currentUser.id) &&
         !(n.readByUserIds ?? []).includes(currentUser.id),
     ).length;
-  }, [data.notifications, currentUser, isAdmin]);
+  }, [data.notifications, currentUser]);
 
   return (
     <Tooltip title="Notifications">

@@ -34,7 +34,7 @@ Keep **view** and **approve** access consistent: never show a request (or a noti
 - **Notification templates**: `id`, `name`, `formId` (exclusive), `description`, `subject`, `bodyHtml`, timestamps. Subject/body support `{{formName}}`, `{{requestId}}`, `{{status}}`, `{{submitter}}`, and `{{Field Label}}`
 - **Workflows**: nodes `start|step|decision|notification|end`; edges with manual outcomes or AND-combined field conditions. Steps/decisions have role assignment; steps may allow editing form fields; **notification nodes** store `notificationTemplateId` plus `notifyRoleIds` and `notifySubmitter` (recipients on the node; content from the template). No cross-form templates
 - **Submissions**: form data + baselineData, status `draft|in_progress|completed|rejected`, current node, history
-- **Notifications** (inbox): in-app only (recipients, subject, rendered body/HTML, read state) — including workflow notifies and delegation handoffs
+- **Notifications** (inbox): in-app only (recipients, subject, rendered body/HTML, read state) — including workflow notifies and delegation handoffs. Default: each user sees only their own; admins may toggle Show all. List preview strips HTML to plain text.
 - **Delegations**: from/to user, date range, scope all-workflows or per-workflow; additive permissions; `notifyDelegateOnStart`, `startHandoffNotifiedAt`, `endHandoffNotifiedAt`
 - **formRegisterViews**: per-user per-form column visibility/order/`sticky` (default sticky: `requestId`, `submitter`)
 - **integrations**: Azure AD (SSO/identity), Azure SQL (back-end), and email (SMTP or Microsoft Graph) settings configured by admins; survive demo data resets

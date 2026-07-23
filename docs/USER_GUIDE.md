@@ -78,7 +78,7 @@ You can open a request if you are the submitter or an admin, you can act on the 
 
 ## 5. Notifications (inbox)
 
-When a workflow reaches a Notify step, messages appear for the roles and/or submitter configured on that step. Open the bell or the inbox **Notifications** page.
+When a workflow reaches a Notify step, messages appear for the roles and/or submitter configured on that step. Open the bell or the inbox **Notifications** page. You only see messages addressed to you. System admins can turn on **Show all (admin)** to audit every notification. List rows show a plain-text preview of the body (HTML tags are hidden until you open the message).
 
 ![Notifications](./screenshots/13-notifications.png)
 

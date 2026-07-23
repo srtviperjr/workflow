@@ -163,6 +163,8 @@ Dashboard hero tagline: **Project workflow management system.**
 | EN-6 | Form-scoped roles only apply on their linked forms when resolving recipients. |
 | EN-7 | Notifications are created automatically when the workflow reaches the step. |
 | EN-8 | Messages are **in-app only** (not emailed); open from the AppBar bell or the inbox Notifications page. |
+| EN-8a | By default each user (including admins) only sees notifications addressed to them. System admins may toggle **Show all (admin)** to audit every message. |
+| EN-8b | List previews show plain text (HTML tags stripped); the open dialog still renders rich HTML bodies. |
 | EN-9 | Sample manager-approval workflows ship with submit / approve / reject templates and matching Notify nodes. |
 | EN-10 | Notification deep-links to a request are only offered when the viewer can open that request. |
 | EN-11 | Deleting a form cascade-deletes its templates; deleting a template clears Notify-node references. |
