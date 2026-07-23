@@ -49,7 +49,7 @@ Use the filter row under each column header:
 
 - **Dates** (submission date / form date fields) — click to open a popup for **Between** dates or **Relative** (last 7 / 30 / 90 / 365 days, or custom)
 - **Dropdowns** (status, form name, current step, form select fields) — multi-select with checkboxes
-- **Text** — partial search; use × to clear one filter
+- **Text** — searchable multi-select (pick values and/or type terms); matches any term; use × to clear
 - **Clear filters (N)** clears everything at once
 
 Open a row for detail.

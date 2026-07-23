@@ -67,7 +67,7 @@ Field-aware column filters:
 
 - **Dates** — single-line trigger opens popover: Between (from/to) or Relative (last 7/30/90/365 or custom days)
 - **Select-like** (status, form name, current step from workflow labels, form select fields) — **multi-select** checkboxes
-- **Text** — partial contains search; height aligned with selects
+- **Text** — searchable multi-select (pick values and/or type terms); match if any term is contained; one-line compact control
 - Clear × per filter and **Clear filters (N)** for all
 - **Sticky columns** — `RegisterColumnConfig.sticky`; default pin Request # + Submitter; customize dialog pin control; sticky cols compacted to the left
 

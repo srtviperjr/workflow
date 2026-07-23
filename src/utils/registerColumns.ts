@@ -345,7 +345,7 @@ export type RegisterFilterKind = 'text' | 'select' | 'dateRange';
 export type DateFilterMode = 'between' | 'relative';
 
 export type RegisterFilterValue =
-  | { kind: 'text'; q: string }
+  | { kind: 'text'; terms: string[]; /** Legacy single-query (migrated on read) */ q?: string }
   | { kind: 'select'; values: string[] }
   | {
       kind: 'dateRange';
@@ -389,12 +389,25 @@ export function emptyFilterValue(kind: RegisterFilterKind): RegisterFilterValue 
       relativeDays: 90,
     };
   }
-  return { kind: 'text', q: '' };
+  return { kind: 'text', terms: [] };
+}
+
+/** Normalized search terms for a text filter (supports legacy `q`). */
+export function textFilterTerms(
+  filter: Extract<RegisterFilterValue, { kind: 'text' }> | undefined,
+): string[] {
+  if (!filter) return [];
+  const fromTerms = Array.isArray(filter.terms)
+    ? filter.terms.map((t) => t.trim()).filter(Boolean)
+    : [];
+  if (fromTerms.length > 0) return fromTerms;
+  if (typeof filter.q === 'string' && filter.q.trim()) return [filter.q.trim()];
+  return [];
 }
 
 export function isFilterActive(filter: RegisterFilterValue | undefined): boolean {
   if (!filter) return false;
-  if (filter.kind === 'text') return filter.q.trim().length > 0;
+  if (filter.kind === 'text') return textFilterTerms(filter).length > 0;
   if (filter.kind === 'select') return filter.values.length > 0;
   if (filter.mode === 'relative') return filter.relativeDays > 0;
   return Boolean(filter.from || filter.to);
@@ -553,7 +566,7 @@ export function matchesColumnFilter(
       ).toLowerCase();
       return value.includes(q) || display.includes(q);
     } else {
-      normalized = { kind: 'text', q: filter };
+      normalized = { kind: 'text', terms: filter.trim() ? [filter] : [] };
     }
   } else {
     normalized = filter;
@@ -588,12 +601,37 @@ export function matchesColumnFilter(
     );
   }
 
-  // text — partial / contains search
-  const q = normalized.q.trim().toLowerCase();
-  if (!q) return true;
+  // text — match if ANY term is contained (combination / multi search)
+  const terms = textFilterTerms(normalized);
+  if (terms.length === 0) return true;
   const value = filterValue(columnId, submission, ctx).toLowerCase();
-  if (columnId === 'requestId') {
-    return value.includes(q) || shortRequestId(value).toLowerCase().includes(q);
+  const short =
+    columnId === 'requestId' ? shortRequestId(value).toLowerCase() : '';
+  return terms.some((term) => {
+    const q = term.toLowerCase();
+    return value.includes(q) || (short ? short.includes(q) : false);
+  });
+}
+
+/** Distinct non-empty display values for a text-filter column (for Autocomplete). */
+export function collectTextFilterOptions(
+  columnId: string,
+  submissions: FormSubmission[],
+  ctx: {
+    users: User[];
+    workflows: Workflow[];
+    form?: FormDefinition | null;
+  },
+): string[] {
+  const set = new Set<string>();
+  for (const s of submissions) {
+    const raw = filterValue(columnId, s, ctx).trim();
+    if (!raw) continue;
+    if (columnId === 'requestId') {
+      set.add(shortRequestId(s.id));
+    } else {
+      set.add(raw);
+    }
   }
-  return value.includes(q);
+  return [...set].sort((a, b) => a.localeCompare(b));
 }

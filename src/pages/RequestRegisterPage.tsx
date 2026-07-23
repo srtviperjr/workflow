@@ -27,7 +27,9 @@ import {
   META_COLUMN_LABELS,
   REGISTER_STICKY_TABLE_SX,
   cellValue,
+  collectTextFilterOptions,
   countActiveFilters,
+  getColumnFilterKind,
   matchesColumnFilter,
   stickyCellSx,
   type RegisterFilterValue,
@@ -79,6 +81,16 @@ export function RequestRegisterPage() {
       ),
     );
   }, [visible, filters, data.users, data.workflows]);
+
+  const textOptionsByColumn = useMemo(() => {
+    const ctx = { users: data.users, workflows: data.workflows };
+    const map: Record<string, string[]> = {};
+    for (const col of OVERALL_REGISTER_COLUMN_CONFIG) {
+      if (getColumnFilterKind(col.id) !== 'text') continue;
+      map[col.id] = collectTextFilterOptions(col.id, visible, ctx);
+    }
+    return map;
+  }, [visible, data.users, data.workflows]);
 
   const activeFilterCount = countActiveFilters(filters);
 
@@ -181,6 +193,7 @@ export function RequestRegisterPage() {
                     onChange={(v) => setFilter(col.id, v)}
                     forms={data.forms}
                     workflows={data.workflows}
+                    textOptions={textOptionsByColumn[col.id]}
                   />
                 </TableCell>
               ))}

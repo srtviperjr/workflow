@@ -1,5 +1,6 @@
 import { useRef, useState } from 'react';
 import {
+  Autocomplete,
   Box,
   Button,
   ButtonBase,
@@ -8,7 +9,6 @@ import {
   Divider,
   FormControlLabel,
   IconButton,
-  InputAdornment,
   ListItemText,
   MenuItem,
   Popover,
@@ -31,6 +31,7 @@ import {
   getSelectFilterOptions,
   isFilterActive,
   RELATIVE_DATE_PRESETS,
+  textFilterTerms,
   type DateFilterMode,
   type RegisterFilterValue,
 } from '../../utils/registerColumns';
@@ -42,6 +43,8 @@ interface Props {
   form?: FormDefinition | null;
   forms?: FormDefinition[];
   workflows?: Workflow[];
+  /** Distinct values for searchable (text) multi-select filters */
+  textOptions?: string[];
 }
 
 /** Shared height so text + select + date trigger align. */
@@ -54,24 +57,6 @@ const controlRootSx = {
   bgcolor: 'background.paper',
   borderRadius: 1,
   fontSize: '0.75rem',
-} as const;
-
-const textFieldSx = {
-  width: '100%',
-  minWidth: 110,
-  '& .MuiOutlinedInput-root': {
-    ...controlRootSx,
-    paddingRight: '4px',
-  },
-  '& .MuiOutlinedInput-input': {
-    py: 0,
-    height: CONTROL_HEIGHT,
-    boxSizing: 'border-box',
-    fontSize: '0.75rem',
-  },
-  '& .MuiOutlinedInput-notchedOutline': {
-    borderColor: 'rgba(0,0,0,0.23)',
-  },
 } as const;
 
 const selectSx = {
@@ -87,35 +72,33 @@ const selectSx = {
   },
 } as const;
 
-function ClearAdornment({
-  visible,
-  onClear,
-  label = 'Clear filter',
-}: {
-  visible: boolean;
-  onClear: () => void;
-  label?: string;
-}) {
-  if (!visible) return null;
-  return (
-    <InputAdornment position="end">
-      <Tooltip title={label}>
-        <IconButton
-          size="small"
-          aria-label={label}
-          onClick={(e) => {
-            e.stopPropagation();
-            onClear();
-          }}
-          edge="end"
-          sx={{ p: 0.25 }}
-        >
-          <ClearIcon sx={{ fontSize: 16 }} />
-        </IconButton>
-      </Tooltip>
-    </InputAdornment>
-  );
-}
+const autocompleteSx = {
+  width: '100%',
+  minWidth: 120,
+  '& .MuiOutlinedInput-root': {
+    ...controlRootSx,
+    flexWrap: 'nowrap',
+    alignItems: 'center',
+    py: 0,
+    pl: 0.5,
+    pr: '28px',
+    gap: 0.25,
+  },
+  '& .MuiAutocomplete-input': {
+    py: '0 !important',
+    minWidth: '48px !important',
+    fontSize: '0.75rem',
+  },
+  '& .MuiAutocomplete-tag': {
+    maxWidth: 72,
+    height: 22,
+    margin: '0 2px 0 0',
+    '& .MuiChip-label': { px: 0.75, fontSize: '0.7rem' },
+  },
+  '& .MuiAutocomplete-endAdornment': {
+    right: 2,
+  },
+} as const;
 
 function DateFilterControl({
   value,
@@ -320,6 +303,7 @@ export function RegisterColumnFilter({
   form,
   forms,
   workflows,
+  textOptions = [],
 }: Props) {
   const kind = getColumnFilterKind(columnId, form);
   const active = isFilterActive(value);
@@ -407,24 +391,80 @@ export function RegisterColumnFilter({
     return <DateFilterControl value={value} onChange={onChange} />;
   }
 
-  const text = value?.kind === 'text' ? value.q : '';
+  const terms =
+    value?.kind === 'text' ? textFilterTerms(value) : [];
+
   return (
-    <TextField
-      size="small"
-      placeholder="Search…"
-      value={text}
-      onChange={(e) => onChange({ kind: 'text', q: e.target.value })}
-      onClick={(e) => e.stopPropagation()}
-      sx={textFieldSx}
-      InputProps={{
-        endAdornment: (
-          <ClearAdornment
-            visible={Boolean(text)}
-            onClear={() => onChange(emptyFilterValue('text'))}
+    <Stack direction="row" spacing={0.25} alignItems="center" sx={{ minWidth: 0 }}>
+      <Autocomplete
+        multiple
+        freeSolo
+        size="small"
+        options={textOptions}
+        value={terms}
+        onChange={(_, next) => {
+          const cleaned = next
+            .map((t) => (typeof t === 'string' ? t.trim() : ''))
+            .filter(Boolean);
+          onChange({ kind: 'text', terms: cleaned });
+        }}
+        onClick={(e) => e.stopPropagation()}
+        disableCloseOnSelect
+        limitTags={1}
+        filterSelectedOptions
+        sx={{ ...autocompleteSx, flex: 1, minWidth: 0 }}
+        slotProps={{
+          paper: { sx: { maxHeight: 280 } },
+        }}
+        renderTags={(tagValue, getTagProps) =>
+          tagValue.length === 0
+            ? []
+            : tagValue.length === 1
+              ? [
+                  <Chip
+                    {...getTagProps({ index: 0 })}
+                    key={tagValue[0]}
+                    size="small"
+                    label={tagValue[0]}
+                    sx={{ height: 22, maxWidth: 88 }}
+                  />,
+                ]
+              : [
+                  <Chip
+                    {...getTagProps({ index: 0 })}
+                    key="count"
+                    size="small"
+                    label={`${tagValue.length} selected`}
+                    onDelete={undefined}
+                    sx={{ height: 22 }}
+                  />,
+                ]
+        }
+        renderInput={(params) => (
+          <TextField
+            {...params}
+            placeholder={terms.length === 0 ? 'Search…' : ''}
+            onClick={(e) => e.stopPropagation()}
+            onKeyDown={(e) => e.stopPropagation()}
           />
-        ),
-      }}
-    />
+        )}
+      />
+      {active && (
+        <Tooltip title="Clear filter">
+          <IconButton
+            size="small"
+            aria-label="Clear filter"
+            onClick={(e) => {
+              e.stopPropagation();
+              onChange(emptyFilterValue('text'));
+            }}
+            sx={{ p: 0.25, flexShrink: 0 }}
+          >
+            <ClearIcon sx={{ fontSize: 16 }} />
+          </IconButton>
+        </Tooltip>
+      )}
+    </Stack>
   );
 }
 

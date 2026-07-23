@@ -28,6 +28,8 @@ import {
   cellValue,
   columnLabel,
   countActiveFilters,
+  collectTextFilterOptions,
+  getColumnFilterKind,
   getSavedFormRegisterView,
   matchesColumnFilter,
   normalizeRegisterColumnOrder,
@@ -101,6 +103,17 @@ export function FormRegisterPage() {
       ),
     );
   }, [visible, visibleColumns, filters, data.users, data.workflows, form]);
+
+  const textOptionsByColumn = useMemo(() => {
+    if (!form) return {} as Record<string, string[]>;
+    const ctx = { users: data.users, workflows: data.workflows, form };
+    const map: Record<string, string[]> = {};
+    for (const col of visibleColumns) {
+      if (getColumnFilterKind(col.id, form) !== 'text') continue;
+      map[col.id] = collectTextFilterOptions(col.id, visible, ctx);
+    }
+    return map;
+  }, [form, visibleColumns, visible, data.users, data.workflows]);
 
   if (!form) {
     return <Navigate to="/register" replace />;
@@ -222,6 +235,7 @@ export function FormRegisterPage() {
                     form={form}
                     forms={data.forms}
                     workflows={data.workflows}
+                    textOptions={textOptionsByColumn[col.id]}
                   />
                 </TableCell>
               ))}
