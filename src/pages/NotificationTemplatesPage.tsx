@@ -18,6 +18,7 @@ import DeleteIcon from '@mui/icons-material/Delete';
 import ContentCopyIcon from '@mui/icons-material/ContentCopy';
 import NotificationsNoneIcon from '@mui/icons-material/NotificationsNone';
 import { useApp } from '../context/AppContext';
+import { markEditorDraft } from '../utils/editorDrafts';
 
 /** Admin catalog of form-dedicated notification templates. */
 export function NotificationTemplatesPage() {
@@ -53,6 +54,7 @@ export function NotificationTemplatesPage() {
           '<p>Hello,</p><p>A request was updated.</p><p>Form: {{formName}}<br>Request: {{requestId}}</p>',
       });
       tplId = tpl.id;
+      markEditorDraft('notification-template', tpl.id);
     });
     navigate(`/notification-templates/${tplId}/edit`);
   };
@@ -61,7 +63,10 @@ export function NotificationTemplatesPage() {
     let tplId = '';
     flushSync(() => {
       const copy = duplicateNotificationTemplate(id);
-      if (copy) tplId = copy.id;
+      if (copy) {
+        tplId = copy.id;
+        markEditorDraft('notification-template', copy.id);
+      }
     });
     if (tplId) navigate(`/notification-templates/${tplId}/edit`);
   };

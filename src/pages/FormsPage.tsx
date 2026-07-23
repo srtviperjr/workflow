@@ -19,6 +19,7 @@ import ContentCopyIcon from '@mui/icons-material/ContentCopy';
 import GridOnIcon from '@mui/icons-material/GridOn';
 import { useApp } from '../context/AppContext';
 import { createId } from '../data/defaults';
+import { markEditorDraft } from '../utils/editorDrafts';
 import { FORM_VISIBILITY_LABELS } from '../types';
 
 /** Admin-only form design catalog. End users submit via /requests. */
@@ -31,29 +32,37 @@ export function FormsPage() {
   }
 
   const createForm = () => {
-    const form = addForm({
-      name: 'New Form',
-      description: '',
-      fields: [
-        {
-          id: createId('field'),
-          label: 'Request',
-          type: 'textarea',
-          required: true,
-          placeholder: 'Enter details…',
-        },
-      ],
-      workflowId: null,
-      visibility: 'project',
+    let formId = '';
+    flushSync(() => {
+      const form = addForm({
+        name: 'New Form',
+        description: '',
+        fields: [
+          {
+            id: createId('field'),
+            label: 'Request',
+            type: 'textarea',
+            required: true,
+            placeholder: 'Enter details…',
+          },
+        ],
+        workflowId: null,
+        visibility: 'project',
+      });
+      formId = form.id;
+      markEditorDraft('form', form.id);
     });
-    navigate(`/forms/${form.id}/edit`);
+    navigate(`/forms/${formId}/edit`);
   };
 
   const copyForm = (id: string) => {
     let nextId = '';
     flushSync(() => {
       const copy = duplicateForm(id);
-      if (copy) nextId = copy.id;
+      if (copy) {
+        nextId = copy.id;
+        markEditorDraft('form', copy.id);
+      }
     });
     if (nextId) navigate(`/forms/${nextId}/edit`);
   };

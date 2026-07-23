@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react';
+import { useCallback, useEffect, useState } from 'react';
 import { Link as RouterLink, useNavigate, useParams } from 'react-router-dom';
 import {
   Alert,
@@ -26,6 +26,14 @@ import { useApp } from '../context/AppContext';
 import { FormRenderer } from '../components/forms/FormRenderer';
 import { createId } from '../data/defaults';
 import { workflowsAvailableForForm } from '../data/formWorkflowLink';
+import {
+  confirmDiscardUnsaved,
+  useUnsavedChangesGuard,
+} from '../hooks/useUnsavedChangesGuard';
+import {
+  clearEditorDraft,
+  isEditorDraft,
+} from '../utils/editorDrafts';
 import type { FieldType, FormField, FormFieldData, FormVisibility } from '../types';
 import { FORM_VISIBILITY_LABELS } from '../types';
 
@@ -40,9 +48,10 @@ const FIELD_TYPES: FieldType[] = [
 
 export function FormBuilderPage() {
   const { id } = useParams<{ id: string }>();
-  const { data, isAdmin, updateForm, getFormById } = useApp();
+  const { data, isAdmin, updateForm, deleteForm, getFormById } = useApp();
   const navigate = useNavigate();
   const form = id ? getFormById(id) : undefined;
+  const isDraft = Boolean(id && isEditorDraft('form', id));
 
   const [name, setName] = useState(form?.name ?? '');
   const [description, setDescription] = useState(form?.description ?? '');
@@ -55,6 +64,7 @@ export function FormBuilderPage() {
     form?.fields[0]?.id ?? null,
   );
   const [saved, setSaved] = useState(false);
+  const [dirty, setDirty] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [previewValues, setPreviewValues] = useState<FormFieldData>({});
 
@@ -67,8 +77,26 @@ export function FormBuilderPage() {
     setVisibility(form.visibility ?? 'project');
     setSelectedFieldId(form.fields[0]?.id ?? null);
     setSaved(false);
+    setDirty(false);
     setError(null);
   }, [form?.id]); // eslint-disable-line react-hooks/exhaustive-deps
+
+  const discardUnsaved = useCallback(() => {
+    if (!id || !isEditorDraft('form', id)) return;
+    clearEditorDraft('form', id);
+    deleteForm(id);
+  }, [id, deleteForm]);
+
+  const blockLeave = dirty || isDraft;
+  const { allowNextNavigation } = useUnsavedChangesGuard({
+    when: blockLeave,
+    onDiscard: discardUnsaved,
+  });
+
+  const markDirty = () => {
+    setDirty(true);
+    setSaved(false);
+  };
 
   const availableWorkflows = form
     ? workflowsAvailableForForm(
@@ -113,20 +141,20 @@ export function FormBuilderPage() {
     };
     setFields((fs) => [...fs, field]);
     setSelectedFieldId(field.id);
-    setSaved(false);
+    markDirty();
   };
 
   const updateField = (fieldId: string, patch: Partial<FormField>) => {
     setFields((fs) =>
       fs.map((f) => (f.id === fieldId ? { ...f, ...patch } : f)),
     );
-    setSaved(false);
+    markDirty();
   };
 
   const removeField = (fieldId: string) => {
     setFields((fs) => fs.filter((f) => f.id !== fieldId));
     if (selectedFieldId === fieldId) setSelectedFieldId(null);
-    setSaved(false);
+    markDirty();
   };
 
   const moveField = (fieldId: string, dir: -1 | 1) => {
@@ -139,7 +167,7 @@ export function FormBuilderPage() {
       [copy[idx], copy[next]] = [copy[next], copy[idx]];
       return copy;
     });
-    setSaved(false);
+    markDirty();
   };
 
   const save = () => {
@@ -163,8 +191,16 @@ export function FormBuilderPage() {
       workflowId,
       visibility,
     });
+    clearEditorDraft('form', form.id);
     setError(null);
     setSaved(true);
+    setDirty(false);
+  };
+
+  const goBack = () => {
+    if (!confirmDiscardUnsaved(blockLeave, discardUnsaved)) return;
+    allowNextNavigation();
+    navigate('/forms');
   };
 
   return (
@@ -177,10 +213,7 @@ export function FormBuilderPage() {
         mb={2}
       >
         <Stack direction="row" spacing={1} alignItems="center">
-          <Button
-            startIcon={<ArrowBackIcon />}
-            onClick={() => navigate('/forms')}
-          >
+          <Button startIcon={<ArrowBackIcon />} onClick={goBack}>
             Back
           </Button>
           <Typography variant="h5" fontWeight={700}>
@@ -188,7 +221,7 @@ export function FormBuilderPage() {
           </Typography>
         </Stack>
         <Button variant="contained" startIcon={<SaveIcon />} onClick={save}>
-          Save Form
+          Save
         </Button>
       </Stack>
 
@@ -209,7 +242,7 @@ export function FormBuilderPage() {
           value={name}
           onChange={(e) => {
             setName(e.target.value);
-            setSaved(false);
+            markDirty();
           }}
           fullWidth
         />
@@ -218,7 +251,7 @@ export function FormBuilderPage() {
           value={description}
           onChange={(e) => {
             setDescription(e.target.value);
-            setSaved(false);
+            markDirty();
           }}
           fullWidth
         />
@@ -229,7 +262,7 @@ export function FormBuilderPage() {
             value={workflowId}
             onChange={(e) => {
               setWorkflowId(e.target.value);
-              setSaved(false);
+              markDirty();
               setError(null);
             }}
           >
@@ -248,7 +281,7 @@ export function FormBuilderPage() {
             value={visibility}
             onChange={(e) => {
               setVisibility(e.target.value as FormVisibility);
-              setSaved(false);
+              markDirty();
             }}
           >
             {(Object.keys(FORM_VISIBILITY_LABELS) as FormVisibility[]).map(

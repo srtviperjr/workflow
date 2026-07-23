@@ -16,14 +16,24 @@ import ArrowBackIcon from '@mui/icons-material/ArrowBack';
 import SaveIcon from '@mui/icons-material/Save';
 import { useApp } from '../context/AppContext';
 import { WorkflowCanvas } from '../components/workflow/WorkflowCanvas';
+import {
+  confirmDiscardUnsaved,
+  useUnsavedChangesGuard,
+} from '../hooks/useUnsavedChangesGuard';
+import {
+  clearEditorDraft,
+  isEditorDraft,
+} from '../utils/editorDrafts';
 import type { WorkflowEdge, WorkflowNode } from '../types';
 import { rolesForForm } from '../utils/workflowEngine';
 
 export function WorkflowEditorPage() {
   const { id } = useParams<{ id: string }>();
-  const { data, isAdmin, updateWorkflow, getWorkflowById } = useApp();
+  const { data, isAdmin, updateWorkflow, deleteWorkflow, getWorkflowById } =
+    useApp();
   const navigate = useNavigate();
   const workflow = id ? getWorkflowById(id) : undefined;
+  const isDraft = Boolean(id && isEditorDraft('workflow', id));
 
   const [name, setName] = useState(workflow?.name ?? '');
   const [description, setDescription] = useState(workflow?.description ?? '');
@@ -31,6 +41,7 @@ export function WorkflowEditorPage() {
   const [nodes, setNodes] = useState<WorkflowNode[]>(workflow?.nodes ?? []);
   const [edges, setEdges] = useState<WorkflowEdge[]>(workflow?.edges ?? []);
   const [saved, setSaved] = useState(false);
+  const [dirty, setDirty] = useState(false);
 
   useEffect(() => {
     if (!workflow) return;
@@ -40,16 +51,32 @@ export function WorkflowEditorPage() {
     setNodes(workflow.nodes);
     setEdges(workflow.edges);
     setSaved(false);
+    setDirty(false);
   }, [workflow?.id]); // eslint-disable-line react-hooks/exhaustive-deps
 
-  const onCanvasChange = useCallback(
-    (n: WorkflowNode[], e: WorkflowEdge[]) => {
-      setNodes(n);
-      setEdges(e);
-      setSaved(false);
-    },
-    [],
-  );
+  const discardUnsaved = useCallback(() => {
+    if (!id || !isEditorDraft('workflow', id)) return;
+    clearEditorDraft('workflow', id);
+    deleteWorkflow(id);
+  }, [id, deleteWorkflow]);
+
+  const blockLeave = dirty || isDraft;
+  const { allowNextNavigation } = useUnsavedChangesGuard({
+    when: blockLeave,
+    onDiscard: discardUnsaved,
+  });
+
+  const markDirty = () => {
+    setDirty(true);
+    setSaved(false);
+  };
+
+  const onCanvasChange = useCallback((n: WorkflowNode[], e: WorkflowEdge[]) => {
+    setNodes(n);
+    setEdges(e);
+    setDirty(true);
+    setSaved(false);
+  }, []);
 
   const linkedForm = useMemo(
     () => data.forms.find((f) => f.id === formId),
@@ -84,7 +111,15 @@ export function WorkflowEditorPage() {
       nodes,
       edges,
     });
+    clearEditorDraft('workflow', workflow.id);
     setSaved(true);
+    setDirty(false);
+  };
+
+  const goBack = () => {
+    if (!confirmDiscardUnsaved(blockLeave, discardUnsaved)) return;
+    allowNextNavigation();
+    navigate('/workflows');
   };
 
   return (
@@ -97,10 +132,7 @@ export function WorkflowEditorPage() {
         mb={2}
       >
         <Stack direction="row" spacing={1} alignItems="center">
-          <Button
-            startIcon={<ArrowBackIcon />}
-            onClick={() => navigate('/workflows')}
-          >
+          <Button startIcon={<ArrowBackIcon />} onClick={goBack}>
             Back
           </Button>
           <Typography variant="h5" fontWeight={700}>
@@ -108,7 +140,7 @@ export function WorkflowEditorPage() {
           </Typography>
         </Stack>
         <Button variant="contained" startIcon={<SaveIcon />} onClick={save}>
-          Save Workflow
+          Save
         </Button>
       </Stack>
 
@@ -124,7 +156,7 @@ export function WorkflowEditorPage() {
           value={name}
           onChange={(e) => {
             setName(e.target.value);
-            setSaved(false);
+            markDirty();
           }}
           fullWidth
         />
@@ -133,7 +165,7 @@ export function WorkflowEditorPage() {
           value={description}
           onChange={(e) => {
             setDescription(e.target.value);
-            setSaved(false);
+            markDirty();
           }}
           fullWidth
         />
@@ -144,7 +176,7 @@ export function WorkflowEditorPage() {
             value={formId}
             onChange={(e) => {
               setFormId(e.target.value);
-              setSaved(false);
+              markDirty();
             }}
           >
             <MenuItem value="">

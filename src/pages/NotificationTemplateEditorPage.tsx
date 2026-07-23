@@ -1,4 +1,4 @@
-import { useEffect, useRef, useState, type MouseEvent } from 'react';
+import { useCallback, useEffect, useRef, useState } from 'react';
 import { Link as RouterLink, Navigate, useNavigate, useParams } from 'react-router-dom';
 import {
   Alert,
@@ -22,6 +22,14 @@ import {
   type RichTextEditorHandle,
 } from '../components/notifications/RichTextEditor';
 import {
+  confirmDiscardUnsaved,
+  useUnsavedChangesGuard,
+} from '../hooks/useUnsavedChangesGuard';
+import {
+  clearEditorDraft,
+  isEditorDraft,
+} from '../utils/editorDrafts';
+import {
   BUILTIN_TEMPLATE_TOKENS,
   fieldToken,
 } from '../utils/notifications';
@@ -32,10 +40,12 @@ export function NotificationTemplateEditorPage() {
     data,
     isAdmin,
     updateNotificationTemplate,
+    deleteNotificationTemplate,
     getNotificationTemplateById,
   } = useApp();
   const navigate = useNavigate();
   const tpl = id ? getNotificationTemplateById(id) : undefined;
+  const isDraft = Boolean(id && isEditorDraft('notification-template', id));
   const bodyRef = useRef<RichTextEditorHandle>(null);
 
   const [name, setName] = useState(tpl?.name ?? '');
@@ -58,6 +68,18 @@ export function NotificationTemplateEditorPage() {
     setDirty(false);
     setError(null);
   }, [tpl?.id]); // eslint-disable-line react-hooks/exhaustive-deps
+
+  const discardUnsaved = useCallback(() => {
+    if (!id || !isEditorDraft('notification-template', id)) return;
+    clearEditorDraft('notification-template', id);
+    deleteNotificationTemplate(id);
+  }, [id, deleteNotificationTemplate]);
+
+  const blockLeave = dirty || isDraft;
+  const { allowNextNavigation } = useUnsavedChangesGuard({
+    when: blockLeave,
+    onDiscard: discardUnsaved,
+  });
 
   const form = data.forms.find((f) => f.id === formId);
 
@@ -85,15 +107,14 @@ export function NotificationTemplateEditorPage() {
     setSaved(false);
   };
 
-  /** Persist current form fields. Returns false when validation fails. */
-  const persist = (): boolean => {
+  const save = () => {
     if (!name.trim()) {
       setError('Name is required');
-      return false;
+      return;
     }
     if (!formId) {
       setError('Assign this template to a form');
-      return false;
+      return;
     }
     const html = bodyRef.current?.getHTML() ?? bodyHtml;
     updateNotificationTemplate(tpl.id, {
@@ -103,31 +124,17 @@ export function NotificationTemplateEditorPage() {
       subject: subject.trim(),
       bodyHtml: html,
     });
+    clearEditorDraft('notification-template', tpl.id);
     setBodyHtml(html);
     setError(null);
     setSaved(true);
     setDirty(false);
-    return true;
   };
 
-  const save = () => {
-    persist();
-  };
-
-  const saveAndClose = () => {
-    if (!persist()) return;
+  const goBack = () => {
+    if (!confirmDiscardUnsaved(blockLeave, discardUnsaved)) return;
+    allowNextNavigation();
     navigate('/notification-templates');
-  };
-
-  const leaveWithoutSaving = (e: MouseEvent) => {
-    if (!dirty) return;
-    if (
-      !window.confirm(
-        'You have unsaved changes. Leave without saving?',
-      )
-    ) {
-      e.preventDefault();
-    }
   };
 
   const insertIntoSubject = (token: string) => {
@@ -144,10 +151,8 @@ export function NotificationTemplateEditorPage() {
     <Box maxWidth={880} mx="auto">
       <Button
         startIcon={<ArrowBackIcon />}
-        component={RouterLink}
-        to="/notification-templates"
+        onClick={goBack}
         sx={{ mb: 2 }}
-        onClick={leaveWithoutSaving}
       >
         Back to notifications
       </Button>
@@ -307,12 +312,6 @@ export function NotificationTemplateEditorPage() {
               </Typography>
             )}
           </Box>
-
-          <Stack direction="row" justifyContent="flex-end" spacing={1}>
-            <Button variant="outlined" onClick={saveAndClose}>
-              Done
-            </Button>
-          </Stack>
         </Stack>
       </Paper>
     </Box>
