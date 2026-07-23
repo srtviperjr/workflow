@@ -80,7 +80,8 @@ export function FormsPage() {
             Forms
           </Typography>
           <Typography color="text.secondary">
-            Design forms and their dedicated workflows (admin)
+            Start here: design a form, then its notifications, then the workflow
+            that orchestrates them.
           </Typography>
         </Box>
         <Button

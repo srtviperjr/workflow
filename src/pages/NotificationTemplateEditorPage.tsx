@@ -90,7 +90,7 @@ export function NotificationTemplateEditorPage() {
   if (!tpl) {
     return (
       <Box>
-        <Alert severity="error">Notification template not found.</Alert>
+        <Alert severity="error">Notification not found.</Alert>
         <Button
           component={RouterLink}
           to="/notification-templates"
@@ -113,7 +113,7 @@ export function NotificationTemplateEditorPage() {
       return;
     }
     if (!formId) {
-      setError('Assign this template to a form');
+      setError('Assign this notification to a form');
       return;
     }
     const html = bodyRef.current?.getHTML() ?? bodyHtml;
@@ -174,8 +174,8 @@ export function NotificationTemplateEditorPage() {
 
       {saved && (
         <Alert severity="success" sx={{ mb: 2 }} onClose={() => setSaved(false)}>
-          Saved. Workflow Notify steps for this form can select this template;
-          recipients are chosen on the workflow node.
+          Saved. Add a Notify step on this form&apos;s workflow to send it when
+          the flow reaches that step.
         </Alert>
       )}
       {error && (
@@ -225,8 +225,8 @@ export function NotificationTemplateEditorPage() {
             </Select>
           </FormControl>
           <Typography variant="caption" color="text.secondary">
-            Templates are dedicated to one form (subject and message only). Who
-            receives the notification is configured on the workflow Notify step.
+            Dedicated to one form. This is message content only — the workflow
+            Notify step chooses when it fires and who receives it.
           </Typography>
 
           <TextField

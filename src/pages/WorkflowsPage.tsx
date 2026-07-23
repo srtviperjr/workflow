@@ -90,7 +90,8 @@ export function WorkflowsPage() {
             Workflows
           </Typography>
           <Typography color="text.secondary">
-            Visual flowchart editor — each form owns exactly one workflow
+            Orchestrate each form after its notifications exist — Notify steps
+            pick those messages when the flow reaches them.
           </Typography>
         </Box>
         <Button

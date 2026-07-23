@@ -518,26 +518,24 @@ export function WorkflowCanvas({
             {selectedNode.type === 'notification' && (
               <Stack spacing={1.5}>
                 <Typography variant="caption" color="text.secondary">
-                  Creates an in-app notification when the workflow reaches this
-                  step. Pick a message template for this form, then choose who
-                  receives it. Design templates under Administration →
-                  Notifications.
+                  Fires when the workflow reaches this step (via a decision or
+                  connection). Pick a notification created for this form, then
+                  choose who receives it.
                 </Typography>
                 {!workflow.formId ? (
                   <Alert severity="warning">
-                    Assign this workflow to a form before selecting a
-                    notification template.
+                    Link this workflow to a form to choose its notifications.
                   </Alert>
                 ) : formTemplates.length === 0 ? (
                   <Alert severity="info">
-                    No templates for this form yet. Create one under
-                    Administration → Notifications.
+                    No notifications for this form yet. Create them under
+                    Administration → Notifications, then return here.
                   </Alert>
                 ) : (
                   <FormControl size="small" fullWidth disabled={readOnly}>
-                    <InputLabel>Notification template</InputLabel>
+                    <InputLabel>Notification</InputLabel>
                     <Select
-                      label="Notification template"
+                      label="Notification"
                       value={selectedData.notificationTemplateId ?? ''}
                       onChange={(e) => {
                         const id = e.target.value as string;
@@ -556,17 +554,6 @@ export function WorkflowCanvas({
                       ))}
                     </Select>
                   </FormControl>
-                )}
-                {selectedData.notificationTemplateId && (
-                  <Typography variant="caption" color="text.secondary">
-                    {(() => {
-                      const tpl = formTemplates.find(
-                        (t) => t.id === selectedData.notificationTemplateId,
-                      );
-                      if (!tpl) return 'Template missing — pick another.';
-                      return `Subject: ${tpl.subject || '—'}`;
-                    })()}
-                  </Typography>
                 )}
                 <FormControl size="small" fullWidth disabled={readOnly}>
                   <InputLabel>Notify roles</InputLabel>
