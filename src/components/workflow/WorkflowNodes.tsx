@@ -6,7 +6,7 @@ import StopIcon from '@mui/icons-material/Stop';
 import HelpOutlineIcon from '@mui/icons-material/HelpOutline';
 import AssignmentIcon from '@mui/icons-material/Assignment';
 import NotificationsNoneIcon from '@mui/icons-material/NotificationsNone';
-import type { FormStatusKind } from '../../types';
+import { statusToneFromLabel } from '../../utils/formStatus';
 
 interface NodeData {
   label: string;
@@ -15,8 +15,7 @@ interface NodeData {
   roleName?: string;
   decisionMode?: 'manual' | 'conditional';
   decisionActions?: string[];
-  /** Enriched labels/kinds for decision action handles */
-  decisionActionMeta?: Array<{ id: string; label: string; kind: FormStatusKind }>;
+  decisionActionMeta?: Array<{ id: string; label: string }>;
   [key: string]: unknown;
 }
 
@@ -29,9 +28,10 @@ const base = {
   boxShadow: '0 2px 8px rgba(43,43,43,0.12)',
 };
 
-function handleColor(kind: FormStatusKind): string {
-  if (kind === 'positive') return '#2e7d4f';
-  if (kind === 'negative') return '#c62828';
+function handleColorFromLabel(label: string): string {
+  const tone = statusToneFromLabel(label);
+  if (tone === 'success') return '#2e7d4f';
+  if (tone === 'error') return '#c62828';
   return '#B34200';
 }
 
@@ -104,24 +104,29 @@ export function StepNode({ data, selected }: NodeProps) {
   );
 }
 
+/** User decision = amber; system (conditional) decision = teal. */
 export function DecisionNode({ data, selected }: NodeProps) {
   const d = data as NodeData;
+  const isSystem = d.decisionMode === 'conditional';
   const actions =
     d.decisionActionMeta && d.decisionActionMeta.length > 0
       ? d.decisionActionMeta
-      : (d.decisionActions ?? []).map((id) => ({
-          id,
-          label: id,
-          kind: 'neutral' as FormStatusKind,
-        }));
+      : (d.decisionActions ?? []).map((id) => ({ id, label: id }));
 
-  // Distribute source handles: first left, second right, rest along bottom
+  const border = isSystem ? '#00897B' : '#F9A825';
+  const bg = selected
+    ? isSystem
+      ? '#E0F2F1'
+      : '#FFF8E1'
+    : 'white';
+  const iconColor = isSystem ? '#00897B' : '#F9A825';
+
   const handleStyle = (
     index: number,
     total: number,
-    kind: FormStatusKind,
+    label: string,
   ): CSSProperties => {
-    const color = handleColor(kind);
+    const color = handleColorFromLabel(label);
     if (index === 0 && total >= 1) {
       return {
         background: color,
@@ -157,42 +162,39 @@ export function DecisionNode({ data, selected }: NodeProps) {
         ...base,
         minWidth: 160,
         borderRadius: 1,
-        bgcolor: selected ? '#FFF8E1' : 'white',
-        borderColor: '#F9A825',
-        transform: 'rotate(0deg)',
+        bgcolor: bg,
+        borderColor: border,
       }}
     >
-      <Handle type="target" position={Position.Top} style={{ background: '#F9A825' }} />
-      <HelpOutlineIcon sx={{ fontSize: 18, color: '#F9A825', mb: 0.25 }} />
+      <Handle type="target" position={Position.Top} style={{ background: border }} />
+      <HelpOutlineIcon sx={{ fontSize: 18, color: iconColor, mb: 0.25 }} />
       <Typography variant="body2" fontWeight={700}>
         {d.label}
       </Typography>
-      {d.roleName && (
+      {d.roleName && !isSystem && (
         <Typography variant="caption" color="text.secondary" display="block">
           {d.roleName}
         </Typography>
       )}
-      {d.decisionMode === 'conditional' && (
-        <Typography
-          variant="caption"
-          color="primary.main"
-          display="block"
-          fontWeight={700}
-        >
-          Field rules
-        </Typography>
-      )}
-      {d.decisionMode !== 'conditional' && actions.length > 0 && (
+      <Typography
+        variant="caption"
+        display="block"
+        fontWeight={700}
+        sx={{ color: iconColor }}
+      >
+        {isSystem ? 'System decision' : 'User decision'}
+      </Typography>
+      {!isSystem && actions.length > 0 && (
         <Typography variant="caption" color="text.secondary" display="block">
           {actions.map((a) => a.label).join(' · ')}
         </Typography>
       )}
-      {d.decisionMode === 'conditional' ? (
+      {isSystem ? (
         <Handle
           type="source"
           position={Position.Bottom}
           id="other"
-          style={{ background: '#B34200' }}
+          style={{ background: '#00897B' }}
         />
       ) : actions.length === 0 ? (
         <Handle
@@ -210,7 +212,7 @@ export function DecisionNode({ data, selected }: NodeProps) {
               i === 0 ? Position.Left : i === 1 ? Position.Right : Position.Bottom
             }
             id={a.id}
-            style={handleStyle(i, actions.length, a.kind)}
+            style={handleStyle(i, actions.length, a.label)}
             title={a.label}
           />
         ))
@@ -222,8 +224,6 @@ export function DecisionNode({ data, selected }: NodeProps) {
 export function NotificationNode({ data, selected }: NodeProps) {
   const d = data as NodeData & {
     notificationTemplateName?: string;
-    notifyRoleIds?: string[];
-    notifySubmitter?: boolean;
   };
   return (
     <Box

@@ -119,6 +119,96 @@ function FileFieldInput({
   );
 }
 
+function renderFieldControl(
+  field: FormField,
+  value: FormFieldValue | undefined,
+  error: string | undefined,
+  disabled: boolean | undefined,
+  onChange: (id: string, value: FormFieldValue) => void,
+) {
+  if (field.type === 'file') {
+    return (
+      <FileFieldInput
+        field={field}
+        value={value}
+        error={error}
+        disabled={disabled}
+        onChange={(v) => onChange(field.id, v)}
+      />
+    );
+  }
+
+  if (field.type === 'textarea') {
+    return (
+      <TextField
+        label={field.label}
+        required={field.required}
+        multiline
+        minRows={3}
+        fullWidth
+        disabled={disabled}
+        placeholder={field.placeholder}
+        value={value ?? ''}
+        error={Boolean(error)}
+        helperText={error}
+        onChange={(e) => onChange(field.id, e.target.value)}
+      />
+    );
+  }
+
+  if (field.type === 'select') {
+    return (
+      <FormControl
+        fullWidth
+        required={field.required}
+        error={Boolean(error)}
+        disabled={disabled}
+      >
+        <InputLabel>{field.label}</InputLabel>
+        <Select
+          label={field.label}
+          value={value ?? ''}
+          onChange={(e) => onChange(field.id, e.target.value)}
+        >
+          {(field.options ?? []).map((opt) => (
+            <MenuItem key={opt} value={opt}>
+              {opt}
+            </MenuItem>
+          ))}
+        </Select>
+        {error && <FormHelperText>{error}</FormHelperText>}
+      </FormControl>
+    );
+  }
+
+  return (
+    <TextField
+      label={field.label}
+      required={field.required}
+      type={
+        field.type === 'number'
+          ? 'number'
+          : field.type === 'date'
+            ? 'date'
+            : 'text'
+      }
+      fullWidth
+      disabled={disabled}
+      placeholder={field.placeholder}
+      value={value ?? ''}
+      error={Boolean(error)}
+      helperText={error}
+      InputLabelProps={field.type === 'date' ? { shrink: true } : undefined}
+      onChange={(e) =>
+        onChange(
+          field.id,
+          field.type === 'number' ? Number(e.target.value) : e.target.value,
+        )
+      }
+    />
+  );
+}
+
 export function FormRenderer({
   fields,
   values,
@@ -126,104 +216,78 @@ export function FormRenderer({
   errors = {},
   disabled,
 }: Props) {
-  return (
-    <Stack spacing={2.5}>
-      {fields.map((field) => {
-        const error = errors[field.id];
-        const value = values[field.id];
+  const hasLayout = fields.some(
+    (f) => f.layout && typeof f.layout.x === 'number',
+  );
 
-        if (field.type === 'file') {
+  if (!hasLayout) {
+    return (
+      <Stack spacing={2.5}>
+        {fields.map((field) => (
+          <Box key={field.id}>
+            {renderFieldControl(
+              field,
+              values[field.id],
+              errors[field.id],
+              disabled,
+              onChange,
+            )}
+          </Box>
+        ))}
+      </Stack>
+    );
+  }
+
+  const maxBottom = fields.reduce((max, f) => {
+    if (!f.layout) return max;
+    return Math.max(max, f.layout.y + 120);
+  }, 320);
+
+  return (
+    <Box
+      sx={{
+        position: 'relative',
+        minHeight: maxBottom,
+        width: '100%',
+      }}
+    >
+      {fields.map((field) => {
+        const layout = field.layout;
+        if (!layout) {
           return (
-            <Box key={field.id}>
-              <FileFieldInput
-                field={field}
-                value={value}
-                error={error}
-                disabled={disabled}
-                onChange={(v) => onChange(field.id, v)}
-              />
+            <Box key={field.id} sx={{ mb: 2.5 }}>
+              {renderFieldControl(
+                field,
+                values[field.id],
+                errors[field.id],
+                disabled,
+                onChange,
+              )}
             </Box>
           );
         }
-
-        if (field.type === 'textarea') {
-          return (
-            <TextField
-              key={field.id}
-              label={field.label}
-              required={field.required}
-              multiline
-              minRows={3}
-              fullWidth
-              disabled={disabled}
-              placeholder={field.placeholder}
-              value={value ?? ''}
-              error={Boolean(error)}
-              helperText={error}
-              onChange={(e) => onChange(field.id, e.target.value)}
-            />
-          );
-        }
-
-        if (field.type === 'select') {
-          return (
-            <FormControl
-              key={field.id}
-              fullWidth
-              required={field.required}
-              error={Boolean(error)}
-              disabled={disabled}
-            >
-              <InputLabel>{field.label}</InputLabel>
-              <Select
-                label={field.label}
-                value={value ?? ''}
-                onChange={(e) => onChange(field.id, e.target.value)}
-              >
-                {(field.options ?? []).map((opt) => (
-                  <MenuItem key={opt} value={opt}>
-                    {opt}
-                  </MenuItem>
-                ))}
-              </Select>
-              {error && <FormHelperText>{error}</FormHelperText>}
-            </FormControl>
-          );
-        }
-
         return (
-          <TextField
+          <Box
             key={field.id}
-            label={field.label}
-            required={field.required}
-            type={
-              field.type === 'number'
-                ? 'number'
-                : field.type === 'date'
-                  ? 'date'
-                  : 'text'
-            }
-            fullWidth
-            disabled={disabled}
-            placeholder={field.placeholder}
-            value={value ?? ''}
-            error={Boolean(error)}
-            helperText={error}
-            InputLabelProps={
-              field.type === 'date' ? { shrink: true } : undefined
-            }
-            onChange={(e) =>
-              onChange(
-                field.id,
-                field.type === 'number'
-                  ? Number(e.target.value)
-                  : e.target.value,
-              )
-            }
-          />
+            sx={{
+              position: 'absolute',
+              left: layout.x,
+              top: layout.y,
+              width: layout.w ?? 280,
+              maxWidth: '100%',
+            }}
+          >
+            {renderFieldControl(
+              field,
+              values[field.id],
+              errors[field.id],
+              disabled,
+              onChange,
+            )}
+          </Box>
         );
       })}
-    </Stack>
+    </Box>
   );
 }
 

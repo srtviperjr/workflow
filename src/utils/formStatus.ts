@@ -1,21 +1,14 @@
 import { v4 as uuidv4 } from 'uuid';
-import type { FormDefinition, FormStatusKind, FormStatusOption } from '../types';
+import type { FormDefinition, FormStatusOption } from '../types';
 
-/** Default request statuses every form starts with (required vocabulary). */
+/** Default request statuses every form starts with (ordered: first = on submit). */
 export const DEFAULT_FORM_STATUS_OPTIONS: FormStatusOption[] = [
-  { id: 'submitted', label: 'Submitted', kind: 'initial' },
-  { id: 'approved', label: 'Approved', kind: 'positive' },
-  { id: 'rejected', label: 'Rejected', kind: 'negative' },
+  { id: 'submitted', label: 'Submitted' },
+  { id: 'approved', label: 'Approved' },
+  { id: 'rejected', label: 'Rejected' },
 ];
 
-export const FORM_STATUS_KIND_LABELS: Record<FormStatusKind, string> = {
-  initial: 'Initial (on submit)',
-  positive: 'Positive (e.g. approved)',
-  negative: 'Negative (e.g. rejected)',
-  neutral: 'Neutral / other',
-};
-
-/** Ensure a form has a valid status list (at least one initial). */
+/** Ensure a form has a valid ordered status list (min 2: submit + ≥1 outcome). */
 export function normalizeStatusOptions(
   raw: FormStatusOption[] | undefined | null,
 ): FormStatusOption[] {
@@ -25,34 +18,26 @@ export function normalizeStatusOptions(
         .map((o) => ({
           id: String(o.id).trim(),
           label: String(o.label ?? o.id).trim() || String(o.id),
-          kind: (['initial', 'positive', 'negative', 'neutral'] as FormStatusKind[])
-            .includes(o.kind as FormStatusKind)
-            ? (o.kind as FormStatusKind)
-            : ('neutral' as FormStatusKind),
         }))
     : [];
 
   if (list.length === 0) {
     return DEFAULT_FORM_STATUS_OPTIONS.map((o) => ({ ...o }));
   }
-  if (!list.some((o) => o.kind === 'initial')) {
-    list.unshift({ ...DEFAULT_FORM_STATUS_OPTIONS[0] });
-  }
   return list;
 }
 
+/** First status in the list is applied when a request is submitted. */
 export function getInitialStatusId(form?: FormDefinition | null): string {
   const options = normalizeStatusOptions(form?.statusOptions);
-  return options.find((o) => o.kind === 'initial')?.id ?? 'submitted';
+  return options[0]?.id ?? 'submitted';
 }
 
-/** Statuses an actor may choose on a decision (non-initial). */
+/** Remaining statuses (after the first) are available as decision outcomes. */
 export function getActionStatusOptions(
   form?: FormDefinition | null,
 ): FormStatusOption[] {
-  return normalizeStatusOptions(form?.statusOptions).filter(
-    (o) => o.kind !== 'initial',
-  );
+  return normalizeStatusOptions(form?.statusOptions).slice(1);
 }
 
 export function findStatusOption(
@@ -71,43 +56,39 @@ export function statusOptionLabel(
   return findStatusOption(form, statusId)?.label ?? statusId;
 }
 
-/** Open = still actionable in a workflow (initial / neutral). */
+/** Open = still the submit status (or legacy open values). */
 export function isOpenStatus(
   statusId: string,
   form?: FormDefinition | null,
 ): boolean {
-  // Legacy values from before form-owned statuses
   if (statusId === 'in_progress' || statusId === 'draft') return true;
   if (statusId === 'completed' || statusId === 'rejected') return false;
-  const opt = findStatusOption(form, statusId);
-  if (!opt) return statusId === 'submitted';
-  return opt.kind === 'initial' || opt.kind === 'neutral';
+  const initial = getInitialStatusId(form);
+  return statusId === initial || statusId === 'submitted';
+}
+
+export function statusToneFromLabel(
+  labelOrId: string,
+): 'success' | 'error' | 'warning' | 'info' | 'default' {
+  const s = labelOrId.toLowerCase();
+  if (s.includes('reject') || s.includes('deny') || s.includes('decline')) {
+    return 'error';
+  }
+  if (s.includes('approv') || s.includes('complete') || s.includes('accept')) {
+    return 'success';
+  }
+  if (s.includes('submit') || s.includes('progress') || s.includes('pending')) {
+    return 'warning';
+  }
+  return 'info';
 }
 
 export function statusChipColor(
   statusId: string,
   form?: FormDefinition | null,
 ): 'default' | 'success' | 'error' | 'warning' | 'info' {
-  const opt = findStatusOption(form, statusId);
-  const kind =
-    opt?.kind ??
-    (statusId === 'completed' || statusId === 'approved'
-      ? 'positive'
-      : statusId === 'rejected'
-        ? 'negative'
-        : statusId === 'in_progress' || statusId === 'submitted'
-          ? 'initial'
-          : 'neutral');
-  switch (kind) {
-    case 'positive':
-      return 'success';
-    case 'negative':
-      return 'error';
-    case 'initial':
-      return 'warning';
-    default:
-      return 'info';
-  }
+  const label = statusOptionLabel(form, statusId);
+  return statusToneFromLabel(label);
 }
 
 /** Map legacy submission status strings onto form status ids. */
@@ -117,13 +98,9 @@ export function migrateLegacyStatus(status: string): string {
   return status;
 }
 
-export function createStatusOption(
-  label = 'New status',
-  kind: FormStatusKind = 'neutral',
-): FormStatusOption {
+export function createStatusOption(label = 'New status'): FormStatusOption {
   return {
     id: `status-${uuidv4().slice(0, 8)}`,
     label,
-    kind,
   };
 }

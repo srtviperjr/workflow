@@ -56,8 +56,8 @@ export interface WorkflowNodeData {
   /** Manual = actor picks outcome; conditional = route by form field rules */
   decisionMode?: DecisionMode;
   /**
-   * Manual decision: which form status options the actor may choose
-   * (ids from FormDefinition.statusOptions, typically non-initial).
+   * User decision: which form status outcomes the actor may choose
+   * (ids from FormDefinition.statusOptions after the first/submit status).
    */
   decisionActions?: string[];
   /** When true, the actor can edit form field values at this step */
@@ -174,6 +174,14 @@ export type FieldType =
   | 'date'
   | 'file';
 
+/** Canvas placement for the visual form layout editor (px on the layout board). */
+export interface FormFieldLayout {
+  x: number;
+  y: number;
+  /** Width in px; defaults in the renderer when omitted */
+  w?: number;
+}
+
 export interface FormField {
   id: string;
   label: string;
@@ -181,6 +189,8 @@ export interface FormField {
   required: boolean;
   options?: string[];
   placeholder?: string;
+  /** Optional position from the visual layout editor */
+  layout?: FormFieldLayout;
 }
 
 /** File stored as a data URL in localStorage (see formValues helpers). */
@@ -207,17 +217,14 @@ export const FORM_VISIBILITY_LABELS: Record<FormVisibility, string> = {
   project: 'Within project',
 };
 
-/** How a request status behaves in the UI and open-queue logic. */
-export type FormStatusKind = 'initial' | 'positive' | 'negative' | 'neutral';
-
 /**
- * Form-owned request status / decision action vocabulary.
+ * Form-owned request status vocabulary (ordered).
+ * First entry = status on submit; remaining = decision outcomes.
  * Typical defaults: Submitted, Approved, Rejected.
  */
 export interface FormStatusOption {
   id: string;
   label: string;
-  kind: FormStatusKind;
 }
 
 export interface FormDefinition {
@@ -230,8 +237,8 @@ export interface FormDefinition {
   /** Submission visibility boundary for this form */
   visibility: FormVisibility;
   /**
-   * Required status options for this form (submit + decision actions).
-   * Decision nodes pick from the non-initial options.
+   * Required ordered statuses for this form.
+   * Index 0 = on submit; the rest are available as decision outcomes.
    */
   statusOptions: FormStatusOption[];
   createdAt: string;

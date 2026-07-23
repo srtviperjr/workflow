@@ -22,6 +22,9 @@ import AddIcon from '@mui/icons-material/Add';
 import DeleteIcon from '@mui/icons-material/Delete';
 import SaveIcon from '@mui/icons-material/Save';
 import DragIndicatorIcon from '@mui/icons-material/DragIndicator';
+import DashboardCustomizeIcon from '@mui/icons-material/DashboardCustomize';
+import ArrowUpwardIcon from '@mui/icons-material/ArrowUpward';
+import ArrowDownwardIcon from '@mui/icons-material/ArrowDownward';
 import { useApp } from '../context/AppContext';
 import { FormRenderer } from '../components/forms/FormRenderer';
 import { createId } from '../data/defaults';
@@ -35,17 +38,16 @@ import {
   clearEditorDraft,
   isEditorDraft,
 } from '../utils/editorDrafts';
+import { FieldLayoutEditor } from '../components/forms/FieldLayoutEditor';
 import {
   createStatusOption,
   DEFAULT_FORM_STATUS_OPTIONS,
-  FORM_STATUS_KIND_LABELS,
   normalizeStatusOptions,
 } from '../utils/formStatus';
 import type {
   FieldType,
   FormField,
   FormFieldData,
-  FormStatusKind,
   FormStatusOption,
   FormVisibility,
 } from '../types';
@@ -84,6 +86,7 @@ export function FormBuilderPage() {
   const [dirty, setDirty] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [previewValues, setPreviewValues] = useState<FormFieldData>({});
+  const [layoutOpen, setLayoutOpen] = useState(false);
 
   useEffect(() => {
     if (!form) return;
@@ -203,13 +206,9 @@ export function FormBuilderPage() {
       return;
     }
     const statuses = normalizeStatusOptions(statusOptions);
-    if (!statuses.some((o) => o.kind === 'initial')) {
-      setError('Add at least one Initial status (e.g. Submitted).');
-      return;
-    }
-    if (statuses.filter((o) => o.kind !== 'initial').length === 0) {
+    if (statuses.length < 2) {
       setError(
-        'Add at least one decision status (e.g. Approved or Rejected) for workflow actions.',
+        'Add at least two statuses: the first is set on submit; the rest are decision outcomes.',
       );
       return;
     }
@@ -347,8 +346,8 @@ export function FormBuilderPage() {
               Request statuses
             </Typography>
             <Typography variant="caption" color="text.secondary">
-              Required. Initial is set on submit; other statuses are actions
-              available on workflow decisions.
+              Ordered list. The first status is set on submit; the rest are
+              available as decision outcomes. Use the arrows to reorder.
             </Typography>
           </Box>
           <Button
@@ -357,7 +356,7 @@ export function FormBuilderPage() {
             onClick={() => {
               setStatusOptions((prev) => [
                 ...prev,
-                createStatusOption('New status', 'neutral'),
+                createStatusOption('New status'),
               ]);
               markDirty();
             }}
@@ -369,10 +368,17 @@ export function FormBuilderPage() {
           {statusOptions.map((opt, index) => (
             <Stack
               key={opt.id}
-              direction={{ xs: 'column', sm: 'row' }}
+              direction="row"
               spacing={1}
-              alignItems={{ sm: 'center' }}
+              alignItems="center"
             >
+              <Typography
+                variant="caption"
+                color="text.secondary"
+                sx={{ width: 72, flexShrink: 0 }}
+              >
+                {index === 0 ? 'On submit' : 'Outcome'}
+              </Typography>
               <TextField
                 label="Label"
                 size="small"
@@ -396,28 +402,44 @@ export function FormBuilderPage() {
                 }}
                 sx={{ flex: 1 }}
               />
-              <FormControl size="small" sx={{ minWidth: 200 }}>
-                <InputLabel>Kind</InputLabel>
-                <Select
-                  label="Kind"
-                  value={opt.kind}
-                  onChange={(e) => {
-                    const kind = e.target.value as FormStatusKind;
-                    setStatusOptions((prev) =>
-                      prev.map((o, i) => (i === index ? { ...o, kind } : o)),
-                    );
-                    markDirty();
-                  }}
-                >
-                  {(
-                    Object.keys(FORM_STATUS_KIND_LABELS) as FormStatusKind[]
-                  ).map((k) => (
-                    <MenuItem key={k} value={k}>
-                      {FORM_STATUS_KIND_LABELS[k]}
-                    </MenuItem>
-                  ))}
-                </Select>
-              </FormControl>
+              <IconButton
+                size="small"
+                disabled={index === 0}
+                aria-label="Move status up"
+                onClick={() => {
+                  setStatusOptions((prev) => {
+                    if (index <= 0) return prev;
+                    const next = [...prev];
+                    [next[index - 1], next[index]] = [
+                      next[index],
+                      next[index - 1],
+                    ];
+                    return next;
+                  });
+                  markDirty();
+                }}
+              >
+                <ArrowUpwardIcon fontSize="small" />
+              </IconButton>
+              <IconButton
+                size="small"
+                disabled={index >= statusOptions.length - 1}
+                aria-label="Move status down"
+                onClick={() => {
+                  setStatusOptions((prev) => {
+                    if (index >= prev.length - 1) return prev;
+                    const next = [...prev];
+                    [next[index], next[index + 1]] = [
+                      next[index + 1],
+                      next[index],
+                    ];
+                    return next;
+                  });
+                  markDirty();
+                }}
+              >
+                <ArrowDownwardIcon fontSize="small" />
+              </IconButton>
               <IconButton
                 size="small"
                 color="error"
@@ -451,9 +473,24 @@ export function FormBuilderPage() {
       <Stack direction={{ xs: 'column', lg: 'row' }} spacing={2} alignItems="stretch">
         {/* Field list */}
         <Paper elevation={1} sx={{ p: 2, width: { lg: 280 }, flexShrink: 0 }}>
-          <Typography variant="subtitle1" fontWeight={700} gutterBottom>
-            Fields
-          </Typography>
+          <Stack
+            direction="row"
+            justifyContent="space-between"
+            alignItems="center"
+            mb={1}
+          >
+            <Typography variant="subtitle1" fontWeight={700}>
+              Fields
+            </Typography>
+            <Button
+              size="small"
+              startIcon={<DashboardCustomizeIcon />}
+              onClick={() => setLayoutOpen(true)}
+              disabled={fields.length === 0}
+            >
+              Layout
+            </Button>
+          </Stack>
           <Stack spacing={1} mb={2}>
             {fields.map((f, i) => (
               <Paper
@@ -653,6 +690,16 @@ export function FormBuilderPage() {
           )}
         </Paper>
       </Stack>
+
+      <FieldLayoutEditor
+        open={layoutOpen}
+        fields={fields}
+        onClose={() => setLayoutOpen(false)}
+        onSave={(next) => {
+          setFields(next);
+          markDirty();
+        }}
+      />
     </Box>
   );
 }

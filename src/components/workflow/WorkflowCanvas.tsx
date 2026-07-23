@@ -156,7 +156,6 @@ export function WorkflowCanvas({
         return {
           id,
           label: opt?.label ?? id,
-          kind: opt?.kind ?? ('neutral' as const),
         };
       });
       return {
@@ -286,9 +285,15 @@ export function WorkflowCanvas({
     conditions?: EdgeCondition[];
     statusOptionId?: string;
   };
+  const selectedEdgeSourceNode = selectedEdge
+    ? nodes.find((n) => n.id === selectedEdge.source)
+    : undefined;
   const selectedEdgeSourceIsDecision =
-    selectedEdge &&
-    nodes.find((n) => n.id === selectedEdge.source)?.type === 'decision';
+    selectedEdgeSourceNode?.type === 'decision';
+  const selectedEdgeSourceDecisionMode =
+    (
+      selectedEdgeSourceNode?.data as { decisionMode?: 'manual' | 'conditional' }
+    )?.decisionMode ?? 'manual';
   const edgeConditions = selectedEdgeData.conditions ?? [];
   const edgeRouteMode = selectedEdgeData.routeMode ?? 'manual';
 
@@ -502,8 +507,8 @@ export function WorkflowCanvas({
         </Typography>
         {!selectedId && (
           <Typography variant="body2" color="text.secondary">
-            Select a node or connection. Decision actions come from the form&apos;s
-            status options (e.g. Approved, Rejected).
+            Select a node or connection. User decisions use form status outcomes;
+            system decisions use field rules — they cannot be mixed on one node.
           </Typography>
         )}
         {selectedNode && (
@@ -522,13 +527,73 @@ export function WorkflowCanvas({
                 <Select
                   label="Decision mode"
                   value={selectedData.decisionMode ?? 'manual'}
-                  onChange={(e) =>
-                    updateSelectedNode({ decisionMode: e.target.value })
-                  }
+                  onChange={(e) => {
+                    const mode = e.target.value as 'manual' | 'conditional';
+                    // Strict split: clear the other mode's data
+                    if (mode === 'conditional') {
+                      updateSelectedNode({
+                        decisionMode: mode,
+                        decisionActions: undefined,
+                        roleId: undefined,
+                      });
+                      // Convert outgoing edges to condition routes (clear status outcomes)
+                      setEdges((eds) => {
+                        const next = eds.map((edge) => {
+                          if (edge.source !== selectedNode.id) return edge;
+                          return {
+                            ...edge,
+                            label: edge.label,
+                            sourceHandle: 'other',
+                            data: {
+                              ...(edge.data as object),
+                              routeMode: 'condition' as const,
+                              statusOptionId: undefined,
+                              conditions:
+                                (
+                                  (edge.data as { conditions?: EdgeCondition[] })
+                                    ?.conditions ?? []
+                                ).length > 0
+                                  ? (edge.data as { conditions?: EdgeCondition[] })
+                                      .conditions
+                                  : [
+                                      {
+                                        fieldId: formFields[0]?.id ?? '',
+                                        op: 'eq' as const,
+                                        value: '',
+                                      },
+                                    ],
+                            },
+                          };
+                        });
+                        sync(nodes, next);
+                        return next;
+                      });
+                    } else {
+                      updateSelectedNode({
+                        decisionMode: mode,
+                        decisionActions: actionStatuses.map((o) => o.id),
+                      });
+                      setEdges((eds) => {
+                        const next = eds.map((edge) => {
+                          if (edge.source !== selectedNode.id) return edge;
+                          return {
+                            ...edge,
+                            data: {
+                              ...(edge.data as object),
+                              routeMode: 'manual' as const,
+                              conditions: [],
+                            },
+                          };
+                        });
+                        sync(nodes, next);
+                        return next;
+                      });
+                    }
+                  }}
                 >
-                  <MenuItem value="manual">Manual (actor chooses)</MenuItem>
+                  <MenuItem value="manual">User decision (person chooses)</MenuItem>
                   <MenuItem value="conditional">
-                    Conditional (form field rules)
+                    System decision (field rules)
                   </MenuItem>
                 </Select>
               </FormControl>
@@ -536,10 +601,10 @@ export function WorkflowCanvas({
             {selectedNode.type === 'decision' &&
               (selectedData.decisionMode ?? 'manual') === 'manual' && (
                 <FormControl size="small" fullWidth disabled={readOnly}>
-                  <InputLabel>Available actions</InputLabel>
+                  <InputLabel>Available outcomes</InputLabel>
                   <Select
                     multiple
-                    label="Available actions"
+                    label="Available outcomes"
                     value={
                       selectedData.decisionActions?.length
                         ? selectedData.decisionActions
@@ -572,10 +637,18 @@ export function WorkflowCanvas({
                     ))}
                   </Select>
                   <Typography variant="caption" color="text.secondary" mt={0.5}>
-                    These are the statuses the actor can set. Connect each
-                    action handle to the next step.
+                    Outcomes the person can choose. Connect each handle to the
+                    next step. User and system decisions cannot be mixed on one
+                    node.
                   </Typography>
                 </FormControl>
+              )}
+            {selectedNode.type === 'decision' &&
+              selectedData.decisionMode === 'conditional' && (
+                <Typography variant="caption" color="text.secondary">
+                  System decisions route automatically from field conditions on
+                  each outgoing connection. No user outcomes or role assignment.
+                </Typography>
               )}
             {(selectedNode.type === 'step' ||
               (selectedNode.type === 'decision' &&
@@ -725,11 +798,11 @@ export function WorkflowCanvas({
         {selectedEdge && (
           <Stack spacing={2}>
             {selectedEdgeSourceIsDecision &&
-              edgeRouteMode === 'manual' && (
+              selectedEdgeSourceDecisionMode === 'manual' && (
                 <FormControl size="small" fullWidth disabled={readOnly}>
-                  <InputLabel>Decision action</InputLabel>
+                  <InputLabel>Outcome</InputLabel>
                   <Select
-                    label="Decision action"
+                    label="Outcome"
                     value={selectedEdgeData.statusOptionId ?? ''}
                     onChange={(e) => {
                       const id = e.target.value as string;
@@ -739,6 +812,8 @@ export function WorkflowCanvas({
                         statusOptionId: id || undefined,
                         sourceHandle: id || undefined,
                         label: opt?.label,
+                        routeMode: 'manual',
+                        conditions: [],
                       });
                     }}
                   >
@@ -749,9 +824,16 @@ export function WorkflowCanvas({
                     ))}
                   </Select>
                   <Typography variant="caption" color="text.secondary" mt={0.5}>
-                    Sets the request status when this route is taken.
+                    Sets the request status when the user chooses this outcome.
                   </Typography>
                 </FormControl>
+              )}
+            {selectedEdgeSourceIsDecision &&
+              selectedEdgeSourceDecisionMode === 'conditional' && (
+                <Alert severity="info">
+                  System decision — this connection uses field conditions only
+                  (no user outcome).
+                </Alert>
               )}
             <TextField
               label="Route Label"
@@ -763,36 +845,40 @@ export function WorkflowCanvas({
                 setEdgeLabel(e.target.value);
                 updateSelectedEdge({ label: e.target.value });
               }}
-              helperText="Shown in history (defaults to the status label)"
+              helperText="Shown in history"
             />
-            <FormControl size="small" fullWidth disabled={readOnly}>
-              <InputLabel>Route type</InputLabel>
-              <Select
-                label="Route type"
-                value={edgeRouteMode}
-                onChange={(e) => {
-                  const mode = e.target.value as 'manual' | 'condition';
-                  updateSelectedEdge({
-                    routeMode: mode,
-                    conditions:
-                      mode === 'condition' && edgeConditions.length === 0
-                        ? [
-                            {
-                              fieldId: formFields[0]?.id ?? '',
-                              op: 'eq',
-                              value: '',
-                            },
-                          ]
-                        : edgeConditions,
-                  });
-                }}
-              >
-                <MenuItem value="manual">Manual outcome</MenuItem>
-                <MenuItem value="condition">Form field condition</MenuItem>
-              </Select>
-            </FormControl>
+            {!selectedEdgeSourceIsDecision && (
+              <FormControl size="small" fullWidth disabled={readOnly}>
+                <InputLabel>Route type</InputLabel>
+                <Select
+                  label="Route type"
+                  value={edgeRouteMode}
+                  onChange={(e) => {
+                    const mode = e.target.value as 'manual' | 'condition';
+                    updateSelectedEdge({
+                      routeMode: mode,
+                      conditions:
+                        mode === 'condition' && edgeConditions.length === 0
+                          ? [
+                              {
+                                fieldId: formFields[0]?.id ?? '',
+                                op: 'eq',
+                                value: '',
+                              },
+                            ]
+                          : edgeConditions,
+                    });
+                  }}
+                >
+                  <MenuItem value="manual">Manual</MenuItem>
+                  <MenuItem value="condition">Form field condition</MenuItem>
+                </Select>
+              </FormControl>
+            )}
 
-            {edgeRouteMode === 'condition' && (
+            {(selectedEdgeSourceDecisionMode === 'conditional' ||
+              (!selectedEdgeSourceIsDecision &&
+                edgeRouteMode === 'condition')) && (
               <Box>
                 <Typography variant="caption" fontWeight={700} display="block" mb={1}>
                   Conditions (all must match)

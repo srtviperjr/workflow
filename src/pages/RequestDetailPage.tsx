@@ -35,7 +35,12 @@ import {
   fieldValueCompareKey,
   isFileAttachment,
 } from '../utils/formValues';
-import { isOpenStatus, statusChipColor, statusOptionLabel } from '../utils/formStatus';
+import {
+  isOpenStatus,
+  statusChipColor,
+  statusOptionLabel,
+  statusToneFromLabel,
+} from '../utils/formStatus';
 import Link from '@mui/material/Link';
 
 export function RequestDetailPage() {
@@ -356,22 +361,25 @@ export function RequestDetailPage() {
                     and choose available form statuses on the decision node.
                   </Alert>
                 ) : (
-                  outcomes.map((outcome) => (
-                    <Button
-                      key={outcome.id}
-                      variant="contained"
-                      color={
-                        outcome.kind === 'negative'
-                          ? 'error'
-                          : outcome.kind === 'positive'
-                            ? 'success'
-                            : 'primary'
-                      }
-                      onClick={() => act('Decision', outcome.id)}
-                    >
-                      {outcome.label}
-                    </Button>
-                  ))
+                  outcomes.map((outcome) => {
+                    const tone = statusToneFromLabel(outcome.label);
+                    return (
+                      <Button
+                        key={outcome.id}
+                        variant="contained"
+                        color={
+                          tone === 'error'
+                            ? 'error'
+                            : tone === 'success'
+                              ? 'success'
+                              : 'primary'
+                        }
+                        onClick={() => act('Decision', outcome.id)}
+                      >
+                        {outcome.label}
+                      </Button>
+                    );
+                  })
                 )}
               </Stack>
             ) : (

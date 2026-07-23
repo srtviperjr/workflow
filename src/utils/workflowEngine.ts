@@ -252,10 +252,9 @@ export function getNextNodes(
 export interface DecisionOutcome {
   id: string;
   label: string;
-  kind: 'positive' | 'negative' | 'neutral' | 'initial';
 }
 
-/** Manual decision actions for request UI buttons (linked to form statuses). */
+/** Manual decision outcomes for request UI buttons (linked to form statuses). */
 export function getDecisionOutcomes(
   workflow: Workflow,
   nodeId: string,
@@ -273,7 +272,6 @@ export function getDecisionOutcomes(
       return {
         id,
         label: opt?.label ?? id,
-        kind: (opt?.kind ?? 'neutral') as DecisionOutcome['kind'],
       };
     });
   }
@@ -292,7 +290,6 @@ export function getDecisionOutcomes(
     fromEdges.push({
       id,
       label: opt?.label ?? e.label ?? id,
-      kind: (opt?.kind ?? 'neutral') as DecisionOutcome['kind'],
     });
   }
   return fromEdges;
