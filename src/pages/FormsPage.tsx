@@ -1,3 +1,4 @@
+import { flushSync } from 'react-dom';
 import { Link as RouterLink, Navigate, useNavigate } from 'react-router-dom';
 import {
   Box,
@@ -14,6 +15,7 @@ import {
 import AddIcon from '@mui/icons-material/Add';
 import EditIcon from '@mui/icons-material/Edit';
 import DeleteIcon from '@mui/icons-material/Delete';
+import ContentCopyIcon from '@mui/icons-material/ContentCopy';
 import GridOnIcon from '@mui/icons-material/GridOn';
 import { useApp } from '../context/AppContext';
 import { createId } from '../data/defaults';
@@ -21,7 +23,7 @@ import { FORM_VISIBILITY_LABELS } from '../types';
 
 /** Admin-only form design catalog. End users submit via /requests. */
 export function FormsPage() {
-  const { data, isAdmin, addForm, deleteForm } = useApp();
+  const { data, isAdmin, addForm, deleteForm, duplicateForm } = useApp();
   const navigate = useNavigate();
 
   if (!isAdmin) {
@@ -45,6 +47,15 @@ export function FormsPage() {
       visibility: 'project',
     });
     navigate(`/forms/${form.id}/edit`);
+  };
+
+  const copyForm = (id: string) => {
+    let nextId = '';
+    flushSync(() => {
+      const copy = duplicateForm(id);
+      if (copy) nextId = copy.id;
+    });
+    if (nextId) navigate(`/forms/${nextId}/edit`);
   };
 
   return (
@@ -110,6 +121,13 @@ export function FormsPage() {
                     to={`/forms/${f.id}/edit`}
                   >
                     Edit
+                  </Button>
+                  <Button
+                    size="small"
+                    startIcon={<ContentCopyIcon />}
+                    onClick={() => copyForm(f.id)}
+                  >
+                    Copy
                   </Button>
                   <Button
                     size="small"

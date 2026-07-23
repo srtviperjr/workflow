@@ -15,6 +15,7 @@ import {
 import AddIcon from '@mui/icons-material/Add';
 import EditIcon from '@mui/icons-material/Edit';
 import DeleteIcon from '@mui/icons-material/Delete';
+import ContentCopyIcon from '@mui/icons-material/ContentCopy';
 import NotificationsNoneIcon from '@mui/icons-material/NotificationsNone';
 import { useApp } from '../context/AppContext';
 
@@ -25,6 +26,7 @@ export function NotificationTemplatesPage() {
     isAdmin,
     addNotificationTemplate,
     deleteNotificationTemplate,
+    duplicateNotificationTemplate,
   } = useApp();
   const navigate = useNavigate();
 
@@ -53,6 +55,15 @@ export function NotificationTemplatesPage() {
       tplId = tpl.id;
     });
     navigate(`/notification-templates/${tplId}/edit`);
+  };
+
+  const copyTemplate = (id: string) => {
+    let tplId = '';
+    flushSync(() => {
+      const copy = duplicateNotificationTemplate(id);
+      if (copy) tplId = copy.id;
+    });
+    if (tplId) navigate(`/notification-templates/${tplId}/edit`);
   };
 
   return (
@@ -135,6 +146,13 @@ export function NotificationTemplatesPage() {
                       to={`/notification-templates/${t.id}/edit`}
                     >
                       Edit
+                    </Button>
+                    <Button
+                      size="small"
+                      startIcon={<ContentCopyIcon />}
+                      onClick={() => copyTemplate(t.id)}
+                    >
+                      Copy
                     </Button>
                     <IconButton
                       size="small"

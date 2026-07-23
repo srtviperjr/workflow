@@ -1,3 +1,4 @@
+import { flushSync } from 'react-dom';
 import { Link as RouterLink, useNavigate } from 'react-router-dom';
 import {
   Box,
@@ -13,11 +14,13 @@ import {
 import AddIcon from '@mui/icons-material/Add';
 import EditIcon from '@mui/icons-material/Edit';
 import DeleteIcon from '@mui/icons-material/Delete';
+import ContentCopyIcon from '@mui/icons-material/ContentCopy';
 import { useApp } from '../context/AppContext';
 import { createId } from '../data/defaults';
 
 export function WorkflowsPage() {
-  const { data, isAdmin, addWorkflow, deleteWorkflow } = useApp();
+  const { data, isAdmin, addWorkflow, deleteWorkflow, duplicateWorkflow } =
+    useApp();
   const navigate = useNavigate();
 
   if (!isAdmin) {
@@ -54,6 +57,15 @@ export function WorkflowsPage() {
       ],
     });
     navigate(`/workflows/${wf.id}`);
+  };
+
+  const copyWorkflow = (id: string) => {
+    let nextId = '';
+    flushSync(() => {
+      const copy = duplicateWorkflow(id);
+      if (copy) nextId = copy.id;
+    });
+    if (nextId) navigate(`/workflows/${nextId}`);
   };
 
   return (
@@ -113,6 +125,13 @@ export function WorkflowsPage() {
                     to={`/workflows/${wf.id}`}
                   >
                     Edit
+                  </Button>
+                  <Button
+                    size="small"
+                    startIcon={<ContentCopyIcon />}
+                    onClick={() => copyWorkflow(wf.id)}
+                  >
+                    Copy
                   </Button>
                   <IconButton
                     size="small"
