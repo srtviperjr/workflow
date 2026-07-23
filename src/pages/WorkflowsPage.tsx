@@ -7,7 +7,6 @@ import {
   CardActions,
   CardContent,
   IconButton,
-  Stack,
   Typography,
   Grid2 as Grid,
 } from '@mui/material';
@@ -79,29 +78,22 @@ export function WorkflowsPage() {
 
   return (
     <Box>
-      <Stack
-        direction="row"
-        justifyContent="space-between"
-        alignItems="center"
-        mb={3}
-      >
-        <Box>
-          <Typography variant="h4" fontWeight={700}>
-            Workflows
-          </Typography>
-          <Typography color="text.secondary">
-            Orchestrate each form after its notifications exist — Notify steps
-            pick those messages when the flow reaches them.
-          </Typography>
-        </Box>
+      <Box mb={3}>
+        <Typography variant="h4" fontWeight={700}>
+          Workflows
+        </Typography>
+        <Typography color="text.secondary" mb={2}>
+          Orchestrate each form after its notifications exist — Notify steps
+          pick those messages when the flow reaches them.
+        </Typography>
         <Button
           variant="contained"
           startIcon={<AddIcon />}
           onClick={createBlank}
         >
-          New Workflow
+          Create Workflow
         </Button>
-      </Stack>
+      </Box>
 
       <Grid container spacing={2}>
         {data.workflows.map((wf) => {
