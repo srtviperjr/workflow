@@ -114,46 +114,32 @@ export function NotificationTemplatesPage() {
 
   return (
     <Box>
-      <Stack
-        direction={{ xs: 'column', sm: 'row' }}
-        justifyContent="space-between"
-        alignItems={{ sm: 'flex-start' }}
-        spacing={2}
-        mb={3}
-      >
-        <Box>
-          <Typography variant="h4" fontWeight={700}>
-            Notifications
-          </Typography>
-          <Typography color="text.secondary">
-            Create message content for a form, then place Notify steps in that
-            form&apos;s workflow. Notifications send when the workflow reaches
-            them — no separate type is required.
-          </Typography>
-        </Box>
+      <Box mb={3}>
+        <Typography variant="h4" fontWeight={700}>
+          Notifications
+        </Typography>
+        <Typography color="text.secondary" mb={2}>
+          Create message content for a form, then place Notify steps in that
+          form&apos;s workflow. Notifications send when the workflow reaches
+          them — no separate type is required.
+        </Typography>
         <Button
           variant="contained"
           startIcon={<AddIcon />}
           onClick={createTemplate}
           disabled={!activeFormId}
+          sx={{ mb: 2 }}
         >
           Create Notification
         </Button>
-      </Stack>
-
-      {forms.length === 0 ? (
-        <Typography color="text.secondary">
-          Create a form first, then add its notifications, then design the
-          workflow that sends them.
-        </Typography>
-      ) : (
-        <>
-          <FormControl sx={{ mb: 2, minWidth: 280 }} size="small">
+        {forms.length > 0 && (
+          <FormControl sx={{ display: 'block', maxWidth: 320 }} size="small">
             <InputLabel>Form</InputLabel>
             <Select
               label="Form"
               value={activeFormId}
               onChange={(e) => setFilter(e.target.value)}
+              fullWidth
             >
               {forms.map((f) => (
                 <MenuItem key={f.id} value={f.id}>
@@ -162,87 +148,85 @@ export function NotificationTemplatesPage() {
               ))}
             </Select>
           </FormControl>
+        )}
+      </Box>
 
-          {templates.length === 0 ? (
-            <Typography color="text.secondary">
-              No notifications for {selectedForm?.name ?? 'this form'} yet.
-              Create one, then wire it into the workflow with a Notify step.
-            </Typography>
-          ) : (
-            <Grid container spacing={2}>
-              {templates.map((t) => {
-                const form = data.forms.find((f) => f.id === t.formId);
-                return (
-                  <Grid key={t.id} size={{ xs: 12, md: 6 }}>
-                    <Card elevation={1}>
-                      <CardContent sx={{ pb: 1 }}>
-                        <Stack
-                          direction="row"
-                          spacing={1.5}
-                          alignItems="center"
-                        >
-                          <NotificationsNoneIcon
-                            color="action"
-                            fontSize="small"
-                          />
-                          <Typography
-                            variant="h6"
-                            fontWeight={700}
-                            sx={{ flex: 1, minWidth: 0 }}
-                            noWrap
-                          >
-                            {t.name}
-                          </Typography>
-                          <Typography
-                            variant="body2"
-                            color="text.secondary"
-                            noWrap
-                            sx={{ maxWidth: '45%' }}
-                          >
-                            {form?.name ?? 'Unknown form'}
-                          </Typography>
-                        </Stack>
-                      </CardContent>
-                      <CardActions>
-                        <Button
-                          size="small"
-                          startIcon={<EditIcon />}
-                          component={RouterLink}
-                          to={`/notification-templates/${t.id}/edit`}
-                        >
-                          Edit
-                        </Button>
-                        <Button
-                          size="small"
-                          startIcon={<ContentCopyIcon />}
-                          onClick={() => copyTemplate(t.id)}
-                        >
-                          Copy
-                        </Button>
-                        <IconButton
-                          size="small"
-                          color="error"
-                          aria-label="Delete notification"
-                          onClick={() => {
-                            if (
-                              window.confirm(
-                                `Delete notification “${t.name}”? Workflow steps using it will need a new notification.`,
-                              )
-                            ) {
-                              deleteNotificationTemplate(t.id);
-                            }
-                          }}
-                        >
-                          <DeleteIcon fontSize="small" />
-                        </IconButton>
-                      </CardActions>
-                    </Card>
-                  </Grid>
-                );
-              })}
-            </Grid>
-          )}
-        </>
+      {forms.length === 0 ? (
+        <Typography color="text.secondary">
+          Create a form first, then add its notifications, then design the
+          workflow that sends them.
+        </Typography>
+      ) : templates.length === 0 ? (
+        <Typography color="text.secondary">
+          No notifications for {selectedForm?.name ?? 'this form'} yet. Create
+          one, then wire it into the workflow with a Notify step.
+        </Typography>
+      ) : (
+        <Grid container spacing={2}>
+          {templates.map((t) => {
+            const form = data.forms.find((f) => f.id === t.formId);
+            return (
+              <Grid key={t.id} size={{ xs: 12, md: 6 }}>
+                <Card elevation={1}>
+                  <CardContent sx={{ pb: 1 }}>
+                    <Stack direction="row" spacing={1.5} alignItems="center">
+                      <NotificationsNoneIcon color="action" fontSize="small" />
+                      <Typography
+                        variant="h6"
+                        fontWeight={700}
+                        sx={{ flex: 1, minWidth: 0 }}
+                        noWrap
+                      >
+                        {t.name}
+                      </Typography>
+                      <Typography
+                        variant="body2"
+                        color="text.secondary"
+                        noWrap
+                        sx={{ maxWidth: '45%' }}
+                      >
+                        {form?.name ?? 'Unknown form'}
+                      </Typography>
+                    </Stack>
+                  </CardContent>
+                  <CardActions>
+                    <Button
+                      size="small"
+                      startIcon={<EditIcon />}
+                      component={RouterLink}
+                      to={`/notification-templates/${t.id}/edit`}
+                    >
+                      Edit
+                    </Button>
+                    <Button
+                      size="small"
+                      startIcon={<ContentCopyIcon />}
+                      onClick={() => copyTemplate(t.id)}
+                    >
+                      Copy
+                    </Button>
+                    <IconButton
+                      size="small"
+                      color="error"
+                      aria-label="Delete notification"
+                      onClick={() => {
+                        if (
+                          window.confirm(
+                            `Delete notification “${t.name}”? Workflow steps using it will need a new notification.`,
+                          )
+                        ) {
+                          deleteNotificationTemplate(t.id);
+                        }
+                      }}
+                    >
+                      <DeleteIcon fontSize="small" />
+                    </IconButton>
+                  </CardActions>
+                </Card>
+              </Grid>
+            );
+          })}
+        </Grid>
       )}
     </Box>
   );
