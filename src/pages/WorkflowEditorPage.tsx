@@ -194,18 +194,13 @@ export function WorkflowEditorPage() {
             label="Related form"
             value={formId}
             onChange={(e) => {
-<<<<<<< HEAD
               const nextId = e.target.value;
               setFormId(nextId);
               const form = data.forms.find((f) => f.id === nextId);
               if (form && shouldReplaceWorkflowName(name)) {
                 setName(defaultWorkflowName(form.name));
               }
-              setSaved(false);
-=======
-              setFormId(e.target.value);
               markDirty();
->>>>>>> origin/cursor/status-reorder-field-layout-7657
             }}
           >
             <MenuItem value="">
