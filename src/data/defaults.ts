@@ -556,6 +556,12 @@ export function createId(prefix = 'id'): string {
   return `${prefix}-${uuidv4().slice(0, 8)}`;
 }
 
+/** Default workflow title: "{Form name} Workflow". */
+export function defaultWorkflowName(formName?: string | null): string {
+  const base = (formName ?? '').trim() || 'New Form';
+  return `${base} Workflow`;
+}
+
 /** Minimal start→end workflow used when pairing a new form 1:1. */
 export function createDedicatedWorkflowDraft(
   formName = 'New Form',
@@ -563,7 +569,7 @@ export function createDedicatedWorkflowDraft(
   const startId = createId('node');
   const endId = createId('node');
   return {
-    name: `${formName} Workflow`,
+    name: defaultWorkflowName(formName),
     description: 'Dedicated approval workflow for this form',
     formId: null,
     nodes: [
