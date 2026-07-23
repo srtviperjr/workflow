@@ -317,9 +317,27 @@ export function WorkflowCanvas({
     });
   };
 
-  const deleteSelected = () => {
+  const deleteSelected = useCallback(() => {
     if (readOnly || !selectedId) return;
-    if (selectedNode?.type === 'start') return;
+    const node = nodes.find((n) => n.id === selectedId);
+    const edge = edges.find((e) => e.id === selectedId);
+    if (!node && !edge) return;
+    if (node?.type === 'start') return;
+
+    if (node) {
+      const label =
+        typeof node.data?.label === 'string' && node.data.label.trim()
+          ? node.data.label.trim()
+          : node.type;
+      if (
+        !window.confirm(
+          `Delete "${label}"? Connected lines to this step will also be removed.`,
+        )
+      ) {
+        return;
+      }
+    }
+
     setNodes((nds) => {
       const next = nds.filter((n) => n.id !== selectedId);
       setEdges((eds) => {
@@ -335,7 +353,33 @@ export function WorkflowCanvas({
       return next;
     });
     setSelectedId(null);
-  };
+    setEdgeLabel('');
+  }, [readOnly, selectedId, nodes, edges, setNodes, setEdges, sync]);
+
+  // Delete / Backspace removes the selected node (with confirm) or edge (no confirm)
+  useEffect(() => {
+    if (readOnly) return;
+    const onKeyDown = (e: KeyboardEvent) => {
+      if (e.key !== 'Delete' && e.key !== 'Backspace') return;
+      const target = e.target as HTMLElement | null;
+      if (!target) return;
+      const tag = target.tagName;
+      if (
+        tag === 'INPUT' ||
+        tag === 'TEXTAREA' ||
+        tag === 'SELECT' ||
+        target.isContentEditable
+      ) {
+        return;
+      }
+      if (!selectedId) return;
+      e.preventDefault();
+      e.stopPropagation();
+      deleteSelected();
+    };
+    window.addEventListener('keydown', onKeyDown);
+    return () => window.removeEventListener('keydown', onKeyDown);
+  }, [readOnly, selectedId, deleteSelected]);
 
   const fieldLabel = (fieldId: string) =>
     formFields.find((f) => f.id === fieldId)?.label ?? fieldId;
@@ -373,9 +417,14 @@ export function WorkflowCanvas({
             setSelectedId(e.id);
             setEdgeLabel(typeof e.label === 'string' ? e.label : '');
           }}
+          onPaneClick={() => {
+            setSelectedId(null);
+            setEdgeLabel('');
+          }}
           onNodeDragStop={() => sync(nodes, edges)}
           nodeTypes={nodeTypes}
           connectionMode={ConnectionMode.Loose}
+          deleteKeyCode={null}
           fitView
           proOptions={{ hideAttribution: true }}
           defaultEdgeOptions={{

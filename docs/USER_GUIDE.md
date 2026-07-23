@@ -120,7 +120,7 @@ On the **workflow** canvas, each Notify step picks a template for that form and 
 
 ### Workflows
 
-Edit the canvas: Start, Step, Decision, Notification, End. Assign roles, outcomes, and field conditions. Keep **one workflow per form**. Notify nodes select a template + recipients.
+Edit the canvas: Start, Step, Decision, Notification, End. Assign roles, outcomes, and field conditions. Keep **one workflow per form**. Notify nodes select a template + recipients. Select a step or connection and press **Delete** (or Backspace) to remove it — steps ask for confirmation; connections do not. New workflows default to **“{Form name} Workflow”**.
 
 ![Workflows](./screenshots/05-workflows.png)
 

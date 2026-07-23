@@ -18,6 +18,17 @@ import { useApp } from '../context/AppContext';
 import { WorkflowCanvas } from '../components/workflow/WorkflowCanvas';
 import type { WorkflowEdge, WorkflowNode } from '../types';
 import { rolesForForm } from '../utils/workflowEngine';
+import { defaultWorkflowName } from '../data/defaults';
+
+function shouldReplaceWorkflowName(current: string): boolean {
+  const t = current.trim();
+  return (
+    !t ||
+    t === 'New Workflow' ||
+    t === 'Untitled Workflow' ||
+    / Workflow$/i.test(t)
+  );
+}
 
 export function WorkflowEditorPage() {
   const { id } = useParams<{ id: string }>();
@@ -78,7 +89,11 @@ export function WorkflowEditorPage() {
 
   const save = () => {
     updateWorkflow(workflow.id, {
-      name: name.trim() || 'Untitled Workflow',
+      name:
+        name.trim() ||
+        (linkedForm
+          ? defaultWorkflowName(linkedForm.name)
+          : 'Untitled Workflow'),
       description,
       formId: formId || null,
       nodes,
@@ -143,7 +158,12 @@ export function WorkflowEditorPage() {
             label="Related form"
             value={formId}
             onChange={(e) => {
-              setFormId(e.target.value);
+              const nextId = e.target.value;
+              setFormId(nextId);
+              const form = data.forms.find((f) => f.id === nextId);
+              if (form && shouldReplaceWorkflowName(name)) {
+                setName(defaultWorkflowName(form.name));
+              }
               setSaved(false);
             }}
           >
