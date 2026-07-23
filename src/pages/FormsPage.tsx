@@ -71,21 +71,14 @@ export function FormsPage() {
 
   return (
     <Box>
-      <Stack
-        direction="row"
-        justifyContent="space-between"
-        alignItems="center"
-        mb={3}
-      >
-        <Box>
-          <Typography variant="h4" fontWeight={700}>
-            Forms
-          </Typography>
-          <Typography color="text.secondary">
-            Start here: design a form, then its notifications, then the workflow
-            that orchestrates them.
-          </Typography>
-        </Box>
+      <Box mb={3}>
+        <Typography variant="h4" fontWeight={700}>
+          Forms
+        </Typography>
+        <Typography color="text.secondary" mb={2}>
+          Start here: design a form, then its notifications, then the workflow
+          that orchestrates them.
+        </Typography>
         <Button
           variant="contained"
           startIcon={<AddIcon />}
@@ -93,7 +86,7 @@ export function FormsPage() {
         >
           Create Form
         </Button>
-      </Stack>
+      </Box>
 
       <Grid container spacing={2}>
         {data.forms.map((f) => {
