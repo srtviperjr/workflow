@@ -1,4 +1,4 @@
-import { useEffect, useRef, useState } from 'react';
+import { useCallback, useEffect, useRef, useState } from 'react';
 import { Link as RouterLink, Navigate, useNavigate, useParams } from 'react-router-dom';
 import {
   Alert,
@@ -22,6 +22,15 @@ import {
   type RichTextEditorHandle,
 } from '../components/notifications/RichTextEditor';
 import {
+  confirmDiscardUnsaved,
+  useUnsavedChangesGuard,
+} from '../hooks/useUnsavedChangesGuard';
+import { clearCreateDefaultOnFocus } from '../utils/clearCreateDefault';
+import {
+  clearEditorDraft,
+  isEditorDraft,
+} from '../utils/editorDrafts';
+import {
   BUILTIN_TEMPLATE_TOKENS,
   fieldToken,
 } from '../utils/notifications';
@@ -32,10 +41,12 @@ export function NotificationTemplateEditorPage() {
     data,
     isAdmin,
     updateNotificationTemplate,
+    deleteNotificationTemplate,
     getNotificationTemplateById,
   } = useApp();
   const navigate = useNavigate();
   const tpl = id ? getNotificationTemplateById(id) : undefined;
+  const isDraft = Boolean(id && isEditorDraft('notification-template', id));
   const bodyRef = useRef<RichTextEditorHandle>(null);
 
   const [name, setName] = useState(tpl?.name ?? '');
@@ -45,6 +56,7 @@ export function NotificationTemplateEditorPage() {
   const [bodyHtml, setBodyHtml] = useState(tpl?.bodyHtml ?? '');
   const [saved, setSaved] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [dirty, setDirty] = useState(false);
 
   useEffect(() => {
     if (!tpl) return;
@@ -54,8 +66,21 @@ export function NotificationTemplateEditorPage() {
     setSubject(tpl.subject);
     setBodyHtml(tpl.bodyHtml);
     setSaved(false);
+    setDirty(false);
     setError(null);
   }, [tpl?.id]); // eslint-disable-line react-hooks/exhaustive-deps
+
+  const discardUnsaved = useCallback(() => {
+    if (!id || !isEditorDraft('notification-template', id)) return;
+    clearEditorDraft('notification-template', id);
+    deleteNotificationTemplate(id);
+  }, [id, deleteNotificationTemplate]);
+
+  const blockLeave = dirty || isDraft;
+  const { allowNextNavigation } = useUnsavedChangesGuard({
+    when: blockLeave,
+    onDiscard: discardUnsaved,
+  });
 
   const form = data.forms.find((f) => f.id === formId);
 
@@ -66,7 +91,7 @@ export function NotificationTemplateEditorPage() {
   if (!tpl) {
     return (
       <Box>
-        <Alert severity="error">Notification template not found.</Alert>
+        <Alert severity="error">Notification not found.</Alert>
         <Button
           component={RouterLink}
           to="/notification-templates"
@@ -78,40 +103,56 @@ export function NotificationTemplateEditorPage() {
     );
   }
 
+  const markDirty = () => {
+    setDirty(true);
+    setSaved(false);
+  };
+
   const save = () => {
     if (!name.trim()) {
       setError('Name is required');
       return;
     }
     if (!formId) {
-      setError('Assign this template to a form');
+      setError('Assign this notification to a form');
       return;
     }
+    const html = bodyRef.current?.getHTML() ?? bodyHtml;
     updateNotificationTemplate(tpl.id, {
       name: name.trim(),
       description: description.trim(),
       formId,
       subject: subject.trim(),
-      bodyHtml,
+      bodyHtml: html,
     });
+    clearEditorDraft('notification-template', tpl.id);
+    setBodyHtml(html);
     setError(null);
     setSaved(true);
+    setDirty(false);
+  };
+
+  const goBack = () => {
+    if (!confirmDiscardUnsaved(blockLeave, discardUnsaved)) return;
+    allowNextNavigation();
+    navigate('/notification-templates');
   };
 
   const insertIntoSubject = (token: string) => {
     setSubject((prev) => `${prev}${token}`);
+    markDirty();
   };
 
   const insertIntoBody = (token: string) => {
     bodyRef.current?.insertText(token);
+    markDirty();
   };
 
   return (
     <Box maxWidth={880} mx="auto">
       <Button
         startIcon={<ArrowBackIcon />}
-        component={RouterLink}
-        to="/notification-templates"
+        onClick={goBack}
         sx={{ mb: 2 }}
       >
         Back to notifications
@@ -134,8 +175,8 @@ export function NotificationTemplateEditorPage() {
 
       {saved && (
         <Alert severity="success" sx={{ mb: 2 }} onClose={() => setSaved(false)}>
-          Saved. Workflow Notify steps for this form can select this template;
-          recipients are chosen on the workflow node.
+          Saved. Add a Notify step on this form&apos;s workflow to send it when
+          the flow reaches that step.
         </Alert>
       )}
       {error && (
@@ -149,9 +190,12 @@ export function NotificationTemplateEditorPage() {
           <TextField
             label="Name"
             value={name}
+            onFocus={() =>
+              clearCreateDefaultOnFocus(name, setName, markDirty)
+            }
             onChange={(e) => {
               setName(e.target.value);
-              setSaved(false);
+              markDirty();
             }}
             fullWidth
             required
@@ -161,7 +205,7 @@ export function NotificationTemplateEditorPage() {
             value={description}
             onChange={(e) => {
               setDescription(e.target.value);
-              setSaved(false);
+              markDirty();
             }}
             fullWidth
             multiline
@@ -174,7 +218,7 @@ export function NotificationTemplateEditorPage() {
               value={formId}
               onChange={(e) => {
                 setFormId(e.target.value);
-                setSaved(false);
+                markDirty();
               }}
             >
               {data.forms.map((f) => (
@@ -185,16 +229,19 @@ export function NotificationTemplateEditorPage() {
             </Select>
           </FormControl>
           <Typography variant="caption" color="text.secondary">
-            Templates are dedicated to one form (subject and message only). Who
-            receives the notification is configured on the workflow Notify step.
+            Dedicated to one form. This is message content only — the workflow
+            Notify step chooses when it fires and who receives it.
           </Typography>
 
           <TextField
             label="Subject"
             value={subject}
+            onFocus={() =>
+              clearCreateDefaultOnFocus(subject, setSubject, markDirty)
+            }
             onChange={(e) => {
               setSubject(e.target.value);
-              setSaved(false);
+              markDirty();
             }}
             fullWidth
             helperText="Plain text. Use {{tokens}} for dynamic values."
@@ -236,7 +283,7 @@ export function NotificationTemplateEditorPage() {
               value={bodyHtml}
               onChange={(html) => {
                 setBodyHtml(html);
-                setSaved(false);
+                markDirty();
               }}
             />
           </Box>
@@ -272,15 +319,6 @@ export function NotificationTemplateEditorPage() {
               </Typography>
             )}
           </Box>
-
-          <Stack direction="row" justifyContent="flex-end">
-            <Button
-              variant="outlined"
-              onClick={() => navigate('/notification-templates')}
-            >
-              Done
-            </Button>
-          </Stack>
         </Stack>
       </Paper>
     </Box>

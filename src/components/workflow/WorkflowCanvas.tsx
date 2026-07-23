@@ -51,6 +51,7 @@ import type {
   ConditionOp,
   EdgeCondition,
   FormField,
+  FormStatusOption,
   NotificationTemplate,
   Role,
   Workflow,
@@ -64,6 +65,7 @@ import {
   toFlowEdges,
   toFlowNodes,
 } from '../../utils/workflowEngine';
+import { getActionStatusOptions } from '../../utils/formStatus';
 
 const nodeTypes = {
   start: StartNode,
@@ -93,6 +95,8 @@ interface Props {
   workflow: Workflow;
   roles: Role[];
   formFields: FormField[];
+  /** Form status vocabulary — decision actions are chosen from these. */
+  formStatusOptions?: FormStatusOption[];
   /** Templates dedicated to this workflow's form (no cross-form). */
   notificationTemplates?: NotificationTemplate[];
   onChange: (nodes: Workflow['nodes'], edges: Workflow['edges']) => void;
@@ -103,6 +107,7 @@ export function WorkflowCanvas({
   workflow,
   roles,
   formFields,
+  formStatusOptions = [],
   notificationTemplates = [],
   onChange,
   readOnly,
@@ -115,25 +120,56 @@ export function WorkflowCanvas({
     [notificationTemplates, workflow.formId],
   );
 
+  const actionStatuses = useMemo(
+    () =>
+      getActionStatusOptions({
+        id: workflow.formId ?? '',
+        name: '',
+        description: '',
+        fields: formFields,
+        workflowId: workflow.id,
+        visibility: 'project',
+        statusOptions: formStatusOptions,
+        createdAt: '',
+        updatedAt: '',
+      }),
+    [formStatusOptions, formFields, workflow.formId, workflow.id],
+  );
+
   const enrichedNodes = useMemo((): Node[] => {
     return toFlowNodes(workflow.nodes).map((n) => {
       const data = n.data as {
         roleId?: string;
         notificationTemplateId?: string;
+        decisionActions?: string[];
       };
       const tpl = formTemplates.find(
         (t) => t.id === data.notificationTemplateId,
       );
+      const actionIds =
+        data.decisionActions && data.decisionActions.length > 0
+          ? data.decisionActions
+          : actionStatuses.map((o) => o.id);
+      const decisionActionMeta = actionIds.map((id) => {
+        const opt = actionStatuses.find((o) => o.id === id) ??
+          formStatusOptions.find((o) => o.id === id);
+        return {
+          id,
+          label: opt?.label ?? id,
+        };
+      });
       return {
         ...n,
         data: {
           ...n.data,
           roleName: roles.find((r) => r.id === data.roleId)?.name,
           notificationTemplateName: tpl?.name,
+          decisionActionMeta:
+            n.type === 'decision' ? decisionActionMeta : undefined,
         },
       };
     });
-  }, [workflow.nodes, roles, formTemplates]);
+  }, [workflow.nodes, roles, formTemplates, actionStatuses, formStatusOptions]);
 
   const [nodes, setNodes, onNodesChange] = useNodesState<Node>(enrichedNodes);
   const [edges, setEdges, onEdgesChange] = useEdgesState(
@@ -157,12 +193,14 @@ export function WorkflowCanvas({
   const onConnect = useCallback(
     (connection: Connection) => {
       if (readOnly) return;
-      const label =
-        connection.sourceHandle === 'approve'
-          ? 'Approve'
-          : connection.sourceHandle === 'reject'
-            ? 'Reject'
-            : undefined;
+      const handleId = connection.sourceHandle ?? undefined;
+      const statusOpt =
+        handleId && handleId !== 'other'
+          ? actionStatuses.find((o) => o.id === handleId) ??
+            formStatusOptions.find((o) => o.id === handleId)
+          : undefined;
+      const label = statusOpt?.label;
+      const statusOptionId = statusOpt?.id;
       setEdges((eds) => {
         const next = addEdge(
           {
@@ -171,7 +209,11 @@ export function WorkflowCanvas({
             label,
             markerEnd: { type: MarkerType.ArrowClosed },
             animated: Boolean(label),
-            data: { routeMode: 'manual', conditions: [] },
+            data: {
+              routeMode: 'manual',
+              conditions: [],
+              statusOptionId,
+            },
           },
           eds,
         );
@@ -179,7 +221,7 @@ export function WorkflowCanvas({
         return next;
       });
     },
-    [nodes, readOnly, setEdges, sync],
+    [nodes, readOnly, setEdges, sync, actionStatuses, formStatusOptions],
   );
 
   const addNode = (type: WorkflowNodeType) => {
@@ -193,6 +235,7 @@ export function WorkflowCanvas({
       notification: 'Notification',
     };
     const defaultRole = roles[0]?.id;
+    const defaultActions = actionStatuses.map((o) => o.id);
     const newNode: Node = {
       id,
       type,
@@ -203,6 +246,7 @@ export function WorkflowCanvas({
           type === 'step' || type === 'decision' ? defaultRole : undefined,
         roleName: roles.find((r) => r.id === defaultRole)?.name,
         decisionMode: type === 'decision' ? 'manual' : undefined,
+        decisionActions: type === 'decision' ? defaultActions : undefined,
         allowFieldEdits: false,
         notificationTemplateId:
           type === 'notification' ? formTemplates[0]?.id : undefined,
@@ -229,6 +273,7 @@ export function WorkflowCanvas({
     description?: string;
     roleName?: string;
     decisionMode?: 'manual' | 'conditional';
+    decisionActions?: string[];
     allowFieldEdits?: boolean;
     notificationTemplateId?: string;
     notificationTemplateName?: string;
@@ -238,7 +283,17 @@ export function WorkflowCanvas({
   const selectedEdgeData = (selectedEdge?.data ?? {}) as {
     routeMode?: 'manual' | 'condition';
     conditions?: EdgeCondition[];
+    statusOptionId?: string;
   };
+  const selectedEdgeSourceNode = selectedEdge
+    ? nodes.find((n) => n.id === selectedEdge.source)
+    : undefined;
+  const selectedEdgeSourceIsDecision =
+    selectedEdgeSourceNode?.type === 'decision';
+  const selectedEdgeSourceDecisionMode =
+    (
+      selectedEdgeSourceNode?.data as { decisionMode?: 'manual' | 'conditional' }
+    )?.decisionMode ?? 'manual';
   const edgeConditions = selectedEdgeData.conditions ?? [];
   const edgeRouteMode = selectedEdgeData.routeMode ?? 'manual';
 
@@ -268,20 +323,31 @@ export function WorkflowCanvas({
     label?: string;
     routeMode?: 'manual' | 'condition';
     conditions?: EdgeCondition[];
+    statusOptionId?: string;
+    sourceHandle?: string;
   }) => {
     if (!selectedEdge || readOnly) return;
     setEdges((eds) => {
       const next = eds.map((e) => {
         if (e.id !== selectedEdge.id) return e;
+        const statusOptionId =
+          patch.statusOptionId !== undefined
+            ? patch.statusOptionId
+            : selectedEdgeData.statusOptionId;
         const data = {
           ...(e.data as object),
           routeMode: patch.routeMode ?? edgeRouteMode,
           conditions: patch.conditions ?? edgeConditions,
+          statusOptionId,
         };
         const label = patch.label !== undefined ? patch.label : e.label;
         return {
           ...e,
           label,
+          sourceHandle:
+            patch.sourceHandle !== undefined
+              ? patch.sourceHandle
+              : e.sourceHandle,
           animated: Boolean(label) || data.routeMode === 'condition',
           data,
         };
@@ -490,8 +556,8 @@ export function WorkflowCanvas({
         </Typography>
         {!selectedId && (
           <Typography variant="body2" color="text.secondary">
-            Select a node or connection. Decision routes can be manual
-            (Approve/Reject) or based on form field values / changes.
+            Select a node or connection. User decisions use form status outcomes;
+            system decisions use field rules — they cannot be mixed on one node.
           </Typography>
         )}
         {selectedNode && (
@@ -510,17 +576,129 @@ export function WorkflowCanvas({
                 <Select
                   label="Decision mode"
                   value={selectedData.decisionMode ?? 'manual'}
-                  onChange={(e) =>
-                    updateSelectedNode({ decisionMode: e.target.value })
-                  }
+                  onChange={(e) => {
+                    const mode = e.target.value as 'manual' | 'conditional';
+                    // Strict split: clear the other mode's data
+                    if (mode === 'conditional') {
+                      updateSelectedNode({
+                        decisionMode: mode,
+                        decisionActions: undefined,
+                        roleId: undefined,
+                      });
+                      // Convert outgoing edges to condition routes (clear status outcomes)
+                      setEdges((eds) => {
+                        const next = eds.map((edge) => {
+                          if (edge.source !== selectedNode.id) return edge;
+                          return {
+                            ...edge,
+                            label: edge.label,
+                            sourceHandle: 'other',
+                            data: {
+                              ...(edge.data as object),
+                              routeMode: 'condition' as const,
+                              statusOptionId: undefined,
+                              conditions:
+                                (
+                                  (edge.data as { conditions?: EdgeCondition[] })
+                                    ?.conditions ?? []
+                                ).length > 0
+                                  ? (edge.data as { conditions?: EdgeCondition[] })
+                                      .conditions
+                                  : [
+                                      {
+                                        fieldId: formFields[0]?.id ?? '',
+                                        op: 'eq' as const,
+                                        value: '',
+                                      },
+                                    ],
+                            },
+                          };
+                        });
+                        sync(nodes, next);
+                        return next;
+                      });
+                    } else {
+                      updateSelectedNode({
+                        decisionMode: mode,
+                        decisionActions: actionStatuses.map((o) => o.id),
+                      });
+                      setEdges((eds) => {
+                        const next = eds.map((edge) => {
+                          if (edge.source !== selectedNode.id) return edge;
+                          return {
+                            ...edge,
+                            data: {
+                              ...(edge.data as object),
+                              routeMode: 'manual' as const,
+                              conditions: [],
+                            },
+                          };
+                        });
+                        sync(nodes, next);
+                        return next;
+                      });
+                    }
+                  }}
                 >
-                  <MenuItem value="manual">Manual (actor chooses)</MenuItem>
+                  <MenuItem value="manual">User decision (person chooses)</MenuItem>
                   <MenuItem value="conditional">
-                    Conditional (form field rules)
+                    System decision (field rules)
                   </MenuItem>
                 </Select>
               </FormControl>
             )}
+            {selectedNode.type === 'decision' &&
+              (selectedData.decisionMode ?? 'manual') === 'manual' && (
+                <FormControl size="small" fullWidth disabled={readOnly}>
+                  <InputLabel>Available outcomes</InputLabel>
+                  <Select
+                    multiple
+                    label="Available outcomes"
+                    value={
+                      selectedData.decisionActions?.length
+                        ? selectedData.decisionActions
+                        : actionStatuses.map((o) => o.id)
+                    }
+                    onChange={(e) => {
+                      const value = e.target.value;
+                      const ids =
+                        typeof value === 'string' ? value.split(',') : value;
+                      updateSelectedNode({ decisionActions: ids });
+                    }}
+                    renderValue={(selected) =>
+                      (selected as string[])
+                        .map(
+                          (id) =>
+                            actionStatuses.find((o) => o.id === id)?.label ?? id,
+                        )
+                        .join(', ')
+                    }
+                  >
+                    {actionStatuses.length === 0 && (
+                      <MenuItem value="" disabled>
+                        Add statuses on the form first
+                      </MenuItem>
+                    )}
+                    {actionStatuses.map((o) => (
+                      <MenuItem key={o.id} value={o.id}>
+                        {o.label}
+                      </MenuItem>
+                    ))}
+                  </Select>
+                  <Typography variant="caption" color="text.secondary" mt={0.5}>
+                    Outcomes the person can choose. Connect each handle to the
+                    next step. User and system decisions cannot be mixed on one
+                    node.
+                  </Typography>
+                </FormControl>
+              )}
+            {selectedNode.type === 'decision' &&
+              selectedData.decisionMode === 'conditional' && (
+                <Typography variant="caption" color="text.secondary">
+                  System decisions route automatically from field conditions on
+                  each outgoing connection. No user outcomes or role assignment.
+                </Typography>
+              )}
             {(selectedNode.type === 'step' ||
               (selectedNode.type === 'decision' &&
                 (selectedData.decisionMode ?? 'manual') === 'manual')) && (
@@ -567,26 +745,24 @@ export function WorkflowCanvas({
             {selectedNode.type === 'notification' && (
               <Stack spacing={1.5}>
                 <Typography variant="caption" color="text.secondary">
-                  Creates an in-app notification when the workflow reaches this
-                  step. Pick a message template for this form, then choose who
-                  receives it. Design templates under Administration →
-                  Notifications.
+                  Fires when the workflow reaches this step (via a decision or
+                  connection). Pick a notification created for this form, then
+                  choose who receives it.
                 </Typography>
                 {!workflow.formId ? (
                   <Alert severity="warning">
-                    Assign this workflow to a form before selecting a
-                    notification template.
+                    Link this workflow to a form to choose its notifications.
                   </Alert>
                 ) : formTemplates.length === 0 ? (
                   <Alert severity="info">
-                    No templates for this form yet. Create one under
-                    Administration → Notifications.
+                    No notifications for this form yet. Create them under
+                    Administration → Notifications, then return here.
                   </Alert>
                 ) : (
                   <FormControl size="small" fullWidth disabled={readOnly}>
-                    <InputLabel>Notification template</InputLabel>
+                    <InputLabel>Notification</InputLabel>
                     <Select
-                      label="Notification template"
+                      label="Notification"
                       value={selectedData.notificationTemplateId ?? ''}
                       onChange={(e) => {
                         const id = e.target.value as string;
@@ -605,17 +781,6 @@ export function WorkflowCanvas({
                       ))}
                     </Select>
                   </FormControl>
-                )}
-                {selectedData.notificationTemplateId && (
-                  <Typography variant="caption" color="text.secondary">
-                    {(() => {
-                      const tpl = formTemplates.find(
-                        (t) => t.id === selectedData.notificationTemplateId,
-                      );
-                      if (!tpl) return 'Template missing — pick another.';
-                      return `Subject: ${tpl.subject || '—'}`;
-                    })()}
-                  </Typography>
                 )}
                 <FormControl size="small" fullWidth disabled={readOnly}>
                   <InputLabel>Notify roles</InputLabel>
@@ -681,6 +846,44 @@ export function WorkflowCanvas({
         )}
         {selectedEdge && (
           <Stack spacing={2}>
+            {selectedEdgeSourceIsDecision &&
+              selectedEdgeSourceDecisionMode === 'manual' && (
+                <FormControl size="small" fullWidth disabled={readOnly}>
+                  <InputLabel>Outcome</InputLabel>
+                  <Select
+                    label="Outcome"
+                    value={selectedEdgeData.statusOptionId ?? ''}
+                    onChange={(e) => {
+                      const id = e.target.value as string;
+                      const opt = actionStatuses.find((o) => o.id === id);
+                      setEdgeLabel(opt?.label ?? '');
+                      updateSelectedEdge({
+                        statusOptionId: id || undefined,
+                        sourceHandle: id || undefined,
+                        label: opt?.label,
+                        routeMode: 'manual',
+                        conditions: [],
+                      });
+                    }}
+                  >
+                    {actionStatuses.map((o) => (
+                      <MenuItem key={o.id} value={o.id}>
+                        {o.label}
+                      </MenuItem>
+                    ))}
+                  </Select>
+                  <Typography variant="caption" color="text.secondary" mt={0.5}>
+                    Sets the request status when the user chooses this outcome.
+                  </Typography>
+                </FormControl>
+              )}
+            {selectedEdgeSourceIsDecision &&
+              selectedEdgeSourceDecisionMode === 'conditional' && (
+                <Alert severity="info">
+                  System decision — this connection uses field conditions only
+                  (no user outcome).
+                </Alert>
+              )}
             <TextField
               label="Route Label"
               size="small"
@@ -691,36 +894,40 @@ export function WorkflowCanvas({
                 setEdgeLabel(e.target.value);
                 updateSelectedEdge({ label: e.target.value });
               }}
-              helperText="Shown in history (e.g. Approve, High priority)"
+              helperText="Shown in history"
             />
-            <FormControl size="small" fullWidth disabled={readOnly}>
-              <InputLabel>Route type</InputLabel>
-              <Select
-                label="Route type"
-                value={edgeRouteMode}
-                onChange={(e) => {
-                  const mode = e.target.value as 'manual' | 'condition';
-                  updateSelectedEdge({
-                    routeMode: mode,
-                    conditions:
-                      mode === 'condition' && edgeConditions.length === 0
-                        ? [
-                            {
-                              fieldId: formFields[0]?.id ?? '',
-                              op: 'eq',
-                              value: '',
-                            },
-                          ]
-                        : edgeConditions,
-                  });
-                }}
-              >
-                <MenuItem value="manual">Manual outcome</MenuItem>
-                <MenuItem value="condition">Form field condition</MenuItem>
-              </Select>
-            </FormControl>
+            {!selectedEdgeSourceIsDecision && (
+              <FormControl size="small" fullWidth disabled={readOnly}>
+                <InputLabel>Route type</InputLabel>
+                <Select
+                  label="Route type"
+                  value={edgeRouteMode}
+                  onChange={(e) => {
+                    const mode = e.target.value as 'manual' | 'condition';
+                    updateSelectedEdge({
+                      routeMode: mode,
+                      conditions:
+                        mode === 'condition' && edgeConditions.length === 0
+                          ? [
+                              {
+                                fieldId: formFields[0]?.id ?? '',
+                                op: 'eq',
+                                value: '',
+                              },
+                            ]
+                          : edgeConditions,
+                    });
+                  }}
+                >
+                  <MenuItem value="manual">Manual</MenuItem>
+                  <MenuItem value="condition">Form field condition</MenuItem>
+                </Select>
+              </FormControl>
+            )}
 
-            {edgeRouteMode === 'condition' && (
+            {(selectedEdgeSourceDecisionMode === 'conditional' ||
+              (!selectedEdgeSourceIsDecision &&
+                edgeRouteMode === 'condition')) && (
               <Box>
                 <Typography variant="caption" fontWeight={700} display="block" mb={1}>
                   Conditions (all must match)

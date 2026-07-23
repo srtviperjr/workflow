@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react';
+import { useCallback, useEffect, useState } from 'react';
 import { Link as RouterLink, useNavigate, useParams } from 'react-router-dom';
 import {
   Alert,
@@ -22,11 +22,35 @@ import AddIcon from '@mui/icons-material/Add';
 import DeleteIcon from '@mui/icons-material/Delete';
 import SaveIcon from '@mui/icons-material/Save';
 import DragIndicatorIcon from '@mui/icons-material/DragIndicator';
+import DashboardCustomizeIcon from '@mui/icons-material/DashboardCustomize';
+import ArrowUpwardIcon from '@mui/icons-material/ArrowUpward';
+import ArrowDownwardIcon from '@mui/icons-material/ArrowDownward';
 import { useApp } from '../context/AppContext';
 import { FormRenderer } from '../components/forms/FormRenderer';
 import { createId } from '../data/defaults';
 import { workflowsAvailableForForm } from '../data/formWorkflowLink';
-import type { FieldType, FormField, FormFieldData, FormVisibility } from '../types';
+import {
+  confirmDiscardUnsaved,
+  useUnsavedChangesGuard,
+} from '../hooks/useUnsavedChangesGuard';
+import { clearCreateDefaultOnFocus } from '../utils/clearCreateDefault';
+import {
+  clearEditorDraft,
+  isEditorDraft,
+} from '../utils/editorDrafts';
+import { FieldLayoutEditor } from '../components/forms/FieldLayoutEditor';
+import {
+  createStatusOption,
+  DEFAULT_FORM_STATUS_OPTIONS,
+  normalizeStatusOptions,
+} from '../utils/formStatus';
+import type {
+  FieldType,
+  FormField,
+  FormFieldData,
+  FormStatusOption,
+  FormVisibility,
+} from '../types';
 import { FORM_VISIBILITY_LABELS } from '../types';
 
 const FIELD_TYPES: FieldType[] = [
@@ -40,9 +64,10 @@ const FIELD_TYPES: FieldType[] = [
 
 export function FormBuilderPage() {
   const { id } = useParams<{ id: string }>();
-  const { data, isAdmin, updateForm, getFormById } = useApp();
+  const { data, isAdmin, updateForm, deleteForm, getFormById } = useApp();
   const navigate = useNavigate();
   const form = id ? getFormById(id) : undefined;
+  const isDraft = Boolean(id && isEditorDraft('form', id));
 
   const [name, setName] = useState(form?.name ?? '');
   const [description, setDescription] = useState(form?.description ?? '');
@@ -51,12 +76,17 @@ export function FormBuilderPage() {
   const [visibility, setVisibility] = useState<FormVisibility>(
     form?.visibility ?? 'project',
   );
+  const [statusOptions, setStatusOptions] = useState<FormStatusOption[]>(() =>
+    normalizeStatusOptions(form?.statusOptions),
+  );
   const [selectedFieldId, setSelectedFieldId] = useState<string | null>(
     form?.fields[0]?.id ?? null,
   );
   const [saved, setSaved] = useState(false);
+  const [dirty, setDirty] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [previewValues, setPreviewValues] = useState<FormFieldData>({});
+  const [layoutOpen, setLayoutOpen] = useState(false);
 
   useEffect(() => {
     if (!form) return;
@@ -65,10 +95,29 @@ export function FormBuilderPage() {
     setFields(form.fields);
     setWorkflowId(form.workflowId ?? '');
     setVisibility(form.visibility ?? 'project');
+    setStatusOptions(normalizeStatusOptions(form.statusOptions));
     setSelectedFieldId(form.fields[0]?.id ?? null);
     setSaved(false);
+    setDirty(false);
     setError(null);
   }, [form?.id]); // eslint-disable-line react-hooks/exhaustive-deps
+
+  const discardUnsaved = useCallback(() => {
+    if (!id || !isEditorDraft('form', id)) return;
+    clearEditorDraft('form', id);
+    deleteForm(id);
+  }, [id, deleteForm]);
+
+  const blockLeave = dirty || isDraft;
+  const { allowNextNavigation } = useUnsavedChangesGuard({
+    when: blockLeave,
+    onDiscard: discardUnsaved,
+  });
+
+  const markDirty = () => {
+    setDirty(true);
+    setSaved(false);
+  };
 
   const availableWorkflows = form
     ? workflowsAvailableForForm(
@@ -113,20 +162,20 @@ export function FormBuilderPage() {
     };
     setFields((fs) => [...fs, field]);
     setSelectedFieldId(field.id);
-    setSaved(false);
+    markDirty();
   };
 
   const updateField = (fieldId: string, patch: Partial<FormField>) => {
     setFields((fs) =>
       fs.map((f) => (f.id === fieldId ? { ...f, ...patch } : f)),
     );
-    setSaved(false);
+    markDirty();
   };
 
   const removeField = (fieldId: string) => {
     setFields((fs) => fs.filter((f) => f.id !== fieldId));
     if (selectedFieldId === fieldId) setSelectedFieldId(null);
-    setSaved(false);
+    markDirty();
   };
 
   const moveField = (fieldId: string, dir: -1 | 1) => {
@@ -139,7 +188,7 @@ export function FormBuilderPage() {
       [copy[idx], copy[next]] = [copy[next], copy[idx]];
       return copy;
     });
-    setSaved(false);
+    markDirty();
   };
 
   const save = () => {
@@ -156,15 +205,31 @@ export function FormBuilderPage() {
       );
       return;
     }
+    const statuses = normalizeStatusOptions(statusOptions);
+    if (statuses.length < 2) {
+      setError(
+        'Add at least two statuses: the first is set on submit; the rest are decision outcomes.',
+      );
+      return;
+    }
     updateForm(form.id, {
       name: name.trim() || 'Untitled Form',
       description,
       fields,
       workflowId,
       visibility,
+      statusOptions: statuses,
     });
+    clearEditorDraft('form', form.id);
     setError(null);
     setSaved(true);
+    setDirty(false);
+  };
+
+  const goBack = () => {
+    if (!confirmDiscardUnsaved(blockLeave, discardUnsaved)) return;
+    allowNextNavigation();
+    navigate('/forms');
   };
 
   return (
@@ -177,10 +242,7 @@ export function FormBuilderPage() {
         mb={2}
       >
         <Stack direction="row" spacing={1} alignItems="center">
-          <Button
-            startIcon={<ArrowBackIcon />}
-            onClick={() => navigate('/forms')}
-          >
+          <Button startIcon={<ArrowBackIcon />} onClick={goBack}>
             Back
           </Button>
           <Typography variant="h5" fontWeight={700}>
@@ -188,7 +250,7 @@ export function FormBuilderPage() {
           </Typography>
         </Stack>
         <Button variant="contained" startIcon={<SaveIcon />} onClick={save}>
-          Save Form
+          Save
         </Button>
       </Stack>
 
@@ -207,9 +269,12 @@ export function FormBuilderPage() {
         <TextField
           label="Form name"
           value={name}
+          onFocus={() =>
+            clearCreateDefaultOnFocus(name, setName, markDirty)
+          }
           onChange={(e) => {
             setName(e.target.value);
-            setSaved(false);
+            markDirty();
           }}
           fullWidth
         />
@@ -218,7 +283,7 @@ export function FormBuilderPage() {
           value={description}
           onChange={(e) => {
             setDescription(e.target.value);
-            setSaved(false);
+            markDirty();
           }}
           fullWidth
         />
@@ -229,7 +294,7 @@ export function FormBuilderPage() {
             value={workflowId}
             onChange={(e) => {
               setWorkflowId(e.target.value);
-              setSaved(false);
+              markDirty();
               setError(null);
             }}
           >
@@ -248,7 +313,7 @@ export function FormBuilderPage() {
             value={visibility}
             onChange={(e) => {
               setVisibility(e.target.value as FormVisibility);
-              setSaved(false);
+              markDirty();
             }}
           >
             {(Object.keys(FORM_VISIBILITY_LABELS) as FormVisibility[]).map(
@@ -263,16 +328,169 @@ export function FormBuilderPage() {
       </Stack>
       <Alert severity="info" sx={{ mb: 2 }}>
         Each form must have its own workflow. Visibility controls who can see
-        submissions in the register: own only, same company, or same project.
-        Approvers who can act on a request always see it. Admins see all.
+        submissions in the register. Request statuses below are required —
+        decision steps in the workflow choose from the non-initial options
+        (typical: Submitted, Approved, Rejected).
       </Alert>
+
+      <Paper elevation={1} sx={{ p: 2, mb: 2 }}>
+        <Stack
+          direction={{ xs: 'column', sm: 'row' }}
+          justifyContent="space-between"
+          alignItems={{ sm: 'center' }}
+          spacing={1}
+          mb={1.5}
+        >
+          <Box>
+            <Typography variant="subtitle1" fontWeight={700}>
+              Request statuses
+            </Typography>
+            <Typography variant="caption" color="text.secondary">
+              Ordered list. The first status is set on submit; the rest are
+              available as decision outcomes. Use the arrows to reorder.
+            </Typography>
+          </Box>
+          <Button
+            size="small"
+            startIcon={<AddIcon />}
+            onClick={() => {
+              setStatusOptions((prev) => [
+                ...prev,
+                createStatusOption('New status'),
+              ]);
+              markDirty();
+            }}
+          >
+            Add status
+          </Button>
+        </Stack>
+        <Stack spacing={1.25}>
+          {statusOptions.map((opt, index) => (
+            <Stack
+              key={opt.id}
+              direction="row"
+              spacing={1}
+              alignItems="center"
+            >
+              <Typography
+                variant="caption"
+                color="text.secondary"
+                sx={{ width: 72, flexShrink: 0 }}
+              >
+                {index === 0 ? 'On submit' : 'Outcome'}
+              </Typography>
+              <TextField
+                label="Label"
+                size="small"
+                value={opt.label}
+                onFocus={() =>
+                  clearCreateDefaultOnFocus(opt.label, (next) => {
+                    setStatusOptions((prev) =>
+                      prev.map((o, i) =>
+                        i === index ? { ...o, label: next } : o,
+                      ),
+                    );
+                    markDirty();
+                  })
+                }
+                onChange={(e) => {
+                  const label = e.target.value;
+                  setStatusOptions((prev) =>
+                    prev.map((o, i) => (i === index ? { ...o, label } : o)),
+                  );
+                  markDirty();
+                }}
+                sx={{ flex: 1 }}
+              />
+              <IconButton
+                size="small"
+                disabled={index === 0}
+                aria-label="Move status up"
+                onClick={() => {
+                  setStatusOptions((prev) => {
+                    if (index <= 0) return prev;
+                    const next = [...prev];
+                    [next[index - 1], next[index]] = [
+                      next[index],
+                      next[index - 1],
+                    ];
+                    return next;
+                  });
+                  markDirty();
+                }}
+              >
+                <ArrowUpwardIcon fontSize="small" />
+              </IconButton>
+              <IconButton
+                size="small"
+                disabled={index >= statusOptions.length - 1}
+                aria-label="Move status down"
+                onClick={() => {
+                  setStatusOptions((prev) => {
+                    if (index >= prev.length - 1) return prev;
+                    const next = [...prev];
+                    [next[index], next[index + 1]] = [
+                      next[index + 1],
+                      next[index],
+                    ];
+                    return next;
+                  });
+                  markDirty();
+                }}
+              >
+                <ArrowDownwardIcon fontSize="small" />
+              </IconButton>
+              <IconButton
+                size="small"
+                color="error"
+                disabled={statusOptions.length <= 2}
+                onClick={() => {
+                  setStatusOptions((prev) => prev.filter((_, i) => i !== index));
+                  markDirty();
+                }}
+                aria-label="Remove status"
+              >
+                <DeleteIcon fontSize="small" />
+              </IconButton>
+            </Stack>
+          ))}
+          {statusOptions.length === 0 && (
+            <Button
+              size="small"
+              onClick={() => {
+                setStatusOptions(
+                  DEFAULT_FORM_STATUS_OPTIONS.map((o) => ({ ...o })),
+                );
+                markDirty();
+              }}
+            >
+              Restore Submitted / Approved / Rejected
+            </Button>
+          )}
+        </Stack>
+      </Paper>
 
       <Stack direction={{ xs: 'column', lg: 'row' }} spacing={2} alignItems="stretch">
         {/* Field list */}
         <Paper elevation={1} sx={{ p: 2, width: { lg: 280 }, flexShrink: 0 }}>
-          <Typography variant="subtitle1" fontWeight={700} gutterBottom>
-            Fields
-          </Typography>
+          <Stack
+            direction="row"
+            justifyContent="space-between"
+            alignItems="center"
+            mb={1}
+          >
+            <Typography variant="subtitle1" fontWeight={700}>
+              Fields
+            </Typography>
+            <Button
+              size="small"
+              startIcon={<DashboardCustomizeIcon />}
+              onClick={() => setLayoutOpen(true)}
+              disabled={fields.length === 0}
+            >
+              Layout
+            </Button>
+          </Stack>
           <Stack spacing={1} mb={2}>
             {fields.map((f, i) => (
               <Paper
@@ -373,6 +591,11 @@ export function FormBuilderPage() {
                 fullWidth
                 size="small"
                 value={selectedField.label}
+                onFocus={() =>
+                  clearCreateDefaultOnFocus(selectedField.label, (next) =>
+                    updateField(selectedField.id, { label: next }),
+                  )
+                }
                 onChange={(e) =>
                   updateField(selectedField.id, { label: e.target.value })
                 }
@@ -467,6 +690,16 @@ export function FormBuilderPage() {
           )}
         </Paper>
       </Stack>
+
+      <FieldLayoutEditor
+        open={layoutOpen}
+        fields={fields}
+        onClose={() => setLayoutOpen(false)}
+        onSave={(next) => {
+          setFields(next);
+          markDirty();
+        }}
+      />
     </Box>
   );
 }

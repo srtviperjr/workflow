@@ -1,3 +1,4 @@
+import { flushSync } from 'react-dom';
 import { Link as RouterLink, useNavigate } from 'react-router-dom';
 import {
   Box,
@@ -13,11 +14,14 @@ import {
 import AddIcon from '@mui/icons-material/Add';
 import EditIcon from '@mui/icons-material/Edit';
 import DeleteIcon from '@mui/icons-material/Delete';
+import ContentCopyIcon from '@mui/icons-material/ContentCopy';
 import { useApp } from '../context/AppContext';
 import { createId } from '../data/defaults';
+import { markEditorDraft } from '../utils/editorDrafts';
 
 export function WorkflowsPage() {
-  const { data, isAdmin, addWorkflow, deleteWorkflow } = useApp();
+  const { data, isAdmin, addWorkflow, deleteWorkflow, duplicateWorkflow } =
+    useApp();
   const navigate = useNavigate();
 
   if (!isAdmin) {
@@ -27,33 +31,50 @@ export function WorkflowsPage() {
   const createBlank = () => {
     const startId = createId('node');
     const endId = createId('node');
-    const wf = addWorkflow({
-      name: 'New Workflow',
-      description: '',
-      formId: null,
-      nodes: [
-        {
-          id: startId,
-          type: 'start',
-          position: { x: 250, y: 0 },
-          data: { label: 'Start' },
-        },
-        {
-          id: endId,
-          type: 'end',
-          position: { x: 250, y: 200 },
-          data: { label: 'Complete' },
-        },
-      ],
-      edges: [
-        {
-          id: createId('edge'),
-          source: startId,
-          target: endId,
-        },
-      ],
+    let wfId = '';
+    flushSync(() => {
+      const wf = addWorkflow({
+        name: 'New Workflow',
+        description: '',
+        formId: null,
+        nodes: [
+          {
+            id: startId,
+            type: 'start',
+            position: { x: 250, y: 0 },
+            data: { label: 'Start' },
+          },
+          {
+            id: endId,
+            type: 'end',
+            position: { x: 250, y: 200 },
+            data: { label: 'Complete' },
+          },
+        ],
+        edges: [
+          {
+            id: createId('edge'),
+            source: startId,
+            target: endId,
+          },
+        ],
+      });
+      wfId = wf.id;
+      markEditorDraft('workflow', wf.id);
     });
-    navigate(`/workflows/${wf.id}`);
+    navigate(`/workflows/${wfId}`);
+  };
+
+  const copyWorkflow = (id: string) => {
+    let nextId = '';
+    flushSync(() => {
+      const copy = duplicateWorkflow(id);
+      if (copy) {
+        nextId = copy.id;
+        markEditorDraft('workflow', copy.id);
+      }
+    });
+    if (nextId) navigate(`/workflows/${nextId}`);
   };
 
   return (
@@ -69,7 +90,8 @@ export function WorkflowsPage() {
             Workflows
           </Typography>
           <Typography color="text.secondary">
-            Visual flowchart editor — each form owns exactly one workflow
+            Orchestrate each form after its notifications exist — Notify steps
+            pick those messages when the flow reaches them.
           </Typography>
         </Box>
         <Button
@@ -113,6 +135,13 @@ export function WorkflowsPage() {
                     to={`/workflows/${wf.id}`}
                   >
                     Edit
+                  </Button>
+                  <Button
+                    size="small"
+                    startIcon={<ContentCopyIcon />}
+                    onClick={() => copyWorkflow(wf.id)}
+                  >
+                    Copy
                   </Button>
                   <IconButton
                     size="small"

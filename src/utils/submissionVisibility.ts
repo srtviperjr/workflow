@@ -9,11 +9,13 @@ import type {
   Workflow,
 } from '../types';
 import { canUserActOnNode } from './workflowEngine';
+import { isOpenStatus } from './formStatus';
 
 export interface SubmissionAccessOpts {
   roles: Role[];
   workflows: Workflow[];
   users: User[];
+  forms?: FormDefinition[];
   delegations?: ApprovalDelegation[];
   /** Used so notification recipients can open the linked request. */
   notifications?: AppNotification[];
@@ -26,7 +28,8 @@ export function canActOnSubmission(
   opts: SubmissionAccessOpts,
 ): boolean {
   if (!viewer) return false;
-  if (submission.status !== 'in_progress' || !submission.currentNodeId) {
+  const form = opts.forms?.find((f) => f.id === submission.formId);
+  if (!isOpenStatus(submission.status, form) || !submission.currentNodeId) {
     return false;
   }
   const wf = opts.workflows.find((w) => w.id === submission.workflowId);
@@ -58,6 +61,7 @@ function matchesVisibility(
 }
 
 export type CanViewOpts = {
+  forms?: FormDefinition[];
   roles?: Role[];
   workflows?: Workflow[];
   /**
@@ -113,6 +117,7 @@ export function canViewSubmission(
       roles: opts.roles,
       workflows: opts.workflows,
       users,
+      forms: opts.forms ?? (form ? [form] : undefined),
       delegations: opts.delegations,
     })
   ) {

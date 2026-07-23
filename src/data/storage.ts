@@ -23,6 +23,11 @@ import type {
 import { PROJECTS } from '../types';
 import { createId, createInitialData, createDefaultIntegrations } from './defaults';
 import { enforceFormWorkflowOneToOne } from './formWorkflowLink';
+import {
+  getActionStatusOptions,
+  migrateLegacyStatus,
+  normalizeStatusOptions,
+} from '../utils/formStatus';
 
 const STORAGE_KEY = 'jansen-workflows-data';
 
@@ -104,6 +109,7 @@ function normalizeForm(form: FormDefinition): FormDefinition {
   const withVisibility = {
     ...form,
     visibility: normalizeVisibility(form.visibility),
+    statusOptions: normalizeStatusOptions(form.statusOptions),
   };
   // Ensure Change Request includes the optional Attachment field for older localStorage data
   if (withVisibility.id !== 'form-change') return withVisibility;
@@ -130,8 +136,28 @@ function normalizeForm(form: FormDefinition): FormDefinition {
 }
 
 function normalizeEdge(edge: WorkflowEdge): WorkflowEdge {
+  // Migrate legacy approve/reject handles onto status option ids
+  let statusOptionId = edge.statusOptionId;
+  let sourceHandle = edge.sourceHandle;
+  let label = edge.label;
+  if (!statusOptionId) {
+    const handle = (sourceHandle ?? '').toLowerCase();
+    const lbl = (label ?? '').toLowerCase();
+    if (handle === 'approve' || lbl === 'approve') {
+      statusOptionId = 'approved';
+      sourceHandle = 'approved';
+      label = label || 'Approved';
+    } else if (handle === 'reject' || lbl === 'reject') {
+      statusOptionId = 'rejected';
+      sourceHandle = 'rejected';
+      label = label || 'Rejected';
+    }
+  }
   return {
     ...edge,
+    label,
+    sourceHandle,
+    statusOptionId,
     routeMode: edge.routeMode === 'condition' ? 'condition' : 'manual',
     conditions: Array.isArray(edge.conditions) ? edge.conditions : [],
   };
@@ -308,17 +334,40 @@ function normalizeWorkflow(workflow: Workflow, forms: AppData['forms']): Workflo
     const linked = forms.find((f) => f.workflowId === workflow.id);
     formId = linked?.id ?? null;
   }
+  const form = forms.find((f) => f.id === formId);
+  const defaultActions = getActionStatusOptions(form).map((o) => o.id);
+
   return {
     ...workflow,
     formId,
-    nodes: workflow.nodes.map((n) => ({
-      ...n,
-      data: {
-        ...n.data,
-        decisionMode:
-          n.data.decisionMode === 'conditional' ? 'conditional' : 'manual',
-      },
-    })),
+    nodes: workflow.nodes.map((n) => {
+      const decisionMode =
+        n.data.decisionMode === 'conditional' ? 'conditional' : 'manual';
+      let decisionActions = Array.isArray(n.data.decisionActions)
+        ? n.data.decisionActions.filter((id) => typeof id === 'string')
+        : undefined;
+      if (
+        n.type === 'decision' &&
+        decisionMode === 'manual' &&
+        (!decisionActions || decisionActions.length === 0)
+      ) {
+        // Infer from outgoing edges, else form action statuses
+        const fromEdges = workflow.edges
+          .map(normalizeEdge)
+          .filter((e) => e.source === n.id && e.statusOptionId)
+          .map((e) => e.statusOptionId as string);
+        decisionActions =
+          fromEdges.length > 0 ? [...new Set(fromEdges)] : defaultActions;
+      }
+      return {
+        ...n,
+        data: {
+          ...n.data,
+          decisionMode,
+          decisionActions,
+        },
+      };
+    }),
     edges: workflow.edges.map(normalizeEdge),
   };
 }
@@ -326,6 +375,7 @@ function normalizeWorkflow(workflow: Workflow, forms: AppData['forms']): Workflo
 function normalizeSubmission(sub: FormSubmission): FormSubmission {
   return {
     ...sub,
+    status: migrateLegacyStatus(String(sub.status ?? 'submitted')),
     baselineData:
       sub.baselineData && typeof sub.baselineData === 'object'
         ? sub.baselineData

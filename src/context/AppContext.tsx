@@ -34,6 +34,11 @@ import {
   type SampleSeedOptions,
   type SampleSeedStats,
 } from '../data/sampleData';
+import {
+  buildFormPackageCopy,
+  buildNotificationTemplateCopy,
+  buildWorkflowCopy,
+} from '../utils/duplicateCatalog';
 
 interface AppContextValue {
   data: AppData;
@@ -53,12 +58,16 @@ interface AppContextValue {
   addWorkflow: (wf: Omit<Workflow, 'id' | 'createdAt' | 'updatedAt'>) => Workflow;
   updateWorkflow: (id: string, patch: Partial<Workflow>) => void;
   deleteWorkflow: (id: string) => void;
+  /** Clone graph as an unassigned workflow (does not steal the source form). */
+  duplicateWorkflow: (id: string) => Workflow | null;
   // Forms
   addForm: (
     form: Omit<FormDefinition, 'id' | 'createdAt' | 'updatedAt'>,
   ) => FormDefinition;
   updateForm: (id: string, patch: Partial<FormDefinition>) => void;
   deleteForm: (id: string) => void;
+  /** Deep-copy form + dedicated workflow + that form's notification templates. */
+  duplicateForm: (id: string) => FormDefinition | null;
   // Submissions
   addSubmission: (sub: FormSubmission) => void;
   updateSubmission: (id: string, patch: Partial<FormSubmission>) => void;
@@ -75,6 +84,8 @@ interface AppContextValue {
     patch: Partial<NotificationTemplate>,
   ) => void;
   deleteNotificationTemplate: (id: string) => void;
+  /** Clone a template onto the same form. */
+  duplicateNotificationTemplate: (id: string) => NotificationTemplate | null;
   getNotificationTemplateById: (id: string) => NotificationTemplate | undefined;
   // Delegations
   addDelegation: (
@@ -317,6 +328,20 @@ export function AppProvider({ children }: { children: ReactNode }) {
         });
       }),
 
+    duplicateWorkflow: (id) => {
+      let created: Workflow | null = null;
+      setData((prev) => {
+        const source = prev.workflows.find((w) => w.id === id);
+        if (!source) return prev;
+        created = buildWorkflowCopy(source);
+        return enforceFormWorkflowOneToOne({
+          ...prev,
+          workflows: [...prev.workflows, created],
+        });
+      });
+      return created;
+    },
+
     addForm: (form) => {
       const ts = new Date().toISOString();
       const formId = createId('form');
@@ -484,6 +509,25 @@ export function AppProvider({ children }: { children: ReactNode }) {
         });
       }),
 
+    duplicateForm: (id) => {
+      let created: FormDefinition | null = null;
+      setData((prev) => {
+        const pkg = buildFormPackageCopy(prev, id);
+        if (!pkg) return prev;
+        created = pkg.form;
+        return enforceFormWorkflowOneToOne({
+          ...prev,
+          forms: [...prev.forms, pkg.form],
+          workflows: [...prev.workflows, pkg.workflow],
+          notificationTemplates: [
+            ...(prev.notificationTemplates ?? []),
+            ...pkg.templates,
+          ],
+        });
+      });
+      return created;
+    },
+
     addSubmission: (sub) =>
       update((d) => ({ ...d, submissions: [...d.submissions, sub] })),
     updateSubmission: (id, patch) =>
@@ -595,6 +639,23 @@ export function AppProvider({ children }: { children: ReactNode }) {
           ),
         })),
       })),
+
+    duplicateNotificationTemplate: (id) => {
+      let created: NotificationTemplate | null = null;
+      setData((prev) => {
+        const source = (prev.notificationTemplates ?? []).find((t) => t.id === id);
+        if (!source) return prev;
+        created = buildNotificationTemplateCopy(source);
+        return {
+          ...prev,
+          notificationTemplates: [
+            ...(prev.notificationTemplates ?? []),
+            created,
+          ],
+        };
+      });
+      return created;
+    },
 
     addDelegation: (delegation) => {
       const actor = data.users.find((u) => u.id === data.currentUserId);

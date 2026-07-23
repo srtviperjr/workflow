@@ -1,3 +1,4 @@
+import { flushSync } from 'react-dom';
 import { Link as RouterLink, Navigate, useNavigate } from 'react-router-dom';
 import {
   Box,
@@ -14,14 +15,17 @@ import {
 import AddIcon from '@mui/icons-material/Add';
 import EditIcon from '@mui/icons-material/Edit';
 import DeleteIcon from '@mui/icons-material/Delete';
+import ContentCopyIcon from '@mui/icons-material/ContentCopy';
 import GridOnIcon from '@mui/icons-material/GridOn';
 import { useApp } from '../context/AppContext';
 import { createId } from '../data/defaults';
+import { markEditorDraft } from '../utils/editorDrafts';
+import { DEFAULT_FORM_STATUS_OPTIONS } from '../utils/formStatus';
 import { FORM_VISIBILITY_LABELS } from '../types';
 
 /** Admin-only form design catalog. End users submit via /requests. */
 export function FormsPage() {
-  const { data, isAdmin, addForm, deleteForm } = useApp();
+  const { data, isAdmin, addForm, deleteForm, duplicateForm } = useApp();
   const navigate = useNavigate();
 
   if (!isAdmin) {
@@ -29,22 +33,40 @@ export function FormsPage() {
   }
 
   const createForm = () => {
-    const form = addForm({
-      name: 'New Form',
-      description: '',
-      fields: [
-        {
-          id: createId('field'),
-          label: 'Request',
-          type: 'textarea',
-          required: true,
-          placeholder: 'Enter details…',
-        },
-      ],
-      workflowId: null,
-      visibility: 'project',
+    let formId = '';
+    flushSync(() => {
+      const form = addForm({
+        name: 'New Form',
+        description: '',
+        fields: [
+          {
+            id: createId('field'),
+            label: 'Request',
+            type: 'textarea',
+            required: true,
+            placeholder: 'Enter details…',
+          },
+        ],
+        workflowId: null,
+        visibility: 'project',
+        statusOptions: DEFAULT_FORM_STATUS_OPTIONS.map((o) => ({ ...o })),
+      });
+      formId = form.id;
+      markEditorDraft('form', form.id);
     });
-    navigate(`/forms/${form.id}/edit`);
+    navigate(`/forms/${formId}/edit`);
+  };
+
+  const copyForm = (id: string) => {
+    let nextId = '';
+    flushSync(() => {
+      const copy = duplicateForm(id);
+      if (copy) {
+        nextId = copy.id;
+        markEditorDraft('form', copy.id);
+      }
+    });
+    if (nextId) navigate(`/forms/${nextId}/edit`);
   };
 
   return (
@@ -60,7 +82,8 @@ export function FormsPage() {
             Forms
           </Typography>
           <Typography color="text.secondary">
-            Design forms and their dedicated workflows (admin)
+            Start here: design a form, then its notifications, then the workflow
+            that orchestrates them.
           </Typography>
         </Box>
         <Button
@@ -110,6 +133,13 @@ export function FormsPage() {
                     to={`/forms/${f.id}/edit`}
                   >
                     Edit
+                  </Button>
+                  <Button
+                    size="small"
+                    startIcon={<ContentCopyIcon />}
+                    onClick={() => copyForm(f.id)}
+                  >
+                    Copy
                   </Button>
                   <Button
                     size="small"

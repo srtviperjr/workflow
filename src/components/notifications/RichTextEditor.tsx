@@ -18,6 +18,8 @@ import FormatClearIcon from '@mui/icons-material/FormatClear';
 
 export interface RichTextEditorHandle {
   insertText: (text: string) => void;
+  /** Latest HTML from the editor (preferred over React state when saving). */
+  getHTML: () => string;
 }
 
 interface Props {
@@ -57,12 +59,17 @@ export const RichTextEditor = forwardRef<RichTextEditorHandle, Props>(
       },
     });
 
-    useImperativeHandle(ref, () => ({
-      insertText: (text: string) => {
-        if (!editor || disabled) return;
-        editor.chain().focus().insertContent(text).run();
-      },
-    }));
+    useImperativeHandle(
+      ref,
+      () => ({
+        insertText: (text: string) => {
+          if (!editor || disabled) return;
+          editor.chain().focus().insertContent(text).run();
+        },
+        getHTML: () => editor?.getHTML() ?? value ?? '',
+      }),
+      [editor, disabled, value],
+    );
 
     useEffect(() => {
       if (!editor) return;

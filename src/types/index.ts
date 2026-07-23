@@ -55,6 +55,11 @@ export interface WorkflowNodeData {
   description?: string;
   /** Manual = actor picks outcome; conditional = route by form field rules */
   decisionMode?: DecisionMode;
+  /**
+   * User decision: which form status outcomes the actor may choose
+   * (ids from FormDefinition.statusOptions after the first/submit status).
+   */
+  decisionActions?: string[];
   /** When true, the actor can edit form field values at this step */
   allowFieldEdits?: boolean;
   /**
@@ -134,6 +139,11 @@ export interface WorkflowEdge {
   label?: string;
   sourceHandle?: string;
   targetHandle?: string;
+  /**
+   * When this edge leaves a decision, the form status option applied
+   * (and shown as the actor action).
+   */
+  statusOptionId?: string;
   /** manual = actor chooses; condition = evaluate form field rules */
   routeMode?: EdgeRouteMode;
   /** AND-combined rules; used when routeMode is 'condition' */
@@ -164,6 +174,14 @@ export type FieldType =
   | 'date'
   | 'file';
 
+/** Canvas placement for the visual form layout editor (px on the layout board). */
+export interface FormFieldLayout {
+  x: number;
+  y: number;
+  /** Width in px; defaults in the renderer when omitted */
+  w?: number;
+}
+
 export interface FormField {
   id: string;
   label: string;
@@ -171,6 +189,8 @@ export interface FormField {
   required: boolean;
   options?: string[];
   placeholder?: string;
+  /** Optional position from the visual layout editor */
+  layout?: FormFieldLayout;
 }
 
 /** File stored as a data URL in localStorage (see formValues helpers). */
@@ -197,6 +217,16 @@ export const FORM_VISIBILITY_LABELS: Record<FormVisibility, string> = {
   project: 'Within project',
 };
 
+/**
+ * Form-owned request status vocabulary (ordered).
+ * First entry = status on submit; remaining = decision outcomes.
+ * Typical defaults: Submitted, Approved, Rejected.
+ */
+export interface FormStatusOption {
+  id: string;
+  label: string;
+}
+
 export interface FormDefinition {
   id: string;
   name: string;
@@ -206,6 +236,11 @@ export interface FormDefinition {
   workflowId: string | null;
   /** Submission visibility boundary for this form */
   visibility: FormVisibility;
+  /**
+   * Required ordered statuses for this form.
+   * Index 0 = on submit; the rest are available as decision outcomes.
+   */
+  statusOptions: FormStatusOption[];
   createdAt: string;
   updatedAt: string;
 }
@@ -223,11 +258,12 @@ export interface HistoryEntry {
   timestamp: string;
 }
 
-export type SubmissionStatus =
-  | 'draft'
-  | 'in_progress'
-  | 'completed'
-  | 'rejected';
+/**
+ * Request status id — normally a FormStatusOption.id for the form
+ * (e.g. submitted / approved / rejected). Legacy values may still appear
+ * until migrated: draft | in_progress | completed | rejected.
+ */
+export type SubmissionStatus = string;
 
 export interface FormSubmission {
   id: string;
@@ -239,6 +275,7 @@ export interface FormSubmission {
   submittedBy: string;
   submittedAt: string;
   currentNodeId: string | null;
+  /** Form status option id (see FormDefinition.statusOptions) */
   status: SubmissionStatus;
   history: HistoryEntry[];
   workflowId: string | null;

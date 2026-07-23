@@ -16,6 +16,15 @@ import ArrowBackIcon from '@mui/icons-material/ArrowBack';
 import SaveIcon from '@mui/icons-material/Save';
 import { useApp } from '../context/AppContext';
 import { WorkflowCanvas } from '../components/workflow/WorkflowCanvas';
+import {
+  confirmDiscardUnsaved,
+  useUnsavedChangesGuard,
+} from '../hooks/useUnsavedChangesGuard';
+import { clearCreateDefaultOnFocus } from '../utils/clearCreateDefault';
+import {
+  clearEditorDraft,
+  isEditorDraft,
+} from '../utils/editorDrafts';
 import type { WorkflowEdge, WorkflowNode } from '../types';
 import { rolesForForm } from '../utils/workflowEngine';
 import { defaultWorkflowName } from '../data/defaults';
@@ -32,9 +41,11 @@ function shouldReplaceWorkflowName(current: string): boolean {
 
 export function WorkflowEditorPage() {
   const { id } = useParams<{ id: string }>();
-  const { data, isAdmin, updateWorkflow, getWorkflowById } = useApp();
+  const { data, isAdmin, updateWorkflow, deleteWorkflow, getWorkflowById } =
+    useApp();
   const navigate = useNavigate();
   const workflow = id ? getWorkflowById(id) : undefined;
+  const isDraft = Boolean(id && isEditorDraft('workflow', id));
 
   const [name, setName] = useState(workflow?.name ?? '');
   const [description, setDescription] = useState(workflow?.description ?? '');
@@ -42,6 +53,7 @@ export function WorkflowEditorPage() {
   const [nodes, setNodes] = useState<WorkflowNode[]>(workflow?.nodes ?? []);
   const [edges, setEdges] = useState<WorkflowEdge[]>(workflow?.edges ?? []);
   const [saved, setSaved] = useState(false);
+  const [dirty, setDirty] = useState(false);
 
   useEffect(() => {
     if (!workflow) return;
@@ -51,16 +63,32 @@ export function WorkflowEditorPage() {
     setNodes(workflow.nodes);
     setEdges(workflow.edges);
     setSaved(false);
+    setDirty(false);
   }, [workflow?.id]); // eslint-disable-line react-hooks/exhaustive-deps
 
-  const onCanvasChange = useCallback(
-    (n: WorkflowNode[], e: WorkflowEdge[]) => {
-      setNodes(n);
-      setEdges(e);
-      setSaved(false);
-    },
-    [],
-  );
+  const discardUnsaved = useCallback(() => {
+    if (!id || !isEditorDraft('workflow', id)) return;
+    clearEditorDraft('workflow', id);
+    deleteWorkflow(id);
+  }, [id, deleteWorkflow]);
+
+  const blockLeave = dirty || isDraft;
+  const { allowNextNavigation } = useUnsavedChangesGuard({
+    when: blockLeave,
+    onDiscard: discardUnsaved,
+  });
+
+  const markDirty = () => {
+    setDirty(true);
+    setSaved(false);
+  };
+
+  const onCanvasChange = useCallback((n: WorkflowNode[], e: WorkflowEdge[]) => {
+    setNodes(n);
+    setEdges(e);
+    setDirty(true);
+    setSaved(false);
+  }, []);
 
   const linkedForm = useMemo(
     () => data.forms.find((f) => f.id === formId),
@@ -99,7 +127,15 @@ export function WorkflowEditorPage() {
       nodes,
       edges,
     });
+    clearEditorDraft('workflow', workflow.id);
     setSaved(true);
+    setDirty(false);
+  };
+
+  const goBack = () => {
+    if (!confirmDiscardUnsaved(blockLeave, discardUnsaved)) return;
+    allowNextNavigation();
+    navigate('/workflows');
   };
 
   return (
@@ -112,10 +148,7 @@ export function WorkflowEditorPage() {
         mb={2}
       >
         <Stack direction="row" spacing={1} alignItems="center">
-          <Button
-            startIcon={<ArrowBackIcon />}
-            onClick={() => navigate('/workflows')}
-          >
+          <Button startIcon={<ArrowBackIcon />} onClick={goBack}>
             Back
           </Button>
           <Typography variant="h5" fontWeight={700}>
@@ -123,7 +156,7 @@ export function WorkflowEditorPage() {
           </Typography>
         </Stack>
         <Button variant="contained" startIcon={<SaveIcon />} onClick={save}>
-          Save Workflow
+          Save
         </Button>
       </Stack>
 
@@ -137,9 +170,12 @@ export function WorkflowEditorPage() {
         <TextField
           label="Workflow name"
           value={name}
+          onFocus={() =>
+            clearCreateDefaultOnFocus(name, setName, markDirty)
+          }
           onChange={(e) => {
             setName(e.target.value);
-            setSaved(false);
+            markDirty();
           }}
           fullWidth
         />
@@ -148,7 +184,7 @@ export function WorkflowEditorPage() {
           value={description}
           onChange={(e) => {
             setDescription(e.target.value);
-            setSaved(false);
+            markDirty();
           }}
           fullWidth
         />
@@ -158,6 +194,7 @@ export function WorkflowEditorPage() {
             label="Related form"
             value={formId}
             onChange={(e) => {
+<<<<<<< HEAD
               const nextId = e.target.value;
               setFormId(nextId);
               const form = data.forms.find((f) => f.id === nextId);
@@ -165,6 +202,10 @@ export function WorkflowEditorPage() {
                 setName(defaultWorkflowName(form.name));
               }
               setSaved(false);
+=======
+              setFormId(e.target.value);
+              markDirty();
+>>>>>>> origin/cursor/status-reorder-field-layout-7657
             }}
           >
             <MenuItem value="">
@@ -213,6 +254,7 @@ export function WorkflowEditorPage() {
         }}
         roles={availableRoles}
         formFields={linkedForm?.fields ?? []}
+        formStatusOptions={linkedForm?.statusOptions ?? []}
         notificationTemplates={(data.notificationTemplates ?? []).filter(
           (t) => formId && t.formId === formId,
         )}

@@ -762,7 +762,7 @@ export function generateSampleSubmissions(
         );
       }
 
-      let status: FormSubmission['status'] = 'in_progress';
+      let status: FormSubmission['status'] = 'submitted';
       let currentNodeId: string | null = parkNode.id;
 
       const draft: FormSubmission = {
@@ -783,7 +783,7 @@ export function generateSampleSubmissions(
         recordNotification(
           notifySubmit,
           form,
-          { ...draft, status: 'in_progress' },
+          { ...draft, status: 'submitted' },
           users,
           roles,
           submitter,
@@ -803,8 +803,8 @@ export function generateSampleSubmissions(
               mgrNode.data.label,
               'decision',
               manager,
+              'Decision',
               'Approved',
-              'Approve',
               decideHoursAgo,
             ),
           );
@@ -813,7 +813,7 @@ export function generateSampleSubmissions(
           recordNotification(
             notifyOk,
             form,
-            { ...draft, status: 'completed', history },
+            { ...draft, status: 'approved', history },
             users,
             roles,
             manager,
@@ -831,11 +831,11 @@ export function generateSampleSubmissions(
             'end',
             manager,
             'Reached end',
-            'Approve',
+            'Approved',
             decideHoursAgo,
           ),
         );
-        status = 'completed';
+        status = 'approved';
         currentNodeId = endOk.id;
       } else if (kind === 'rejected' && endNo) {
         if (mgrNode) {
@@ -845,8 +845,8 @@ export function generateSampleSubmissions(
               mgrNode.data.label,
               'decision',
               manager,
+              'Decision',
               'Rejected',
-              'Reject',
               decideHoursAgo,
               'Insufficient justification',
             ),
@@ -874,7 +874,7 @@ export function generateSampleSubmissions(
             'end',
             manager,
             'Reached end',
-            'Reject',
+            'Rejected',
             decideHoursAgo,
           ),
         );

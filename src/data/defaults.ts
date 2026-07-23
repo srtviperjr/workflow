@@ -9,6 +9,7 @@ import type {
   User,
   Workflow,
 } from '../types';
+import { DEFAULT_FORM_STATUS_OPTIONS } from '../utils/formStatus';
 
 const now = () => new Date().toISOString();
 
@@ -230,6 +231,7 @@ export function createManagerApprovalWorkflow(
           roleId: 'role-manager',
           description: 'Manager approves or rejects',
           decisionMode: 'manual',
+          decisionActions: ['approved', 'rejected'],
         },
       },
       {
@@ -279,15 +281,17 @@ export function createManagerApprovalWorkflow(
         id: `${opts.id}-e4`,
         source: mgrId,
         target: notifyOkId,
-        label: 'Approve',
-        sourceHandle: 'approve',
+        label: 'Approved',
+        sourceHandle: 'approved',
+        statusOptionId: 'approved',
       },
       {
         id: `${opts.id}-e5`,
         source: mgrId,
         target: notifyNoId,
-        label: 'Reject',
-        sourceHandle: 'reject',
+        label: 'Rejected',
+        sourceHandle: 'rejected',
+        statusOptionId: 'rejected',
       },
       { id: `${opts.id}-e6`, source: notifyOkId, target: endOk },
       { id: `${opts.id}-e7`, source: notifyNoId, target: endNo },
@@ -313,6 +317,7 @@ function formShell(
     fields,
     workflowId,
     visibility,
+    statusOptions: DEFAULT_FORM_STATUS_OPTIONS.map((o) => ({ ...o })),
     createdAt: ts,
     updatedAt: ts,
   };
