@@ -21,6 +21,8 @@ import { DelegationsPage } from './pages/DelegationsPage';
 import { NotificationsPage } from './pages/NotificationsPage';
 import { NotificationTemplatesPage } from './pages/NotificationTemplatesPage';
 import { NotificationTemplateEditorPage } from './pages/NotificationTemplateEditorPage';
+import { HelpPage } from './pages/HelpPage';
+import { ReleaseNotesPage } from './pages/ReleaseNotesPage';
 
 export default function App() {
   return (
@@ -29,12 +31,14 @@ export default function App() {
       <AppProvider>
         <BrowserRouter>
           <Routes>
+            <Route path="release-notes" element={<ReleaseNotesPage />} />
             <Route element={<Layout />}>
               <Route index element={<DashboardPage />} />
               <Route path="requests" element={<RequestsPage />} />
               <Route path="users" element={<UsersPage />} />
               <Route path="roles" element={<RolesPage />} />
               <Route path="delegations" element={<DelegationsPage />} />
+              <Route path="help" element={<HelpPage />} />
               <Route path="notifications" element={<NotificationsPage />} />
               <Route
                 path="notification-templates"

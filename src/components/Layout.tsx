@@ -28,22 +28,24 @@ import SwapHorizIcon from '@mui/icons-material/SwapHoriz';
 import PostAddIcon from '@mui/icons-material/PostAdd';
 import NotificationsActiveIcon from '@mui/icons-material/NotificationsActive';
 import HubIcon from '@mui/icons-material/Hub';
+import HelpOutlineIcon from '@mui/icons-material/HelpOutline';
 import ExpandLess from '@mui/icons-material/ExpandLess';
 import ExpandMore from '@mui/icons-material/ExpandMore';
 import { IdentitySwitcher } from './IdentitySwitcher';
 import { NotificationBell } from './NotificationBell';
 import { useApp } from '../context/AppContext';
+import { APP_VERSION, openReleaseNotesWindow } from '../version';
+
+export { APP_VERSION };
 
 const DRAWER_WIDTH = 260;
-
-/** App display version — shown in the AppBar and sidebar. */
-export const APP_VERSION = '0.8.1';
 
 const primaryNav = [
   { to: '/', label: 'Dashboard', icon: <DashboardIcon /> },
   { to: '/requests', label: 'Requests', icon: <PostAddIcon /> },
   { to: '/register', label: 'Request Register', icon: <GridOnIcon /> },
   { to: '/delegations', label: 'Delegations', icon: <SwapHorizIcon /> },
+  { to: '/help', label: 'Help', icon: <HelpOutlineIcon /> },
 ];
 
 const adminNav = [
@@ -110,8 +112,25 @@ export function Layout() {
             WORKFLOWS
           </Typography>
           <Typography
+            component="button"
+            type="button"
             variant="caption"
-            sx={{ color: 'text.secondary', display: 'block', mt: 0.5 }}
+            onClick={openReleaseNotesWindow}
+            title="View release notes"
+            sx={{
+              color: 'text.secondary',
+              display: 'block',
+              mt: 0.5,
+              p: 0,
+              border: 0,
+              background: 'none',
+              cursor: 'pointer',
+              font: 'inherit',
+              textAlign: 'left',
+              textDecoration: 'underline',
+              textUnderlineOffset: 2,
+              '&:hover': { color: 'primary.main' },
+            }}
           >
             v{APP_VERSION}
           </Typography>
@@ -222,17 +241,25 @@ export function Layout() {
               Jansen Workflows
             </Typography>
             <Typography
-              component="span"
+              component="button"
+              type="button"
               variant="caption"
+              onClick={openReleaseNotesWindow}
+              title="View release notes"
               sx={{
                 ml: 1,
                 px: 1,
                 py: 0.25,
                 borderRadius: 1,
+                border: 0,
                 bgcolor: 'rgba(255,255,255,0.18)',
+                color: 'inherit',
                 fontWeight: 700,
                 letterSpacing: '0.04em',
                 display: { xs: 'none', sm: 'inline-block' },
+                cursor: 'pointer',
+                font: 'inherit',
+                '&:hover': { bgcolor: 'rgba(255,255,255,0.28)' },
               }}
             >
               v{APP_VERSION}

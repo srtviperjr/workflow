@@ -47,9 +47,9 @@ Custom roles may be app-scoped or form-scoped. Roles can map to Azure AD / AD gr
 
 | Audience | Items |
 |----------|--------|
-| Everyone | Dashboard, Requests, Request Register, Delegations |
+| Everyone | Dashboard, Requests, Request Register, Delegations, **Help** (in-app user guide) |
 | Admin only | Forms, **Notifications**, Workflows, Users, Roles, **Integrations**, Data Tools (under Administration, in that order) |
-| App bar | Notification bell (inbox), identity switcher, version badge (`v0.8.1`) |
+| App bar | Notification bell (inbox), identity switcher, version badge (`v0.8.1`) — click opens release notes in a new window |
 
 Inbox (bell → `/notifications`) is separate from Administration → Notifications (template design at `/notification-templates`).
 
@@ -293,7 +293,8 @@ npm run screenshots
 
 | Doc | Purpose |
 |-----|---------|
-| [USER_GUIDE.md](./USER_GUIDE.md) | End-user / admin how-to with screenshots |
+| [USER_GUIDE.md](./USER_GUIDE.md) | End-user / admin how-to with screenshots (also shown in-app under Help) |
+| [RELEASE_NOTES.md](./RELEASE_NOTES.md) | Per-release feature history (newest first; opened from the version badge) |
 | [RECREATE_PROMPT.md](./RECREATE_PROMPT.md) | Prompt to recreate this application from scratch |
 | [AGENTS.md](../AGENTS.md) | Cursor Cloud agent notes |
 

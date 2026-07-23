@@ -12,5 +12,5 @@ Standard commands live in `package.json` (`dev`, `build`, `lint`, `preview`, `sc
 - **Screenshots**: with the dev server running, `npm run screenshots` writes PNGs to `docs/screenshots/` (and copies to `/opt/cursor/artifacts/screenshots` when present).
 - **Docs**: `docs/REQUIREMENTS.md`, `docs/USER_GUIDE.md`, `docs/RECREATE_PROMPT.md`.
 - **State reset**: because persistence is `localStorage`, use the in-app **Data Tools** (Generate / reset) to change data rather than editing files. The app boots as **System Admin** (`admin@jansen.local`); no login is required.
-- **Version**: display version is `APP_VERSION` in `src/components/Layout.tsx` (keep in sync with `package.json`).
+- **Version**: display version is `APP_VERSION` in `src/version.ts` (keep in sync with `package.json`). Clicking the badge opens `/release-notes` (from `docs/RELEASE_NOTES.md`). In-app Help is `/help` (from `docs/USER_GUIDE.md`).
 - **Version bumps**: whenever the app version is raised, **always** update **REQUIREMENTS**, **USER_GUIDE**, and **RECREATE_PROMPT** (and README version line) so they describe the current product, including new features since the previous release. Refresh screenshots when UI changed materially. Do this as part of the version bump without waiting to be asked again.

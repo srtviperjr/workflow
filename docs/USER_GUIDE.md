@@ -17,10 +17,11 @@ Open the URL shown (typically `http://localhost:5173`). You start as **System Ad
 
 | Control | Purpose |
 |---------|---------|
-| **Sidebar** | Dashboard, Requests, Request Register, Delegations; admins also see Administration (Forms, Notifications, Workflows, …) |
+| **Sidebar** | Dashboard, Requests, Request Register, Delegations, **Help**; admins also see Administration (Forms, Notifications, Workflows, …) |
+| **Help** | In-app user guide (this document) with screenshots |
 | **Bell** | In-app notification inbox |
 | **Acting as** | Switch identity (no password) |
-| **v0.8.1** | App version |
+| **v0.8.1** | App version — click to open **release notes** in a new window (newest first) |
 
 The dashboard hero reads **Project workflow management system.** Below that, it lists work waiting for the current identity — only requests you can both **see** and **act on**.
 
